@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { spots } from '../data/spots';
 import { SpotCategory } from '../types';
@@ -20,6 +21,7 @@ const CATEGORY_FILTERS: { key: SpotCategory | 'all'; label: string }[] = [
 ];
 
 export default function MapScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [category, setCategory] = useState<SpotCategory | 'all'>('all');
   const [openNowOnly, setOpenNowOnly] = useState(false);
   const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
@@ -36,7 +38,7 @@ export default function MapScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.topBar}>
+      <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
         <Pressable
           style={styles.searchBar}
           onPress={() => navigation.navigate('SearchFilters')}

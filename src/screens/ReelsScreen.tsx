@@ -9,6 +9,7 @@ import {
   ViewToken,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { posts } from '../data/posts';
 import PostReelItem from '../components/PostReelItem';
 import ExploreReelsGrid from '../components/ExploreReelsGrid';
@@ -20,6 +21,7 @@ type Props = TabScreenProps<'Reels'>;
 type Mode = 'for_you' | 'following' | 'explore';
 
 export default function ReelsScreen({ navigation, route }: Props) {
+  const insets = useSafeAreaInsets();
   const [containerHeight, setContainerHeight] = useState(0);
   const [mode, setMode] = useState<Mode>('for_you');
   const [exploreTag, setExploreTag] = useState<string | null>(route.params?.exploreTag ?? null);
@@ -48,7 +50,16 @@ export default function ReelsScreen({ navigation, route }: Props) {
 
   return (
     <View style={styles.container} onLayout={onContainerLayout}>
-      <View style={[styles.topTabs, !isDarkBackground && styles.topTabsLight]}>
+      <View
+        style={[
+          styles.topTabs,
+          { top: insets.top + spacing.sm },
+          !isDarkBackground && [
+            styles.topTabsLight,
+            { top: 0, paddingTop: insets.top + spacing.sm },
+          ],
+        ]}
+      >
         <Pressable
           onPress={() => {
             setMode('for_you');

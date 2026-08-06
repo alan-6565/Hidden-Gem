@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { currentUser, collections } from '../data/user';
 import { spots } from '../data/spots';
@@ -29,6 +30,7 @@ const CATEGORY_LABELS: Record<SpotCategory, string> = {
 };
 
 export default function ProfileScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [savedIds, setSavedIds] = useState<string[]>(currentUser.savedSpotIds);
   const [filter, setFilter] = useState<SpotCategory | 'all'>('all');
 
@@ -43,7 +45,10 @@ export default function ProfileScreen({ navigation }: Props) {
     .filter((s) => filter === 'all' || s.category === filter);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.sm }]}
+    >
       <View style={styles.profileHeader}>
         <Image source={{ uri: currentUser.avatar }} style={styles.avatar} />
         <Text style={styles.name}>{currentUser.name}</Text>

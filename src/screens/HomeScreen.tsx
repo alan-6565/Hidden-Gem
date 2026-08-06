@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { spots } from '../data/spots';
 import { currentUser } from '../data/user';
@@ -22,6 +23,7 @@ const CATEGORIES: { key: CategoryFilter; label: string; icon?: keyof typeof Ioni
 ];
 
 export default function HomeScreen({ navigation }: Props) {
+  const insets = useSafeAreaInsets();
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('for_you');
 
   const trendingSpots = useMemo(() => {
@@ -36,7 +38,7 @@ export default function HomeScreen({ navigation }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
         <Text style={styles.logo}>where's the tea?</Text>
         <Ionicons name="notifications-outline" size={22} color={colors.text} />
       </View>
