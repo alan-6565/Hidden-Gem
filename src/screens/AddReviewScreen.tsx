@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAppData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
+import { pickMediaFromLibrary, uploadMedia } from '../lib/mediaUpload';
 import { VibeTag } from '../types';
 import { colors, radius, spacing } from '../theme';
 import { RootStackParamList } from '../navigation/types';
@@ -41,6 +44,7 @@ function StarPicker({
 export default function AddReviewScreen({ route, navigation }: Props) {
   const { spotId } = route.params;
   const { spots, addReview } = useAppData();
+  const { user } = useAuth();
   const spot = spots.find((s) => s.id === spotId);
 
   const [taste, setTaste] = useState(0);
@@ -48,17 +52,36 @@ export default function AddReviewScreen({ route, navigation }: Props) {
   const [vibeRating, setVibeRating] = useState(0);
   const [vibeTag, setVibeTag] = useState<VibeTag | null>(null);
   const [text, setText] = useState('');
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const overall = Math.round((taste + value + vibeRating) / 3) || 0;
+
+  const handlePickPhoto = async () => {
+    try {
+      const media = await pickMediaFromLibrary({ allowVideos: false });
+      if (media) setPhotoUri(media.uri);
+    } catch (e: any) {
+      Alert.alert('Couldn\'t open photos', e?.message ?? 'Please try again.');
+    }
+  };
 
   const handleSubmit = async () => {
     if (!taste || !value || !vibeRating || !vibeTag) {
       Alert.alert('Almost there', 'Rate taste, value, vibe, and pick a tag before posting.');
       return;
     }
+    if (!user) return;
     setSubmitting(true);
     try {
+      let photoUrl: string | undefined;
+      if (photoUri) {
+        photoUrl = await uploadMedia(user.id, {
+          uri: photoUri,
+          isVideo: false,
+          fileExtension: photoUri.split('.').pop()?.toLowerCase() ?? 'jpg',
+        });
+      }
       await addReview({
         spotId,
         ratingTaste: taste,
@@ -66,6 +89,7 @@ export default function AddReviewScreen({ route, navigation }: Props) {
         ratingVibe: vibeRating,
         vibeTag,
         text,
+        photo: photoUrl,
       });
       Alert.alert('Posted!', 'Your review has been added.', [
         { text: 'OK', onPress: () => navigation.goBack() },
@@ -117,6 +141,21 @@ export default function AddReviewScreen({ route, navigation }: Props) {
         value={text}
         onChangeText={setText}
       />
+
+      <Text style={styles.sectionLabel}>Add a photo</Text>
+      {photoUri ? (
+        <View style={styles.photoPreviewWrapper}>
+          <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+          <Pressable style={styles.photoRemoveButton} onPress={() => setPhotoUri(null)}>
+            <Ionicons name="close" size={16} color="#fff" />
+          </Pressable>
+        </View>
+      ) : (
+        <Pressable style={styles.photoPickButton} onPress={handlePickPhoto}>
+          <Ionicons name="camera-outline" size={20} color={colors.textMuted} />
+          <Text style={styles.photoPickText}>Choose from library</Text>
+        </Pressable>
+      )}
 
       <Pressable
         style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
@@ -219,6 +258,44 @@ const styles = StyleSheet.create({
     minHeight: 90,
     textAlignVertical: 'top',
     color: colors.text,
+  },
+  photoPickButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderStyle: 'dashed',
+    borderRadius: radius.md,
+    paddingVertical: spacing.lg,
+  },
+  photoPickText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  photoPreviewWrapper: {
+    position: 'relative',
+    alignSelf: 'flex-start',
+  },
+  photoPreview: {
+    width: 120,
+    height: 120,
+    borderRadius: radius.md,
+    backgroundColor: colors.cream,
+  },
+  photoRemoveButton: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.text,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   submitButton: {
     backgroundColor: colors.primary,

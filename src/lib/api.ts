@@ -133,6 +133,7 @@ export interface NewReviewInput {
   ratingVibe: number;
   vibeTag: VibeTag;
   text: string;
+  photo?: string;
 }
 
 export async function insertReview(
@@ -155,10 +156,46 @@ export async function insertReview(
       rating_vibe: input.ratingVibe,
       vibe_tag: input.vibeTag,
       body: input.text,
+      photo: input.photo ?? null,
       like_count: 0,
     })
     .select()
     .single();
   if (error) throw error;
   return mapReview(data);
+}
+
+export interface NewPostInput {
+  spotId: string;
+  mediaUrl: string;
+  isVideo: boolean;
+  caption: string;
+  exploreTags: string[];
+}
+
+export async function insertPost(
+  userId: string,
+  authorName: string,
+  authorAvatar: string,
+  input: NewPostInput,
+): Promise<Post> {
+  const { data, error } = await supabase
+    .from('posts')
+    .insert({
+      spot_id: input.spotId,
+      author_type: 'customer',
+      author_name: authorName,
+      author_avatar: authorAvatar,
+      media_url: input.mediaUrl,
+      is_video: input.isVideo,
+      caption: input.caption,
+      explore_tags: input.exploreTags,
+      like_count: 0,
+      comment_count: 0,
+      share_count: 0,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapPost(data);
 }

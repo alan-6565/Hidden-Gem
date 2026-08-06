@@ -1,9 +1,10 @@
 -- Where's the Tea? — schema + seed data
 -- Run this once in the Supabase SQL Editor (Project > SQL Editor > New query > paste > Run).
 --
--- NOTE ON SECURITY: this app doesn't have real user accounts yet (see project notes).
--- RLS is enabled with permissive policies so the anon client key can read/write freely.
--- Once real auth is added, these policies should be tightened to scope writes to auth.uid().
+-- Auth: the app uses real Supabase email/password accounts. saved_spots,
+-- collections, and collection_spots are scoped to auth.uid(). reviews stay
+-- publicly readable but can only be inserted as yourself. posts are still
+-- insertable by anyone with the anon key (no per-user posts ownership yet).
 
 create extension if not exists pgcrypto;
 
@@ -206,3 +207,20 @@ insert into saved_spots (user_id, spot_id) values
 ('user-1', 'spot-1'),
 ('user-1', 'spot-4')
 on conflict do nothing;
+
+-- ── Storage: media bucket for review/post uploads ─────────────────────────
+-- Public read (so anyone can view uploaded photos/videos), but you can only
+-- upload/delete inside your own folder: media/<your-user-id>/<filename>.
+insert into storage.buckets (id, name, public) values ('media', 'media', true)
+on conflict (id) do nothing;
+
+drop policy if exists "public read media" on storage.objects;
+create policy "public read media" on storage.objects for select using (bucket_id = 'media');
+
+drop policy if exists "users upload own media" on storage.objects;
+create policy "users upload own media" on storage.objects for insert
+  with check (bucket_id = 'media' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "users delete own media" on storage.objects;
+create policy "users delete own media" on storage.objects for delete
+  using (bucket_id = 'media' and (storage.foldername(name))[1] = auth.uid()::text);

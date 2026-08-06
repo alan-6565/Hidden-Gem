@@ -6,6 +6,7 @@ export type RootStackParamList = {
   Tabs: undefined;
   SpotProfile: { spotId: string };
   AddReview: { spotId: string };
+  NewPost: { spotId: string };
   SearchFilters: undefined;
   CreatePost: undefined;
 };

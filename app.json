@@ -23,7 +23,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-video"
+      "expo-video",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Where's the Tea? needs access to your photos to attach them to reviews and posts.",
+          "cameraPermission": "Where's the Tea? needs camera access so you can take a photo or video to share."
+        }
+      ]
     ]
   }
 }

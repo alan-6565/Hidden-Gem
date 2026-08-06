@@ -1,13 +1,16 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Collection, Post, Review, Spot } from '../types';
 import { useAuth } from './AuthContext';
+import { CURRENT_USER_DISPLAY, getDisplayNameFromEmail } from '../constants';
 import {
   fetchCollections,
   fetchPosts,
   fetchReviews,
   fetchSavedSpotIds,
   fetchSpots,
+  insertPost,
   insertReview,
+  NewPostInput,
   NewReviewInput,
   setSpotSaved,
 } from '../lib/api';
@@ -24,6 +27,7 @@ interface DataContextValue {
   isSaved: (spotId: string) => boolean;
   toggleSaved: (spotId: string) => Promise<void>;
   addReview: (input: NewReviewInput) => Promise<void>;
+  addPost: (input: NewPostInput) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
@@ -89,10 +93,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addReview = useCallback(
     async (input: NewReviewInput) => {
       if (!user) return;
-      const displayName = user.email?.split('@')[0] ?? 'You';
-      const avatar = 'https://i.pravatar.cc/150?img=47';
-      const created = await insertReview(user.id, displayName, avatar, input);
+      const displayName = getDisplayNameFromEmail(user.email);
+      const created = await insertReview(user.id, displayName, CURRENT_USER_DISPLAY.avatar, input);
       setReviews((prev) => [created, ...prev]);
+    },
+    [user],
+  );
+
+  const addPost = useCallback(
+    async (input: NewPostInput) => {
+      if (!user) return;
+      const displayName = getDisplayNameFromEmail(user.email);
+      const created = await insertPost(user.id, displayName, CURRENT_USER_DISPLAY.avatar, input);
+      setPosts((prev) => [created, ...prev]);
     },
     [user],
   );
@@ -111,6 +124,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         isSaved,
         toggleSaved,
         addReview,
+        addPost,
       }}
     >
       {children}

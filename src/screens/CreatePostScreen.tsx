@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -8,12 +8,47 @@ import { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreatePost'>;
 
+type PostKind = 'reel' | 'review';
+
 export default function CreatePostScreen({ navigation }: Props) {
   const { spots } = useAppData();
+  const [kind, setKind] = useState<PostKind>('reel');
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>What are you posting about?</Text>
-      <Text style={styles.subtitle}>Pick a spot to write a review or share a post for.</Text>
+      <Text style={styles.title}>What are you posting?</Text>
+
+      <View style={styles.kindToggle}>
+        <Pressable
+          style={[styles.kindOption, kind === 'reel' && styles.kindOptionActive]}
+          onPress={() => setKind('reel')}
+        >
+          <Ionicons
+            name="play-circle-outline"
+            size={16}
+            color={kind === 'reel' ? '#fff' : colors.textMuted}
+          />
+          <Text style={[styles.kindText, kind === 'reel' && styles.kindTextActive]}>
+            Share a Reel
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.kindOption, kind === 'review' && styles.kindOptionActive]}
+          onPress={() => setKind('review')}
+        >
+          <Ionicons
+            name="star-outline"
+            size={16}
+            color={kind === 'review' ? '#fff' : colors.textMuted}
+          />
+          <Text style={[styles.kindText, kind === 'review' && styles.kindTextActive]}>
+            Write a Review
+          </Text>
+        </Pressable>
+      </View>
+
+      <Text style={styles.subtitle}>Pick a spot to {kind === 'reel' ? 'share a reel' : 'review'} for.</Text>
+
       <FlatList
         data={spots}
         keyExtractor={(item) => item.id}
@@ -21,7 +56,11 @@ export default function CreatePostScreen({ navigation }: Props) {
         renderItem={({ item }) => (
           <Pressable
             style={styles.row}
-            onPress={() => navigation.replace('AddReview', { spotId: item.id })}
+            onPress={() =>
+              kind === 'reel'
+                ? navigation.replace('NewPost', { spotId: item.id })
+                : navigation.replace('AddReview', { spotId: item.id })
+            }
           >
             <Image source={{ uri: item.photos[0] }} style={styles.thumb} />
             <View style={{ flex: 1 }}>
@@ -50,11 +89,41 @@ const styles = StyleSheet.create({
     color: colors.text,
     paddingHorizontal: spacing.md,
   },
+  kindToggle: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.md,
+  },
+  kindOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm + 2,
+  },
+  kindOptionActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  kindText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  kindTextActive: {
+    color: '#fff',
+  },
   subtitle: {
     fontSize: 13,
     color: colors.textMuted,
     paddingHorizontal: spacing.md,
-    marginTop: 4,
+    marginTop: spacing.md,
     marginBottom: spacing.md,
   },
   list: {

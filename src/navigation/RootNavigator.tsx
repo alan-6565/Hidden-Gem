@@ -12,6 +12,7 @@ import ReelsScreen from '../screens/ReelsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SpotProfileScreen from '../screens/SpotProfileScreen';
 import AddReviewScreen from '../screens/AddReviewScreen';
+import NewPostScreen from '../screens/NewPostScreen';
 import SearchFiltersScreen from '../screens/SearchFiltersScreen';
 import CreatePostScreen from '../screens/CreatePostScreen';
 import { RootStackParamList, TabParamList } from './types';
@@ -85,6 +86,11 @@ export default function RootNavigator() {
         name="AddReview"
         component={AddReviewScreen}
         options={{ title: 'Write a Review' }}
+      />
+      <Stack.Screen
+        name="NewPost"
+        component={NewPostScreen}
+        options={{ title: 'Share a Reel' }}
       />
       <Stack.Screen
         name="SearchFilters"
