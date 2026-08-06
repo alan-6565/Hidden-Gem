@@ -11,9 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { spots } from '../data/spots';
-import { reviews } from '../data/reviews';
-import { currentUser } from '../data/user';
+import { useAppData } from '../context/DataContext';
 import RatingStars from '../components/RatingStars';
 import { getDisplayRating, getRatingDistribution, getReviewCount } from '../utils/rating';
 import { getStatusLabel, isOpenNow } from '../utils/hours';
@@ -35,8 +33,9 @@ const CATEGORY_LABELS: Record<string, string> = {
 export default function SpotProfileScreen({ route, navigation }: Props) {
   const { spotId } = route.params;
   const { width } = useWindowDimensions();
+  const { spots, reviews, isSaved, toggleSaved } = useAppData();
   const spot = spots.find((s) => s.id === spotId);
-  const [saved, setSaved] = useState(currentUser.savedSpotIds.includes(spotId));
+  const saved = isSaved(spotId);
   const [sortBy, setSortBy] = useState<'helpful' | 'recent' | 'highest'>('helpful');
 
   if (!spot) {
@@ -97,7 +96,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             <Ionicons name="navigate-outline" size={20} color={colors.text} />
             <Text style={styles.actionLabel}>Directions</Text>
           </Pressable>
-          <Pressable style={styles.actionItem} onPress={() => setSaved((s) => !s)}>
+          <Pressable style={styles.actionItem} onPress={() => toggleSaved(spotId)}>
             <Ionicons
               name={saved ? 'heart' : 'heart-outline'}
               size={20}

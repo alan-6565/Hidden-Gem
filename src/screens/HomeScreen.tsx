@@ -2,9 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { FlatList, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { spots } from '../data/spots';
-import { currentUser } from '../data/user';
-import { Spot, SpotCategory } from '../types';
+import { useAppData } from '../context/DataContext';
+import { CURRENT_USER_DISPLAY } from '../constants';
+import { SpotCategory } from '../types';
 import CategoryIconButton from '../components/CategoryIconButton';
 import SpotTrendingCard from '../components/SpotTrendingCard';
 import { colors, spacing } from '../theme';
@@ -24,15 +24,16 @@ const CATEGORIES: { key: CategoryFilter; label: string; icon?: keyof typeof Ioni
 
 export default function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const { spots, savedSpotIds } = useAppData();
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('for_you');
 
   const trendingSpots = useMemo(() => {
     const sorted = [...spots].sort((a, b) => b.teaScore - a.teaScore);
     if (activeCategory === 'for_you' || activeCategory === 'trending') return sorted;
     return sorted.filter((s) => s.category === activeCategory);
-  }, [activeCategory]);
+  }, [spots, activeCategory]);
 
-  const savedSpots = spots.filter((s) => currentUser.savedSpotIds.includes(s.id));
+  const savedSpots = spots.filter((s) => savedSpotIds.includes(s.id));
 
   const goToSpot = (spotId: string) => navigation.navigate('SpotProfile', { spotId });
 
@@ -59,7 +60,7 @@ export default function HomeScreen({ navigation }: Props) {
           item.key === 'for_you' ? (
             <CategoryIconButton
               label={item.label}
-              avatarUrl={currentUser.avatar}
+              avatarUrl={CURRENT_USER_DISPLAY.avatar}
               active={activeCategory === item.key}
               onPress={() => setActiveCategory(item.key)}
             />

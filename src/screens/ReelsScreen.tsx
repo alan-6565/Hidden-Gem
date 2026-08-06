@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { posts } from '../data/posts';
+import { useAppData } from '../context/DataContext';
 import PostReelItem from '../components/PostReelItem';
 import ExploreReelsGrid from '../components/ExploreReelsGrid';
 import { colors, spacing } from '../theme';
@@ -22,6 +22,7 @@ type Mode = 'for_you' | 'following' | 'explore';
 
 export default function ReelsScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
+  const { posts } = useAppData();
   const [containerHeight, setContainerHeight] = useState(0);
   const [mode, setMode] = useState<Mode>('for_you');
   const [exploreTag, setExploreTag] = useState<string | null>(route.params?.exploreTag ?? null);
@@ -34,7 +35,7 @@ export default function ReelsScreen({ navigation, route }: Props) {
   const feedPosts = useMemo(() => {
     if (!exploreTag) return posts;
     return posts.filter((p) => p.exploreTags.includes(exploreTag));
-  }, [exploreTag]);
+  }, [posts, exploreTag]);
 
   const onViewableItemsChanged = React.useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {

@@ -2,13 +2,14 @@ import React from 'react';
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { spots } from '../data/spots';
+import { useAppData } from '../context/DataContext';
 import { colors, radius, spacing } from '../theme';
 import { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreatePost'>;
 
 export default function CreatePostScreen({ navigation }: Props) {
+  const { spots } = useAppData();
   return (
     <View style={styles.container}>
       <Text style={styles.title}>What are you posting about?</Text>

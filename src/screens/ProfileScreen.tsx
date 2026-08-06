@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { currentUser, collections } from '../data/user';
-import { spots } from '../data/spots';
+import { useAppData } from '../context/DataContext';
+import { CURRENT_USER_DISPLAY } from '../constants';
 import { SpotCategory } from '../types';
 import FilterChip from '../components/FilterChip';
 import { colors, radius, spacing } from '../theme';
@@ -31,17 +31,11 @@ const CATEGORY_LABELS: Record<SpotCategory, string> = {
 
 export default function ProfileScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const [savedIds, setSavedIds] = useState<string[]>(currentUser.savedSpotIds);
+  const { spots, collections, savedSpotIds, toggleSaved } = useAppData();
   const [filter, setFilter] = useState<SpotCategory | 'all'>('all');
 
-  const toggleSaved = (spotId: string) => {
-    setSavedIds((prev) =>
-      prev.includes(spotId) ? prev.filter((id) => id !== spotId) : [...prev, spotId],
-    );
-  };
-
   const savedSpots = spots
-    .filter((s) => savedIds.includes(s.id))
+    .filter((s) => savedSpotIds.includes(s.id))
     .filter((s) => filter === 'all' || s.category === filter);
 
   return (
@@ -50,8 +44,8 @@ export default function ProfileScreen({ navigation }: Props) {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.sm }]}
     >
       <View style={styles.profileHeader}>
-        <Image source={{ uri: currentUser.avatar }} style={styles.avatar} />
-        <Text style={styles.name}>{currentUser.name}</Text>
+        <Image source={{ uri: CURRENT_USER_DISPLAY.avatar }} style={styles.avatar} />
+        <Text style={styles.name}>{CURRENT_USER_DISPLAY.name}</Text>
       </View>
 
       <Text style={styles.sectionTitle}>Your Collections</Text>

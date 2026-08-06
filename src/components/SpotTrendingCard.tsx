@@ -2,7 +2,7 @@ import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Spot } from '../types';
-import { reviews } from '../data/reviews';
+import { useAppData } from '../context/DataContext';
 import { getDisplayRating, getReviewCount } from '../utils/rating';
 import { colors, radius, spacing } from '../theme';
 
@@ -12,6 +12,7 @@ interface Props {
 }
 
 export default function SpotTrendingCard({ spot, onPress }: Props) {
+  const { reviews } = useAppData();
   const rating = getDisplayRating(spot, reviews);
   const count = getReviewCount(spot, reviews);
   const location = spot.isHomeBased ? spot.serviceArea : spot.address?.split(',')[0];

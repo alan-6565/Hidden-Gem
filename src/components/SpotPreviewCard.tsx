@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Spot } from '../types';
-import { reviews } from '../data/reviews';
-import { currentUser } from '../data/user';
+import { useAppData } from '../context/DataContext';
 import { getDisplayRating, getReviewCount } from '../utils/rating';
 import { getStatusLabel, isOpenNow } from '../utils/hours';
 import { colors, radius, spacing } from '../theme';
@@ -24,7 +23,8 @@ interface Props {
 }
 
 export default function SpotPreviewCard({ spot, onPress }: Props) {
-  const [saved, setSaved] = useState(currentUser.savedSpotIds.includes(spot.id));
+  const { reviews, isSaved, toggleSaved } = useAppData();
+  const saved = isSaved(spot.id);
   const rating = getDisplayRating(spot, reviews);
   const count = getReviewCount(spot, reviews);
   const open = isOpenNow(spot.hours);
@@ -54,7 +54,7 @@ export default function SpotPreviewCard({ spot, onPress }: Props) {
         style={styles.saveButton}
         onPress={(e) => {
           e.stopPropagation();
-          setSaved((s) => !s);
+          toggleSaved(spot.id);
         }}
         hitSlop={8}
       >

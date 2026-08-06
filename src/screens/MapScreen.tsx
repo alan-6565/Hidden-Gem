@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { spots } from '../data/spots';
+import { useAppData } from '../context/DataContext';
 import { SpotCategory } from '../types';
 import SpotMap from '../components/SpotMap';
 import SpotPreviewCard from '../components/SpotPreviewCard';
@@ -22,6 +22,7 @@ const CATEGORY_FILTERS: { key: SpotCategory | 'all'; label: string }[] = [
 
 export default function MapScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const { spots } = useAppData();
   const [category, setCategory] = useState<SpotCategory | 'all'>('all');
   const [openNowOnly, setOpenNowOnly] = useState(false);
   const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
@@ -32,7 +33,7 @@ export default function MapScreen({ navigation }: Props) {
       if (openNowOnly && !isOpenNow(s.hours)) return false;
       return true;
     });
-  }, [category, openNowOnly]);
+  }, [spots, category, openNowOnly]);
 
   const selectedSpot = spots.find((s) => s.id === selectedSpotId) ?? null;
 

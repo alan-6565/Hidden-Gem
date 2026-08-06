@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { spots } from '../data/spots';
+import { useAppData } from '../context/DataContext';
 import { SpotCategory } from '../types';
 import DistanceSlider from '../components/DistanceSlider';
 import { colors, radius, spacing } from '../theme';
@@ -22,6 +22,7 @@ const CATEGORY_OPTIONS: { key: SpotCategory; label: string; icon: keyof typeof I
 
 export default function SearchFiltersScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
+  const { spots } = useAppData();
   const [query, setQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortBy>('top_match');
   const [selectedCategories, setSelectedCategories] = useState<SpotCategory[]>(['coffee']);

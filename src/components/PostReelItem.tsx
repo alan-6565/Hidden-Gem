@@ -3,7 +3,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Post } from '../types';
-import { spots } from '../data/spots';
+import { useAppData } from '../context/DataContext';
 import { colors, radius, spacing } from '../theme';
 
 interface Props {
@@ -19,6 +19,7 @@ function formatCount(n: number): string {
 }
 
 export default function PostReelItem({ post, height, isActive, onOpenSpot }: Props) {
+  const { spots } = useAppData();
   const [liked, setLiked] = useState(false);
   const spot = spots.find((s) => s.id === post.spotId);
 

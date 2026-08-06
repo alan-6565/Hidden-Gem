@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { spots } from '../data/spots';
+import { useAppData } from '../context/DataContext';
 import { VibeTag } from '../types';
 import { colors, radius, spacing } from '../theme';
 import { RootStackParamList } from '../navigation/types';
@@ -40,6 +40,7 @@ function StarPicker({
 
 export default function AddReviewScreen({ route, navigation }: Props) {
   const { spotId } = route.params;
+  const { spots, addReview } = useAppData();
   const spot = spots.find((s) => s.id === spotId);
 
   const [taste, setTaste] = useState(0);
@@ -47,18 +48,33 @@ export default function AddReviewScreen({ route, navigation }: Props) {
   const [vibeRating, setVibeRating] = useState(0);
   const [vibeTag, setVibeTag] = useState<VibeTag | null>(null);
   const [text, setText] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const overall = Math.round((taste + value + vibeRating) / 3) || 0;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!taste || !value || !vibeRating || !vibeTag) {
       Alert.alert('Almost there', 'Rate taste, value, vibe, and pick a tag before posting.');
       return;
     }
-    // v1: reviews are mock data only, no backend yet.
-    Alert.alert('Posted!', 'Your review has been added.', [
-      { text: 'OK', onPress: () => navigation.goBack() },
-    ]);
+    setSubmitting(true);
+    try {
+      await addReview({
+        spotId,
+        ratingTaste: taste,
+        ratingValue: value,
+        ratingVibe: vibeRating,
+        vibeTag,
+        text,
+      });
+      Alert.alert('Posted!', 'Your review has been added.', [
+        { text: 'OK', onPress: () => navigation.goBack() },
+      ]);
+    } catch (e: any) {
+      Alert.alert('Something went wrong', e?.message ?? 'Could not post your review.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -102,8 +118,12 @@ export default function AddReviewScreen({ route, navigation }: Props) {
         onChangeText={setText}
       />
 
-      <Pressable style={styles.submitButton} onPress={handleSubmit}>
-        <Text style={styles.submitButtonText}>Post Review</Text>
+      <Pressable
+        style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+        onPress={handleSubmit}
+        disabled={submitting}
+      >
+        <Text style={styles.submitButtonText}>{submitting ? 'Posting...' : 'Post Review'}</Text>
       </Pressable>
     </ScrollView>
   );
@@ -176,8 +196,8 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   vibeOptionActive: {
-    backgroundColor: colors.matcha,
-    borderColor: colors.matcha,
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   vibeEmoji: {
     fontSize: 14,
@@ -201,11 +221,14 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   submitButton: {
-    backgroundColor: colors.matcha,
+    backgroundColor: colors.primary,
     borderRadius: radius.md,
     paddingVertical: spacing.md,
     alignItems: 'center',
     marginTop: spacing.lg,
+  },
+  submitButtonDisabled: {
+    opacity: 0.6,
   },
   submitButtonText: {
     color: '#fff',
