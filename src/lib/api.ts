@@ -1,4 +1,4 @@
-import { supabase, DEMO_USER_ID } from './supabase';
+import { supabase } from './supabase';
 import { Collection, MenuItem, OpenHours, Post, Review, Spot, VibeTag } from '../types';
 
 function mapSpot(row: any): Spot {
@@ -79,11 +79,11 @@ export async function fetchPosts(): Promise<Post[]> {
   return (data ?? []).map(mapPost);
 }
 
-export async function fetchCollections(): Promise<Collection[]> {
+export async function fetchCollections(userId: string): Promise<Collection[]> {
   const { data: collectionsData, error: collectionsError } = await supabase
     .from('collections')
     .select('*')
-    .eq('user_id', DEMO_USER_ID);
+    .eq('user_id', userId);
   if (collectionsError) throw collectionsError;
 
   const { data: linksData, error: linksError } = await supabase
@@ -101,26 +101,26 @@ export async function fetchCollections(): Promise<Collection[]> {
   }));
 }
 
-export async function fetchSavedSpotIds(): Promise<string[]> {
+export async function fetchSavedSpotIds(userId: string): Promise<string[]> {
   const { data, error } = await supabase
     .from('saved_spots')
     .select('spot_id')
-    .eq('user_id', DEMO_USER_ID);
+    .eq('user_id', userId);
   if (error) throw error;
   return (data ?? []).map((row) => row.spot_id);
 }
 
-export async function setSpotSaved(spotId: string, saved: boolean): Promise<void> {
+export async function setSpotSaved(userId: string, spotId: string, saved: boolean): Promise<void> {
   if (saved) {
     const { error } = await supabase
       .from('saved_spots')
-      .upsert({ user_id: DEMO_USER_ID, spot_id: spotId });
+      .upsert({ user_id: userId, spot_id: spotId });
     if (error) throw error;
   } else {
     const { error } = await supabase
       .from('saved_spots')
       .delete()
-      .eq('user_id', DEMO_USER_ID)
+      .eq('user_id', userId)
       .eq('spot_id', spotId);
     if (error) throw error;
   }
@@ -135,15 +135,20 @@ export interface NewReviewInput {
   text: string;
 }
 
-export async function insertReview(input: NewReviewInput): Promise<Review> {
+export async function insertReview(
+  userId: string,
+  userName: string,
+  userAvatar: string,
+  input: NewReviewInput,
+): Promise<Review> {
   const ratingOverall = Math.round((input.ratingTaste + input.ratingValue + input.ratingVibe) / 3);
   const { data, error } = await supabase
     .from('reviews')
     .insert({
       spot_id: input.spotId,
-      user_id: DEMO_USER_ID,
-      user_name: 'You',
-      user_avatar: 'https://i.pravatar.cc/150?img=47',
+      user_id: userId,
+      user_name: userName,
+      user_avatar: userAvatar,
       rating_overall: ratingOverall,
       rating_taste: input.ratingTaste,
       rating_value: input.ratingValue,

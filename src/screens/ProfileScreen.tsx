@@ -3,6 +3,7 @@ import { FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import { CURRENT_USER_DISPLAY } from '../constants';
 import { SpotCategory } from '../types';
 import FilterChip from '../components/FilterChip';
@@ -32,7 +33,9 @@ const CATEGORY_LABELS: Record<SpotCategory, string> = {
 export default function ProfileScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { spots, collections, savedSpotIds, toggleSaved } = useAppData();
+  const { user, signOut } = useAuth();
   const [filter, setFilter] = useState<SpotCategory | 'all'>('all');
+  const displayName = user?.email?.split('@')[0] ?? CURRENT_USER_DISPLAY.name;
 
   const savedSpots = spots
     .filter((s) => savedSpotIds.includes(s.id))
@@ -45,7 +48,11 @@ export default function ProfileScreen({ navigation }: Props) {
     >
       <View style={styles.profileHeader}>
         <Image source={{ uri: CURRENT_USER_DISPLAY.avatar }} style={styles.avatar} />
-        <Text style={styles.name}>{CURRENT_USER_DISPLAY.name}</Text>
+        <Text style={styles.name}>{displayName}</Text>
+        <Text style={styles.email}>{user?.email}</Text>
+        <Pressable style={styles.signOutButton} onPress={() => signOut()}>
+          <Text style={styles.signOutText}>Sign out</Text>
+        </Pressable>
       </View>
 
       <Text style={styles.sectionTitle}>Your Collections</Text>
@@ -122,6 +129,24 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     color: colors.text,
+  },
+  email: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  signOutButton: {
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  signOutText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
   },
   sectionTitle: {
     fontSize: 17,

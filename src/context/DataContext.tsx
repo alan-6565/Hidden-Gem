@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Collection, Post, Review, Spot } from '../types';
+import { useAuth } from './AuthContext';
 import {
   fetchCollections,
   fetchPosts,
@@ -28,6 +29,7 @@ interface DataContextValue {
 const DataContext = createContext<DataContextValue | undefined>(undefined);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [spots, setSpots] = useState<Spot[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -37,14 +39,15 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!user) return;
     try {
       setError(null);
       const [spotsData, reviewsData, postsData, collectionsData, savedData] = await Promise.all([
         fetchSpots(),
         fetchReviews(),
         fetchPosts(),
-        fetchCollections(),
-        fetchSavedSpotIds(),
+        fetchCollections(user.id),
+        fetchSavedSpotIds(user.id),
       ]);
       setSpots(spotsData);
       setReviews(reviewsData);
@@ -56,7 +59,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     load();
@@ -66,12 +69,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   const toggleSaved = useCallback(
     async (spotId: string) => {
+      if (!user) return;
       const currentlySaved = savedSpotIds.includes(spotId);
       setSavedSpotIds((prev) =>
         currentlySaved ? prev.filter((id) => id !== spotId) : [...prev, spotId],
       );
       try {
-        await setSpotSaved(spotId, !currentlySaved);
+        await setSpotSaved(user.id, spotId, !currentlySaved);
       } catch (e) {
         setSavedSpotIds((prev) =>
           currentlySaved ? [...prev, spotId] : prev.filter((id) => id !== spotId),
@@ -79,13 +83,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         throw e;
       }
     },
-    [savedSpotIds],
+    [user, savedSpotIds],
   );
 
-  const addReview = useCallback(async (input: NewReviewInput) => {
-    const created = await insertReview(input);
-    setReviews((prev) => [created, ...prev]);
-  }, []);
+  const addReview = useCallback(
+    async (input: NewReviewInput) => {
+      if (!user) return;
+      const displayName = user.email?.split('@')[0] ?? 'You';
+      const avatar = 'https://i.pravatar.cc/150?img=47';
+      const created = await insertReview(user.id, displayName, avatar, input);
+      setReviews((prev) => [created, ...prev]);
+    },
+    [user],
+  );
 
   return (
     <DataContext.Provider

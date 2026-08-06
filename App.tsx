@@ -3,10 +3,12 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import RootNavigator from './src/navigation/RootNavigator';
+import AuthScreen from './src/screens/AuthScreen';
+import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { DataProvider, useAppData } from './src/context/DataContext';
 import { colors, spacing } from './src/theme';
 
-function AppContent() {
+function LoadedApp() {
   const { loading, error, refresh } = useAppData();
 
   if (loading) {
@@ -32,15 +34,37 @@ function AppContent() {
   return <RootNavigator />;
 }
 
+function AppContent() {
+  const { session, initializing } = useAuth();
+
+  if (initializing) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </View>
+    );
+  }
+
+  if (!session) {
+    return <AuthScreen />;
+  }
+
+  return (
+    <DataProvider>
+      <LoadedApp />
+    </DataProvider>
+  );
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
-      <DataProvider>
+      <AuthProvider>
         <NavigationContainer>
           <AppContent />
           <StatusBar style="auto" />
         </NavigationContainer>
-      </DataProvider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

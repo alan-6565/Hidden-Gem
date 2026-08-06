@@ -99,30 +99,38 @@ alter table saved_spots enable row level security;
 drop policy if exists "public read spots" on spots;
 create policy "public read spots" on spots for select using (true);
 
+-- reviews stay publicly readable (that's the point of a review), but you can
+-- only post a review as yourself, matching the authenticated user's id.
 drop policy if exists "public read reviews" on reviews;
 create policy "public read reviews" on reviews for select using (true);
 drop policy if exists "public write reviews" on reviews;
-create policy "public write reviews" on reviews for insert with check (true);
+drop policy if exists "insert own reviews" on reviews;
+create policy "insert own reviews" on reviews for insert with check (auth.uid()::text = user_id);
 
 drop policy if exists "public read posts" on posts;
 create policy "public read posts" on posts for select using (true);
 drop policy if exists "public write posts" on posts;
 create policy "public write posts" on posts for insert with check (true);
 
+-- collections, their spot links, and saved spots are private to the owner.
 drop policy if exists "public read collections" on collections;
-create policy "public read collections" on collections for select using (true);
 drop policy if exists "public write collections" on collections;
-create policy "public write collections" on collections for all using (true) with check (true);
+drop policy if exists "own collections" on collections;
+create policy "own collections" on collections for all
+  using (auth.uid()::text = user_id) with check (auth.uid()::text = user_id);
 
 drop policy if exists "public read collection_spots" on collection_spots;
-create policy "public read collection_spots" on collection_spots for select using (true);
 drop policy if exists "public write collection_spots" on collection_spots;
-create policy "public write collection_spots" on collection_spots for all using (true) with check (true);
+drop policy if exists "own collection_spots" on collection_spots;
+create policy "own collection_spots" on collection_spots for all
+  using (exists (select 1 from collections c where c.id = collection_spots.collection_id and c.user_id = auth.uid()::text))
+  with check (exists (select 1 from collections c where c.id = collection_spots.collection_id and c.user_id = auth.uid()::text));
 
 drop policy if exists "public read saved_spots" on saved_spots;
-create policy "public read saved_spots" on saved_spots for select using (true);
 drop policy if exists "public write saved_spots" on saved_spots;
-create policy "public write saved_spots" on saved_spots for all using (true) with check (true);
+drop policy if exists "own saved_spots" on saved_spots;
+create policy "own saved_spots" on saved_spots for all
+  using (auth.uid()::text = user_id) with check (auth.uid()::text = user_id);
 
 -- ── Seed data ───────────────────────────────────────────────────────────
 insert into spots (id, name, category, tags, is_home_based, lat, lng, address, service_area, price_range, description, photos, hours, menu, tea_score, worth_the_hype_votes, hidden_gem_votes) values
