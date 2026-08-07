@@ -1,5 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Region } from 'react-native-maps';
@@ -11,6 +11,7 @@ import { colors, radius, spacing } from '../theme';
 import { TabScreenProps } from '../navigation/types';
 import { isOpenNow } from '../utils/hours';
 import { MOCK_USER_LOCATION } from '../utils/geo';
+import { useUserLocation } from '../utils/useUserLocation';
 
 type Props = TabScreenProps<'Map'>;
 
@@ -21,11 +22,12 @@ const CATEGORY_FILTERS: { key: SpotCategory | 'all'; label: string }[] = [
   { key: 'dessert', label: 'Desserts' },
 ];
 
+const REGION_DELTA = { latitudeDelta: 0.12, longitudeDelta: 0.12 };
+
 const INITIAL_REGION: Region = {
   latitude: MOCK_USER_LOCATION.lat,
   longitude: MOCK_USER_LOCATION.lng,
-  latitudeDelta: 0.12,
-  longitudeDelta: 0.12,
+  ...REGION_DELTA,
 };
 
 export default function MapScreen({ navigation }: Props) {
@@ -35,6 +37,7 @@ export default function MapScreen({ navigation }: Props) {
   const [category, setCategory] = useState<SpotCategory | 'all'>('all');
   const [openNowOnly, setOpenNowOnly] = useState(false);
   const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
+  const userLocation = useUserLocation();
 
   const filteredSpots = useMemo(() => {
     return spots.filter((s) => {
@@ -46,8 +49,26 @@ export default function MapScreen({ navigation }: Props) {
 
   const selectedSpot = spots.find((s) => s.id === selectedSpotId) ?? null;
 
-  const recenter = () => {
-    mapRef.current?.animateToRegion(INITIAL_REGION, 400);
+  useEffect(() => {
+    if (userLocation.isRealLocation) {
+      mapRef.current?.animateToRegion(
+        { latitude: userLocation.coords.lat, longitude: userLocation.coords.lng, ...REGION_DELTA },
+        400,
+      );
+    }
+  }, [userLocation.isRealLocation, userLocation.coords]);
+
+  const recenter = async () => {
+    if (userLocation.permissionDenied) {
+      Alert.alert(
+        'Location access needed',
+        'Turn on location access for Where\'s the Tea? in Settings to find spots near you.',
+      );
+      return;
+    }
+    // Refreshing updates userLocation.coords, which the effect above picks up
+    // to animate the map — avoids animating with a stale closure value here.
+    await userLocation.refresh();
   };
 
   return (
@@ -83,6 +104,8 @@ export default function MapScreen({ navigation }: Props) {
         style={styles.map}
         initialRegion={INITIAL_REGION}
         onPress={() => setSelectedSpotId(null)}
+        showsUserLocation={userLocation.isRealLocation}
+        showsMyLocationButton={false}
       >
         {filteredSpots.map((spot) => {
           const selected = spot.id === selectedSpotId;

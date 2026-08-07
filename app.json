@@ -37,6 +37,12 @@
           "cameraPermission": "Where's the Tea? needs camera access so you can record a post.",
           "microphonePermission": "Where's the Tea? needs microphone access to record sound with your videos."
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Where's the Tea? uses your location to show spots and distances near you."
+        }
       ]
     ]
   }
