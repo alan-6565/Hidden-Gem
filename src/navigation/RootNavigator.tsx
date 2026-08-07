@@ -12,9 +12,8 @@ import ReelsScreen from '../screens/ReelsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import SpotProfileScreen from '../screens/SpotProfileScreen';
 import AddReviewScreen from '../screens/AddReviewScreen';
-import NewPostScreen from '../screens/NewPostScreen';
+import ComposeScreen from '../screens/ComposeScreen';
 import SearchFiltersScreen from '../screens/SearchFiltersScreen';
-import CreatePostScreen from '../screens/CreatePostScreen';
 import { RootStackParamList, TabParamList } from './types';
 import { colors, radius } from '../theme';
 
@@ -63,7 +62,7 @@ function Tabs() {
             e.preventDefault();
             navigation
               .getParent<NativeStackNavigationProp<RootStackParamList>>()
-              ?.navigate('CreatePost');
+              ?.navigate('Compose');
           },
         })}
       />
@@ -88,19 +87,14 @@ export default function RootNavigator() {
         options={{ title: 'Write a Review' }}
       />
       <Stack.Screen
-        name="NewPost"
-        component={NewPostScreen}
-        options={{ title: 'Share a Reel' }}
-      />
-      <Stack.Screen
         name="SearchFilters"
         component={SearchFiltersScreen}
         options={{ headerShown: false, presentation: 'modal' }}
       />
       <Stack.Screen
-        name="CreatePost"
-        component={CreatePostScreen}
-        options={{ title: 'New Post', presentation: 'modal' }}
+        name="Compose"
+        component={ComposeScreen}
+        options={{ headerShown: false, presentation: 'fullScreenModal' }}
       />
     </Stack.Navigator>
   );

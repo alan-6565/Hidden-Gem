@@ -85,16 +85,13 @@ export default function PostReelItem({ post, height, isActive, onOpenSpot }: Pro
       </View>
 
       <View style={styles.bottomContent}>
-        <Pressable
-          style={styles.authorRow}
-          onPress={() => onOpenSpot(post.spotId)}
-        >
+        <View style={styles.authorRow}>
           <Image source={{ uri: post.authorAvatar }} style={styles.avatar} />
           <Text style={styles.authorName}>{post.authorName}</Text>
-        </Pressable>
+        </View>
 
         {spot && (
-          <Pressable style={styles.locationBadge} onPress={() => onOpenSpot(post.spotId)}>
+          <Pressable style={styles.locationBadge} onPress={() => onOpenSpot(spot.id)}>
             <Ionicons name="location" size={12} color="#fff" />
             <Text style={styles.locationText}>{spot.name}</Text>
           </Pressable>

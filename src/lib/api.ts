@@ -45,7 +45,7 @@ function mapReview(row: any): Review {
 function mapPost(row: any): Post {
   return {
     id: row.id,
-    spotId: row.spot_id,
+    spotId: row.spot_id ?? null,
     authorType: row.author_type,
     authorName: row.author_name,
     authorAvatar: row.author_avatar ?? '',
@@ -166,7 +166,7 @@ export async function insertReview(
 }
 
 export interface NewPostInput {
-  spotId: string;
+  spotId?: string | null;
   mediaUrl: string;
   isVideo: boolean;
   caption: string;
@@ -182,7 +182,7 @@ export async function insertPost(
   const { data, error } = await supabase
     .from('posts')
     .insert({
-      spot_id: input.spotId,
+      spot_id: input.spotId ?? null,
       author_type: 'customer',
       author_name: authorName,
       author_avatar: authorAvatar,

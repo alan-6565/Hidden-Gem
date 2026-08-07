@@ -66,7 +66,7 @@ export type PostAuthorType = 'customer' | 'owner';
 
 export interface Post {
   id: string;
-  spotId: string;
+  spotId: string | null;
   authorType: PostAuthorType;
   authorName: string;
   authorAvatar: string;

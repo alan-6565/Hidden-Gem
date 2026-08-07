@@ -30,6 +30,13 @@
           "photosPermission": "Where's the Tea? needs access to your photos to attach them to reviews and posts.",
           "cameraPermission": "Where's the Tea? needs camera access so you can take a photo or video to share."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Where's the Tea? needs camera access so you can record a post.",
+          "microphonePermission": "Where's the Tea? needs microphone access to record sound with your videos."
+        }
       ]
     ]
   }

@@ -51,7 +51,7 @@ create table if not exists reviews (
 -- ── Posts (Reels) ───────────────────────────────────────────────────────
 create table if not exists posts (
   id text primary key default gen_random_uuid()::text,
-  spot_id text not null references spots(id) on delete cascade,
+  spot_id text references spots(id) on delete cascade,
   author_type text not null check (author_type in ('customer', 'owner')),
   author_name text not null,
   author_avatar text,
