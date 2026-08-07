@@ -126,6 +126,31 @@ export async function setSpotSaved(userId: string, spotId: string, saved: boolea
   }
 }
 
+export async function fetchLikedPostIds(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('post_likes')
+    .select('post_id')
+    .eq('user_id', userId);
+  if (error) throw error;
+  return (data ?? []).map((row) => row.post_id);
+}
+
+export async function setPostLiked(userId: string, postId: string, liked: boolean): Promise<void> {
+  if (liked) {
+    const { error } = await supabase
+      .from('post_likes')
+      .upsert({ user_id: userId, post_id: postId });
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from('post_likes')
+      .delete()
+      .eq('user_id', userId)
+      .eq('post_id', postId);
+    if (error) throw error;
+  }
+}
+
 export interface NewReviewInput {
   spotId: string;
   ratingTaste: number;

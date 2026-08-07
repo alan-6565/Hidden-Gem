@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -19,8 +19,8 @@ function formatCount(n: number): string {
 }
 
 export default function PostReelItem({ post, height, isActive, onOpenSpot }: Props) {
-  const { spots } = useAppData();
-  const [liked, setLiked] = useState(false);
+  const { spots, isPostLiked, toggleLike } = useAppData();
+  const liked = isPostLiked(post.id);
   const spot = spots.find((s) => s.id === post.spotId);
 
   const player = useVideoPlayer(post.isVideo ? post.mediaUrl : null, (p) => {
@@ -61,15 +61,13 @@ export default function PostReelItem({ post, height, isActive, onOpenSpot }: Pro
       )}
 
       <View style={styles.actionRail}>
-        <Pressable style={styles.actionButton} onPress={() => setLiked((v) => !v)}>
+        <Pressable style={styles.actionButton} onPress={() => toggleLike(post.id)}>
           <Ionicons
             name={liked ? 'heart' : 'heart-outline'}
             size={30}
             color={liked ? colors.primary : '#fff'}
           />
-          <Text style={styles.actionCount}>
-            {formatCount(post.likeCount + (liked ? 1 : 0))}
-          </Text>
+          <Text style={styles.actionCount}>{formatCount(post.likeCount)}</Text>
         </Pressable>
         <Pressable style={styles.actionButton}>
           <Ionicons name="chatbubble-outline" size={27} color="#fff" />

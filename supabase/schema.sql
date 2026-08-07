@@ -133,6 +133,48 @@ drop policy if exists "own saved_spots" on saved_spots;
 create policy "own saved_spots" on saved_spots for all
   using (auth.uid()::text = user_id) with check (auth.uid()::text = user_id);
 
+-- ── Post likes ──────────────────────────────────────────────────────────
+-- Membership is scoped to the owner; posts.like_count is kept in sync via
+-- triggers so it stays accurate under concurrent likes without needing a
+-- public UPDATE policy on posts.
+create table if not exists post_likes (
+  user_id text not null,
+  post_id text not null references posts(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, post_id)
+);
+
+alter table post_likes enable row level security;
+
+drop policy if exists "public read post_likes" on post_likes;
+create policy "public read post_likes" on post_likes for select using (true);
+
+drop policy if exists "own post_likes" on post_likes;
+create policy "own post_likes" on post_likes for all
+  using (auth.uid()::text = user_id) with check (auth.uid()::text = user_id);
+
+create or replace function increment_post_like_count() returns trigger as $$
+begin
+  update posts set like_count = like_count + 1 where id = new.post_id;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create or replace function decrement_post_like_count() returns trigger as $$
+begin
+  update posts set like_count = greatest(like_count - 1, 0) where id = old.post_id;
+  return old;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists trg_post_like_insert on post_likes;
+create trigger trg_post_like_insert after insert on post_likes
+  for each row execute function increment_post_like_count();
+
+drop trigger if exists trg_post_like_delete on post_likes;
+create trigger trg_post_like_delete after delete on post_likes
+  for each row execute function decrement_post_like_count();
+
 -- ── Seed data ───────────────────────────────────────────────────────────
 insert into spots (id, name, category, tags, is_home_based, lat, lng, address, service_area, price_range, description, photos, hours, menu, tea_score, worth_the_hype_votes, hidden_gem_votes) values
 ('spot-1', 'Matcha Moon', 'matcha', array['cute interior','good for photos','study-friendly'], false, 37.7699, -122.4469, '1234 Haight St, San Francisco, CA', null, '$$', 'Plant-filled matcha bar known for its strawberry matcha and quiet study corner.',
