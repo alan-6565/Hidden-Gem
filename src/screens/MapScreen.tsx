@@ -1,15 +1,16 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import MapView, { Marker, Region } from 'react-native-maps';
 import { useAppData } from '../context/DataContext';
 import { SpotCategory } from '../types';
-import SpotMap from '../components/SpotMap';
 import SpotPreviewCard from '../components/SpotPreviewCard';
 import FilterChip from '../components/FilterChip';
 import { colors, radius, spacing } from '../theme';
 import { TabScreenProps } from '../navigation/types';
 import { isOpenNow } from '../utils/hours';
+import { MOCK_USER_LOCATION } from '../utils/geo';
 
 type Props = TabScreenProps<'Map'>;
 
@@ -20,9 +21,17 @@ const CATEGORY_FILTERS: { key: SpotCategory | 'all'; label: string }[] = [
   { key: 'dessert', label: 'Desserts' },
 ];
 
+const INITIAL_REGION: Region = {
+  latitude: MOCK_USER_LOCATION.lat,
+  longitude: MOCK_USER_LOCATION.lng,
+  latitudeDelta: 0.12,
+  longitudeDelta: 0.12,
+};
+
 export default function MapScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { spots } = useAppData();
+  const mapRef = useRef<MapView>(null);
   const [category, setCategory] = useState<SpotCategory | 'all'>('all');
   const [openNowOnly, setOpenNowOnly] = useState(false);
   const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
@@ -36,6 +45,10 @@ export default function MapScreen({ navigation }: Props) {
   }, [spots, category, openNowOnly]);
 
   const selectedSpot = spots.find((s) => s.id === selectedSpotId) ?? null;
+
+  const recenter = () => {
+    mapRef.current?.animateToRegion(INITIAL_REGION, 400);
+  };
 
   return (
     <View style={styles.container}>
@@ -65,16 +78,42 @@ export default function MapScreen({ navigation }: Props) {
         </View>
       </View>
 
-      <SpotMap
-        spots={filteredSpots}
-        selectedSpotId={selectedSpotId}
-        onSelectSpot={setSelectedSpotId}
-      />
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        initialRegion={INITIAL_REGION}
+        onPress={() => setSelectedSpotId(null)}
+      >
+        {filteredSpots.map((spot) => {
+          const selected = spot.id === selectedSpotId;
+          return (
+            <Marker
+              key={spot.id}
+              coordinate={{ latitude: spot.lat, longitude: spot.lng }}
+              onPress={(e) => {
+                e.stopPropagation();
+                setSelectedSpotId(spot.id);
+              }}
+              anchor={{ x: 0.5, y: 1 }}
+              tracksViewChanges={false}
+            >
+              <View style={styles.pinWrapper}>
+                <View style={[styles.pinBubble, selected && styles.pinBubbleSelected]}>
+                  <Text style={[styles.pinLabel, selected && styles.pinLabelSelected]}>
+                    {spot.priceRange}
+                  </Text>
+                </View>
+                <View style={[styles.pinPointer, selected && styles.pinPointerSelected]} />
+              </View>
+            </Marker>
+          );
+        })}
+      </MapView>
 
       <View style={styles.mapButtons}>
-        <View style={styles.roundButton}>
+        <Pressable style={styles.roundButton} onPress={recenter}>
           <Ionicons name="locate" size={18} color={colors.text} />
-        </View>
+        </Pressable>
       </View>
 
       {selectedSpot && (
@@ -123,6 +162,49 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.xs,
     marginTop: spacing.sm,
+  },
+  map: {
+    flex: 1,
+  },
+  pinWrapper: {
+    alignItems: 'center',
+  },
+  pinBubble: {
+    minWidth: 36,
+    height: 28,
+    paddingHorizontal: 6,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    shadowOffset: { width: 0, height: 1 },
+  },
+  pinBubbleSelected: {
+    backgroundColor: colors.primaryDark,
+    transform: [{ scale: 1.15 }],
+  },
+  pinLabel: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  pinLabelSelected: {
+    color: '#fff',
+  },
+  pinPointer: {
+    width: 8,
+    height: 8,
+    backgroundColor: colors.primary,
+    marginTop: -4,
+    transform: [{ rotate: '45deg' }],
+  },
+  pinPointerSelected: {
+    backgroundColor: colors.primaryDark,
   },
   mapButtons: {
     position: 'absolute',
