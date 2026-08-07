@@ -12,6 +12,8 @@ import { TabScreenProps } from '../navigation/types';
 import { isOpenNow } from '../utils/hours';
 import { MOCK_USER_LOCATION } from '../utils/geo';
 import { useUserLocation } from '../utils/useUserLocation';
+import { useSearchFilters } from '../context/SearchFilterContext';
+import { applySearchFilters, DEFAULT_SEARCH_FILTERS } from '../utils/searchFilters';
 
 type Props = TabScreenProps<'Map'>;
 
@@ -32,7 +34,8 @@ const INITIAL_REGION: Region = {
 
 export default function MapScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { spots } = useAppData();
+  const { spots, reviews } = useAppData();
+  const { filters } = useSearchFilters();
   const mapRef = useRef<MapView>(null);
   const [category, setCategory] = useState<SpotCategory | 'all'>('all');
   const [openNowOnly, setOpenNowOnly] = useState(false);
@@ -40,12 +43,18 @@ export default function MapScreen({ navigation }: Props) {
   const userLocation = useUserLocation();
 
   const filteredSpots = useMemo(() => {
-    return spots.filter((s) => {
+    const chipFiltered = spots.filter((s) => {
       if (category !== 'all' && s.category !== category) return false;
       if (openNowOnly && !isOpenNow(s.hours)) return false;
       return true;
     });
-  }, [spots, category, openNowOnly]);
+    return applySearchFilters(
+      chipFiltered,
+      filters,
+      reviews,
+      userLocation.isRealLocation ? userLocation.coords : null,
+    );
+  }, [spots, category, openNowOnly, filters, reviews, userLocation.isRealLocation, userLocation.coords]);
 
   const selectedSpot = spots.find((s) => s.id === selectedSpotId) ?? null;
 
@@ -57,6 +66,16 @@ export default function MapScreen({ navigation }: Props) {
       );
     }
   }, [userLocation.isRealLocation, userLocation.coords]);
+
+  const hasActiveFilters =
+    filters.query.trim().length > 0 ||
+    filters.categories.length > 0 ||
+    filters.openNow ||
+    filters.outdoorSeating ||
+    filters.petFriendly ||
+    filters.goodForStudying ||
+    filters.maxDistanceMiles < DEFAULT_SEARCH_FILTERS.maxDistanceMiles ||
+    filters.sortBy !== 'top_match';
 
   const recenter = async () => {
     if (userLocation.permissionDenied) {
@@ -79,7 +98,10 @@ export default function MapScreen({ navigation }: Props) {
           onPress={() => navigation.navigate('SearchFilters')}
         >
           <Ionicons name="search" size={16} color={colors.textMuted} />
-          <Text style={styles.searchPlaceholder}>Search cafes, brunch spots...</Text>
+          <Text style={styles.searchPlaceholder} numberOfLines={1}>
+            {filters.query.trim() || 'Search cafes, brunch spots...'}
+          </Text>
+          {hasActiveFilters && <View style={styles.filterActiveDot} />}
         </Pressable>
 
         <View style={styles.chipRow}>
@@ -177,8 +199,15 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   searchPlaceholder: {
+    flex: 1,
     color: colors.textMuted,
     fontSize: 14,
+  },
+  filterActiveDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.primary,
   },
   chipRow: {
     flexDirection: 'row',

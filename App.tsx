@@ -6,6 +6,7 @@ import RootNavigator from './src/navigation/RootNavigator';
 import AuthScreen from './src/screens/AuthScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { DataProvider, useAppData } from './src/context/DataContext';
+import { SearchFilterProvider } from './src/context/SearchFilterContext';
 import { colors, spacing } from './src/theme';
 
 function LoadedApp() {
@@ -51,7 +52,9 @@ function AppContent() {
 
   return (
     <DataProvider>
-      <LoadedApp />
+      <SearchFilterProvider>
+        <LoadedApp />
+      </SearchFilterProvider>
     </DataProvider>
   );
 }

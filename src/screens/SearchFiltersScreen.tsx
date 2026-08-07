@@ -4,14 +4,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
+import { useSearchFilters } from '../context/SearchFilterContext';
 import { SpotCategory } from '../types';
 import DistanceSlider from '../components/DistanceSlider';
 import { colors, radius, spacing } from '../theme';
 import { RootStackParamList } from '../navigation/types';
+import {
+  applySearchFilters,
+  DEFAULT_SEARCH_FILTERS,
+  DISTANCE_FILTER_MAX_MILES,
+  SortBy,
+} from '../utils/searchFilters';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SearchFilters'>;
-
-type SortBy = 'top_match' | 'distance' | 'rating';
 
 const CATEGORY_OPTIONS: { key: SpotCategory; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'coffee', label: 'Cafes', icon: 'cafe' },
@@ -22,15 +27,16 @@ const CATEGORY_OPTIONS: { key: SpotCategory; label: string; icon: keyof typeof I
 
 export default function SearchFiltersScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { spots } = useAppData();
-  const [query, setQuery] = useState('');
-  const [sortBy, setSortBy] = useState<SortBy>('top_match');
-  const [selectedCategories, setSelectedCategories] = useState<SpotCategory[]>(['coffee']);
-  const [openNow, setOpenNow] = useState(false);
-  const [outdoorSeating, setOutdoorSeating] = useState(false);
-  const [petFriendly, setPetFriendly] = useState(false);
-  const [goodForStudying, setGoodForStudying] = useState(false);
-  const [distance, setDistance] = useState(10);
+  const { spots, reviews } = useAppData();
+  const { filters: appliedFilters, setFilters: setAppliedFilters } = useSearchFilters();
+  const [query, setQuery] = useState(appliedFilters.query);
+  const [sortBy, setSortBy] = useState<SortBy>(appliedFilters.sortBy);
+  const [selectedCategories, setSelectedCategories] = useState<SpotCategory[]>(appliedFilters.categories);
+  const [openNow, setOpenNow] = useState(appliedFilters.openNow);
+  const [outdoorSeating, setOutdoorSeating] = useState(appliedFilters.outdoorSeating);
+  const [petFriendly, setPetFriendly] = useState(appliedFilters.petFriendly);
+  const [goodForStudying, setGoodForStudying] = useState(appliedFilters.goodForStudying);
+  const [distance, setDistance] = useState(appliedFilters.maxDistanceMiles);
 
   const toggleCategory = (key: SpotCategory) => {
     setSelectedCategories((prev) =>
@@ -38,20 +44,34 @@ export default function SearchFiltersScreen({ navigation }: Props) {
     );
   };
 
-  const resultCount = spots.filter((s) => {
-    if (selectedCategories.length > 0 && !selectedCategories.includes(s.category)) return false;
-    if (outdoorSeating && !s.tags.includes('outdoor seating')) return false;
-    if (goodForStudying && !s.tags.includes('study-friendly')) return false;
-    return true;
-  }).length;
+  const draftFilters = {
+    query,
+    categories: selectedCategories,
+    openNow,
+    outdoorSeating,
+    petFriendly,
+    goodForStudying,
+    maxDistanceMiles: distance,
+    sortBy,
+  };
+
+  // Distance is skipped here (no GPS origin in this preview) — Map applies it for real.
+  const resultCount = applySearchFilters(spots, draftFilters, reviews, null).length;
 
   const clearAll = () => {
-    setSelectedCategories([]);
-    setOpenNow(false);
-    setOutdoorSeating(false);
-    setPetFriendly(false);
-    setGoodForStudying(false);
-    setDistance(10);
+    setQuery(DEFAULT_SEARCH_FILTERS.query);
+    setSortBy(DEFAULT_SEARCH_FILTERS.sortBy);
+    setSelectedCategories(DEFAULT_SEARCH_FILTERS.categories);
+    setOpenNow(DEFAULT_SEARCH_FILTERS.openNow);
+    setOutdoorSeating(DEFAULT_SEARCH_FILTERS.outdoorSeating);
+    setPetFriendly(DEFAULT_SEARCH_FILTERS.petFriendly);
+    setGoodForStudying(DEFAULT_SEARCH_FILTERS.goodForStudying);
+    setDistance(DEFAULT_SEARCH_FILTERS.maxDistanceMiles);
+  };
+
+  const showResults = () => {
+    setAppliedFilters(draftFilters);
+    navigation.goBack();
   };
 
   return (
@@ -153,11 +173,11 @@ export default function SearchFiltersScreen({ navigation }: Props) {
         </View>
 
         <Text style={styles.sectionLabel}>Distance</Text>
-        <DistanceSlider value={distance} onChange={setDistance} />
+        <DistanceSlider value={distance} max={DISTANCE_FILTER_MAX_MILES} onChange={setDistance} />
       </ScrollView>
 
       <View style={styles.footer}>
-        <Pressable style={styles.showResultsButton} onPress={() => navigation.goBack()}>
+        <Pressable style={styles.showResultsButton} onPress={showResults}>
           <Text style={styles.showResultsText}>Show results ({resultCount})</Text>
         </Pressable>
       </View>

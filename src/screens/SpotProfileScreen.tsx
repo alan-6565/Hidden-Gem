@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import {
+  Alert,
   FlatList,
   Image,
+  Linking,
   Pressable,
   ScrollView,
+  Share,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -61,6 +64,25 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
     spotReviews = [...spotReviews].sort((a, b) => b.likeCount - a.likeCount);
   }
 
+  const handleDirections = () => {
+    const url = `https://maps.apple.com/?daddr=${spot.lat},${spot.lng}&dirflg=d`;
+    Linking.openURL(url).catch(() =>
+      Alert.alert("Couldn't open Maps", 'Please try again.'),
+    );
+  };
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `Check out ${spot.name} on Where's the Tea!${
+          spot.isHomeBased ? '' : `\n${spot.address}`
+        }`,
+      });
+    } catch {
+      // User cancelled the share sheet — nothing to do.
+    }
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <FlatList
@@ -92,7 +114,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             <Ionicons name="call-outline" size={20} color={colors.text} />
             <Text style={styles.actionLabel}>Call</Text>
           </Pressable>
-          <Pressable style={styles.actionItem}>
+          <Pressable style={styles.actionItem} onPress={handleDirections}>
             <Ionicons name="navigate-outline" size={20} color={colors.text} />
             <Text style={styles.actionLabel}>Directions</Text>
           </Pressable>
@@ -104,7 +126,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             />
             <Text style={styles.actionLabel}>Save</Text>
           </Pressable>
-          <Pressable style={styles.actionItem}>
+          <Pressable style={styles.actionItem} onPress={handleShare}>
             <Ionicons name="share-social-outline" size={20} color={colors.text} />
             <Text style={styles.actionLabel}>Share</Text>
           </Pressable>
