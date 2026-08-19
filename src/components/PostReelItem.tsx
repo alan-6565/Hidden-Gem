@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Post } from '../types';
 import { useAppData } from '../context/DataContext';
+import CommentsSheet from './CommentsSheet';
 import { colors, radius, spacing } from '../theme';
 
 interface Props {
@@ -23,6 +24,7 @@ export default function PostReelItem({ post, height, isActive, onOpenSpot }: Pro
   const liked = isPostLiked(post.id);
   const saved = isPostSaved(post.id);
   const spot = spots.find((s) => s.id === post.spotId);
+  const [showComments, setShowComments] = useState(false);
 
   const handleShare = async () => {
     try {
@@ -41,12 +43,12 @@ export default function PostReelItem({ post, height, isActive, onOpenSpot }: Pro
 
   useEffect(() => {
     if (!post.isVideo) return;
-    if (isActive) {
+    if (isActive && !showComments) {
       player.play();
     } else {
       player.pause();
     }
-  }, [isActive, player, post.isVideo]);
+  }, [isActive, showComments, player, post.isVideo]);
 
   return (
     <View style={[styles.container, { height }]}>
@@ -80,7 +82,7 @@ export default function PostReelItem({ post, height, isActive, onOpenSpot }: Pro
           />
           <Text style={styles.actionCount}>{formatCount(post.likeCount)}</Text>
         </Pressable>
-        <Pressable style={styles.actionButton}>
+        <Pressable style={styles.actionButton} onPress={() => setShowComments(true)}>
           <Ionicons name="chatbubble-outline" size={27} color="#fff" />
           <Text style={styles.actionCount}>{formatCount(post.commentCount)}</Text>
         </Pressable>
@@ -119,6 +121,12 @@ export default function PostReelItem({ post, height, isActive, onOpenSpot }: Pro
           </View>
         )}
       </View>
+
+      <CommentsSheet
+        postId={post.id}
+        visible={showComments}
+        onClose={() => setShowComments(false)}
+      />
     </View>
   );
 }

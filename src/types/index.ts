@@ -81,6 +81,16 @@ export interface Post {
   createdAt: string;
 }
 
+export interface Comment {
+  id: string;
+  postId: string;
+  userId: string;
+  userName: string;
+  userAvatar: string;
+  text: string;
+  createdAt: string;
+}
+
 export interface Collection {
   id: string;
   name: string;

@@ -1,15 +1,17 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { Collection, Post, Review, Spot } from '../types';
+import { Collection, Comment, Post, Review, Spot } from '../types';
 import { useAuth } from './AuthContext';
 import { CURRENT_USER_DISPLAY, getDisplayNameFromEmail } from '../constants';
 import {
   fetchCollections,
+  fetchComments,
   fetchLikedPostIds,
   fetchPosts,
   fetchReviews,
   fetchSavedPostIds,
   fetchSavedSpotIds,
   fetchSpots,
+  insertComment,
   insertPost,
   insertReview,
   NewPostInput,
@@ -23,6 +25,7 @@ interface DataContextValue {
   spots: Spot[];
   reviews: Review[];
   posts: Post[];
+  comments: Comment[];
   collections: Collection[];
   savedSpotIds: string[];
   likedPostIds: string[];
@@ -38,6 +41,7 @@ interface DataContextValue {
   toggleSavePost: (postId: string) => Promise<void>;
   addReview: (input: NewReviewInput) => Promise<void>;
   addPost: (input: NewPostInput) => Promise<void>;
+  addComment: (postId: string, text: string) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
@@ -47,6 +51,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [spots, setSpots] = useState<Spot[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [savedSpotIds, setSavedSpotIds] = useState<string[]>([]);
   const [likedPostIds, setLikedPostIds] = useState<string[]>([]);
@@ -58,11 +63,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     try {
       setError(null);
-      const [spotsData, reviewsData, postsData, collectionsData, savedData, likedData, savedPostData] =
+      const [spotsData, reviewsData, postsData, commentsData, collectionsData, savedData, likedData, savedPostData] =
         await Promise.all([
           fetchSpots(),
           fetchReviews(),
           fetchPosts(),
+          fetchComments(),
           fetchCollections(user.id),
           fetchSavedSpotIds(user.id),
           fetchLikedPostIds(user.id),
@@ -71,6 +77,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setSpots(spotsData);
       setReviews(reviewsData);
       setPosts(postsData);
+      setComments(commentsData);
       setCollections(collectionsData);
       setSavedSpotIds(savedData);
       setLikedPostIds(likedData);
@@ -176,12 +183,26 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [user],
   );
 
+  const addComment = useCallback(
+    async (postId: string, text: string) => {
+      if (!user) return;
+      const displayName = getDisplayNameFromEmail(user.email);
+      const created = await insertComment(user.id, displayName, CURRENT_USER_DISPLAY.avatar, postId, text);
+      setComments((prev) => [...prev, created]);
+      setPosts((prev) =>
+        prev.map((p) => (p.id === postId ? { ...p, commentCount: p.commentCount + 1 } : p)),
+      );
+    },
+    [user],
+  );
+
   return (
     <DataContext.Provider
       value={{
         spots,
         reviews,
         posts,
+        comments,
         collections,
         savedSpotIds,
         likedPostIds,
@@ -197,6 +218,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         toggleSavePost,
         addReview,
         addPost,
+        addComment,
       }}
     >
       {children}

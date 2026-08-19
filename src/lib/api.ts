@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Collection, MenuItem, OpenHours, Post, Review, Spot, VibeTag } from '../types';
+import { Collection, Comment, MenuItem, OpenHours, Post, Review, Spot, VibeTag } from '../types';
 
 function mapSpot(row: any): Spot {
   return {
@@ -57,6 +57,18 @@ function mapPost(row: any): Post {
     likeCount: row.like_count,
     commentCount: row.comment_count,
     shareCount: row.share_count,
+    createdAt: row.created_at,
+  };
+}
+
+function mapComment(row: any): Comment {
+  return {
+    id: row.id,
+    postId: row.post_id,
+    userId: row.user_id,
+    userName: row.user_name,
+    userAvatar: row.user_avatar ?? '',
+    text: row.body,
     createdAt: row.created_at,
   };
 }
@@ -213,6 +225,37 @@ export async function insertReview(
     .single();
   if (error) throw error;
   return mapReview(data);
+}
+
+export async function fetchComments(): Promise<Comment[]> {
+  const { data, error } = await supabase
+    .from('post_comments')
+    .select('*')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(mapComment);
+}
+
+export async function insertComment(
+  userId: string,
+  userName: string,
+  userAvatar: string,
+  postId: string,
+  text: string,
+): Promise<Comment> {
+  const { data, error } = await supabase
+    .from('post_comments')
+    .insert({
+      post_id: postId,
+      user_id: userId,
+      user_name: userName,
+      user_avatar: userAvatar,
+      body: text,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapComment(data);
 }
 
 export interface NewPostInput {

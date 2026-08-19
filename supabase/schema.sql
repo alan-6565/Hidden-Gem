@@ -189,6 +189,37 @@ drop policy if exists "own saved_posts" on saved_posts;
 create policy "own saved_posts" on saved_posts for all
   using (auth.uid()::text = user_id) with check (auth.uid()::text = user_id);
 
+-- ── Post comments (Reels) ──────────────────────────────────────────────
+-- Public read like reviews; posts.comment_count kept in sync via trigger.
+create table if not exists post_comments (
+  id text primary key default gen_random_uuid()::text,
+  post_id text not null references posts(id) on delete cascade,
+  user_id text not null,
+  user_name text not null,
+  user_avatar text,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table post_comments enable row level security;
+
+drop policy if exists "public read post_comments" on post_comments;
+create policy "public read post_comments" on post_comments for select using (true);
+
+drop policy if exists "insert own post_comments" on post_comments;
+create policy "insert own post_comments" on post_comments for insert with check (auth.uid()::text = user_id);
+
+create or replace function increment_post_comment_count() returns trigger as $$
+begin
+  update posts set comment_count = comment_count + 1 where id = new.post_id;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists trg_post_comment_insert on post_comments;
+create trigger trg_post_comment_insert after insert on post_comments
+  for each row execute function increment_post_comment_count();
+
 -- ── Seed data ───────────────────────────────────────────────────────────
 insert into spots (id, name, category, tags, is_home_based, lat, lng, address, service_area, price_range, description, photos, hours, menu, tea_score, worth_the_hype_votes, hidden_gem_votes) values
 ('spot-1', 'Matcha Moon', 'matcha', array['cute interior','good for photos','study-friendly'], false, 37.7699, -122.4469, '1234 Haight St, San Francisco, CA', null, '$$', 'Plant-filled matcha bar known for its strawberry matcha and quiet study corner.',
