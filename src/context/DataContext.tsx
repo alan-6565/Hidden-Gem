@@ -3,6 +3,7 @@ import { Collection, Comment, Post, Review, Spot } from '../types';
 import { useAuth } from './AuthContext';
 import { CURRENT_USER_DISPLAY, getDisplayNameFromEmail } from '../constants';
 import {
+  claimSpot as apiClaimSpot,
   fetchCollections,
   fetchComments,
   fetchLikedPostIds,
@@ -19,6 +20,8 @@ import {
   setPostLiked,
   setPostSaved,
   setSpotSaved,
+  SpotEditInput,
+  updateSpot as apiUpdateSpot,
 } from '../lib/api';
 
 interface DataContextValue {
@@ -42,6 +45,8 @@ interface DataContextValue {
   addReview: (input: NewReviewInput) => Promise<void>;
   addPost: (input: NewPostInput) => Promise<void>;
   addComment: (postId: string, text: string) => Promise<void>;
+  claimSpot: (spotId: string) => Promise<void>;
+  updateSpot: (spotId: string, input: SpotEditInput) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
@@ -196,6 +201,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [user],
   );
 
+  const claimSpot = useCallback(
+    async (spotId: string) => {
+      if (!user) return;
+      const updated = await apiClaimSpot(user.id, spotId);
+      setSpots((prev) => prev.map((s) => (s.id === spotId ? updated : s)));
+    },
+    [user],
+  );
+
+  const updateSpot = useCallback(async (spotId: string, input: SpotEditInput) => {
+    const updated = await apiUpdateSpot(spotId, input);
+    setSpots((prev) => prev.map((s) => (s.id === spotId ? updated : s)));
+  }, []);
+
   return (
     <DataContext.Provider
       value={{
@@ -219,6 +238,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         addReview,
         addPost,
         addComment,
+        claimSpot,
+        updateSpot,
       }}
     >
       {children}

@@ -20,6 +20,7 @@ function mapSpot(row: any): Spot {
     teaScore: row.tea_score,
     worthTheHypeVotes: row.worth_the_hype_votes,
     hiddenGemVotes: row.hidden_gem_votes,
+    ownerUserId: row.owner_user_id ?? null,
   };
 }
 
@@ -276,7 +277,9 @@ export async function insertPost(
     .from('posts')
     .insert({
       spot_id: input.spotId ?? null,
-      author_type: 'customer',
+      user_id: userId,
+      // author_type is set server-side by a trigger based on spot ownership —
+      // never trust the client for this.
       author_name: authorName,
       author_avatar: authorAvatar,
       media_url: input.mediaUrl,
@@ -291,4 +294,41 @@ export async function insertPost(
     .single();
   if (error) throw error;
   return mapPost(data);
+}
+
+export async function claimSpot(userId: string, spotId: string): Promise<Spot> {
+  const { data, error } = await supabase
+    .from('spots')
+    .update({ owner_user_id: userId })
+    .eq('id', spotId)
+    .select()
+    .single();
+  if (error) throw error;
+  return mapSpot(data);
+}
+
+export interface SpotEditInput {
+  description?: string;
+  priceRange?: string;
+  hours?: OpenHours[];
+  menu?: MenuItem[];
+  photos?: string[];
+}
+
+export async function updateSpot(spotId: string, input: SpotEditInput): Promise<Spot> {
+  const payload: Record<string, unknown> = {};
+  if (input.description !== undefined) payload.description = input.description;
+  if (input.priceRange !== undefined) payload.price_range = input.priceRange;
+  if (input.hours !== undefined) payload.hours = input.hours;
+  if (input.menu !== undefined) payload.menu = input.menu;
+  if (input.photos !== undefined) payload.photos = input.photos;
+
+  const { data, error } = await supabase
+    .from('spots')
+    .update(payload)
+    .eq('id', spotId)
+    .select()
+    .single();
+  if (error) throw error;
+  return mapSpot(data);
 }

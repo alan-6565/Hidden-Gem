@@ -14,6 +14,7 @@ import SpotProfileScreen from '../screens/SpotProfileScreen';
 import AddReviewScreen from '../screens/AddReviewScreen';
 import ComposeScreen from '../screens/ComposeScreen';
 import SearchFiltersScreen from '../screens/SearchFiltersScreen';
+import BusinessEditScreen from '../screens/BusinessEditScreen';
 import { RootStackParamList, TabParamList } from './types';
 import { colors, radius } from '../theme';
 
@@ -95,6 +96,11 @@ export default function RootNavigator() {
         name="Compose"
         component={ComposeScreen}
         options={{ headerShown: false, presentation: 'fullScreenModal' }}
+      />
+      <Stack.Screen
+        name="BusinessEdit"
+        component={BusinessEditScreen}
+        options={{ title: 'Manage Business' }}
       />
     </Stack.Navigator>
   );

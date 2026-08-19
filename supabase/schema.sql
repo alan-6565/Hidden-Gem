@@ -2,9 +2,12 @@
 -- Run this once in the Supabase SQL Editor (Project > SQL Editor > New query > paste > Run).
 --
 -- Auth: the app uses real Supabase email/password accounts. saved_spots,
--- collections, and collection_spots are scoped to auth.uid(). reviews stay
--- publicly readable but can only be inserted as yourself. posts are still
--- insertable by anyone with the anon key (no per-user posts ownership yet).
+-- collections, and collection_spots are scoped to auth.uid(). reviews and
+-- posts stay publicly readable but can only be inserted as yourself.
+-- Business accounts: a spot with owner_user_id set is "claimed" by that
+-- user, who can then edit it and whose posts tagging that spot are
+-- auto-marked author_type='owner' by a trigger (never trust the client
+-- for this — see set_post_author_type below).
 
 create extension if not exists pgcrypto;
 
@@ -27,6 +30,7 @@ create table if not exists spots (
   tea_score integer not null default 0,
   worth_the_hype_votes integer not null default 0,
   hidden_gem_votes integer not null default 0,
+  owner_user_id text,
   created_at timestamptz not null default now()
 );
 
@@ -52,6 +56,7 @@ create table if not exists reviews (
 create table if not exists posts (
   id text primary key default gen_random_uuid()::text,
   spot_id text references spots(id) on delete cascade,
+  user_id text,
   author_type text not null check (author_type in ('customer', 'owner')),
   author_name text not null,
   author_avatar text,
@@ -100,6 +105,14 @@ alter table saved_spots enable row level security;
 drop policy if exists "public read spots" on spots;
 create policy "public read spots" on spots for select using (true);
 
+-- Claiming: anyone can update an unclaimed spot (owner_user_id is null) as
+-- long as the result makes them the owner; once claimed, only that owner
+-- can keep editing it.
+drop policy if exists "own or claim spot" on spots;
+create policy "own or claim spot" on spots for update
+  using (owner_user_id is null or auth.uid()::text = owner_user_id)
+  with check (auth.uid()::text = owner_user_id);
+
 -- reviews stay publicly readable (that's the point of a review), but you can
 -- only post a review as yourself, matching the authenticated user's id.
 drop policy if exists "public read reviews" on reviews;
@@ -111,7 +124,27 @@ create policy "insert own reviews" on reviews for insert with check (auth.uid():
 drop policy if exists "public read posts" on posts;
 create policy "public read posts" on posts for select using (true);
 drop policy if exists "public write posts" on posts;
-create policy "public write posts" on posts for insert with check (true);
+drop policy if exists "insert own posts" on posts;
+create policy "insert own posts" on posts for insert with check (auth.uid()::text = user_id);
+
+-- Never trust the client's author_type — derive it server-side from
+-- whether the posting user owns the tagged spot.
+create or replace function set_post_author_type() returns trigger as $$
+begin
+  if new.spot_id is not null and new.user_id is not null and exists (
+    select 1 from spots where id = new.spot_id and owner_user_id = new.user_id
+  ) then
+    new.author_type := 'owner';
+  else
+    new.author_type := 'customer';
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists trg_set_post_author_type on posts;
+create trigger trg_set_post_author_type before insert on posts
+  for each row execute function set_post_author_type();
 
 -- collections, their spot links, and saved spots are private to the owner.
 drop policy if exists "public read collections" on collections;

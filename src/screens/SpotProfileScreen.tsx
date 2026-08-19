@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAppData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import RatingStars from '../components/RatingStars';
 import { getDisplayRating, getRatingDistribution, getReviewCount } from '../utils/rating';
 import { getStatusLabel, isOpenNow } from '../utils/hours';
@@ -36,10 +37,12 @@ const CATEGORY_LABELS: Record<string, string> = {
 export default function SpotProfileScreen({ route, navigation }: Props) {
   const { spotId } = route.params;
   const { width } = useWindowDimensions();
-  const { spots, reviews, isSaved, toggleSaved } = useAppData();
+  const { spots, reviews, isSaved, toggleSaved, claimSpot } = useAppData();
+  const { user } = useAuth();
   const spot = spots.find((s) => s.id === spotId);
   const saved = isSaved(spotId);
   const [sortBy, setSortBy] = useState<'helpful' | 'recent' | 'highest'>('helpful');
+  const [claiming, setClaiming] = useState(false);
 
   if (!spot) {
     return (
@@ -83,6 +86,29 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
     }
   };
 
+  const handleClaim = () => {
+    Alert.alert(
+      'Claim this business?',
+      `You'll be able to edit ${spot.name}'s hours, menu, and photos, and your posts here will show an Owner badge. Anyone can claim an unclaimed spot for now — there's no verification yet.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Claim it',
+          onPress: async () => {
+            setClaiming(true);
+            try {
+              await claimSpot(spotId);
+            } catch (e: any) {
+              Alert.alert("Couldn't claim this business", e?.message ?? 'Please try again.');
+            } finally {
+              setClaiming(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <FlatList
@@ -108,6 +134,29 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         <Text style={[styles.status, { color: open ? colors.success : colors.textMuted }]}>
           {getStatusLabel(spot.hours)}
         </Text>
+
+        {spot.ownerUserId === null && (
+          <View style={styles.claimBanner}>
+            <Ionicons name="storefront-outline" size={18} color={colors.primaryDark} />
+            <Text style={styles.claimBannerText}>Is this your business?</Text>
+            <Pressable onPress={handleClaim} disabled={claiming}>
+              <Text style={styles.claimBannerAction}>
+                {claiming ? 'Claiming…' : 'Claim it'}
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {user && spot.ownerUserId === user.id && (
+          <Pressable
+            style={styles.manageBanner}
+            onPress={() => navigation.navigate('BusinessEdit', { spotId })}
+          >
+            <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+            <Text style={styles.manageBannerText}>You manage this business</Text>
+            <Text style={styles.manageBannerAction}>Edit</Text>
+          </Pressable>
+        )}
 
         <View style={styles.actionRow}>
           <Pressable style={styles.actionItem}>
@@ -258,6 +307,50 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     marginTop: 2,
+  },
+  claimBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primaryMuted,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  claimBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primaryDark,
+  },
+  claimBannerAction: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.primaryDark,
+  },
+  manageBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  manageBannerText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  manageBannerAction: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.primary,
   },
   actionRow: {
     flexDirection: 'row',

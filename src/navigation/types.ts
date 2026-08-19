@@ -8,6 +8,7 @@ export type RootStackParamList = {
   AddReview: { spotId: string };
   Compose: undefined;
   SearchFilters: undefined;
+  BusinessEdit: { spotId: string };
 };
 
 export type TabParamList = {

@@ -43,6 +43,7 @@ export interface Spot {
   teaScore: number;
   worthTheHypeVotes: number;
   hiddenGemVotes: number;
+  ownerUserId: string | null;
 }
 
 export interface Review {
