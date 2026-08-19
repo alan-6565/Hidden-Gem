@@ -9,6 +9,7 @@ export type RootStackParamList = {
   Compose: undefined;
   SearchFilters: undefined;
   BusinessEdit: { spotId: string };
+  CreateBusiness: { lat: number; lng: number };
 };
 
 export type TabParamList = {

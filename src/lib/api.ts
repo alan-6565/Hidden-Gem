@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Collection, Comment, MenuItem, OpenHours, Post, Review, Spot, VibeTag } from '../types';
+import { Collection, Comment, MenuItem, OpenHours, Post, PriceRange, Review, Spot, SpotCategory, VibeTag } from '../types';
 
 function mapSpot(row: any): Spot {
   return {
@@ -301,6 +301,45 @@ export async function claimSpot(userId: string, spotId: string): Promise<Spot> {
     .from('spots')
     .update({ owner_user_id: userId })
     .eq('id', spotId)
+    .select()
+    .single();
+  if (error) throw error;
+  return mapSpot(data);
+}
+
+export interface NewSpotInput {
+  name: string;
+  category: SpotCategory;
+  isHomeBased: boolean;
+  lat: number;
+  lng: number;
+  address?: string;
+  serviceArea?: string;
+  priceRange: PriceRange;
+  description?: string;
+  photos: string[];
+  hours: OpenHours[];
+  menu: MenuItem[];
+}
+
+export async function insertSpot(userId: string, input: NewSpotInput): Promise<Spot> {
+  const { data, error } = await supabase
+    .from('spots')
+    .insert({
+      name: input.name,
+      category: input.category,
+      is_home_based: input.isHomeBased,
+      lat: input.lat,
+      lng: input.lng,
+      address: input.isHomeBased ? null : input.address ?? null,
+      service_area: input.isHomeBased ? input.serviceArea ?? null : null,
+      price_range: input.priceRange,
+      description: input.description ?? null,
+      photos: input.photos,
+      hours: input.hours,
+      menu: input.menu,
+      owner_user_id: userId,
+    })
     .select()
     .single();
   if (error) throw error;

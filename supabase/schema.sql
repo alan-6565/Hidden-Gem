@@ -13,7 +13,7 @@ create extension if not exists pgcrypto;
 
 -- ── Spots ───────────────────────────────────────────────────────────────
 create table if not exists spots (
-  id text primary key,
+  id text primary key default gen_random_uuid()::text,
   name text not null,
   category text not null,
   tags text[] not null default '{}',
@@ -111,6 +111,13 @@ create policy "public read spots" on spots for select using (true);
 drop policy if exists "own or claim spot" on spots;
 create policy "own or claim spot" on spots for update
   using (owner_user_id is null or auth.uid()::text = owner_user_id)
+  with check (auth.uid()::text = owner_user_id);
+
+-- Creating a brand-new spot (e.g. a home-based seller with no existing
+-- listing to claim) — you can only insert one that's immediately owned
+-- by yourself.
+drop policy if exists "insert own spot" on spots;
+create policy "insert own spot" on spots for insert
   with check (auth.uid()::text = owner_user_id);
 
 -- reviews stay publicly readable (that's the point of a review), but you can

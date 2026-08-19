@@ -15,8 +15,10 @@ import {
   insertComment,
   insertPost,
   insertReview,
+  insertSpot,
   NewPostInput,
   NewReviewInput,
+  NewSpotInput,
   setPostLiked,
   setPostSaved,
   setSpotSaved,
@@ -47,6 +49,7 @@ interface DataContextValue {
   addComment: (postId: string, text: string) => Promise<void>;
   claimSpot: (spotId: string) => Promise<void>;
   updateSpot: (spotId: string, input: SpotEditInput) => Promise<void>;
+  addSpot: (input: NewSpotInput) => Promise<Spot>;
 }
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
@@ -215,6 +218,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setSpots((prev) => prev.map((s) => (s.id === spotId ? updated : s)));
   }, []);
 
+  const addSpot = useCallback(
+    async (input: NewSpotInput) => {
+      if (!user) throw new Error('You must be signed in to add a business.');
+      const created = await insertSpot(user.id, input);
+      setSpots((prev) => [created, ...prev]);
+      return created;
+    },
+    [user],
+  );
+
   return (
     <DataContext.Provider
       value={{
@@ -240,6 +253,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         addComment,
         claimSpot,
         updateSpot,
+        addSpot,
       }}
     >
       {children}

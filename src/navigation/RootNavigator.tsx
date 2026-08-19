@@ -15,6 +15,7 @@ import AddReviewScreen from '../screens/AddReviewScreen';
 import ComposeScreen from '../screens/ComposeScreen';
 import SearchFiltersScreen from '../screens/SearchFiltersScreen';
 import BusinessEditScreen from '../screens/BusinessEditScreen';
+import CreateBusinessScreen from '../screens/CreateBusinessScreen';
 import { RootStackParamList, TabParamList } from './types';
 import { colors, radius } from '../theme';
 
@@ -101,6 +102,11 @@ export default function RootNavigator() {
         name="BusinessEdit"
         component={BusinessEditScreen}
         options={{ title: 'Manage Business' }}
+      />
+      <Stack.Screen
+        name="CreateBusiness"
+        component={CreateBusinessScreen}
+        options={{ title: 'Add Your Business' }}
       />
     </Stack.Navigator>
   );

@@ -40,6 +40,8 @@ export default function MapScreen({ navigation }: Props) {
   const [category, setCategory] = useState<SpotCategory | 'all'>('all');
   const [openNowOnly, setOpenNowOnly] = useState(false);
   const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
+  const [addingBusiness, setAddingBusiness] = useState(false);
+  const [currentRegion, setCurrentRegion] = useState<Region>(INITIAL_REGION);
   const userLocation = useUserLocation();
 
   const filteredSpots = useMemo(() => {
@@ -90,78 +92,112 @@ export default function MapScreen({ navigation }: Props) {
     await userLocation.refresh();
   };
 
+  const startAddingBusiness = () => {
+    setSelectedSpotId(null);
+    setAddingBusiness(true);
+  };
+
+  const confirmBusinessLocation = () => {
+    setAddingBusiness(false);
+    navigation.navigate('CreateBusiness', {
+      lat: currentRegion.latitude,
+      lng: currentRegion.longitude,
+    });
+  };
+
   return (
     <View style={styles.container}>
-      <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
-        <Pressable
-          style={styles.searchBar}
-          onPress={() => navigation.navigate('SearchFilters')}
-        >
-          <Ionicons name="search" size={16} color={colors.textMuted} />
-          <Text style={styles.searchPlaceholder} numberOfLines={1}>
-            {filters.query.trim() || 'Search cafes, brunch spots...'}
-          </Text>
-          {hasActiveFilters && <View style={styles.filterActiveDot} />}
-        </Pressable>
+      {!addingBusiness && (
+        <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
+          <Pressable
+            style={styles.searchBar}
+            onPress={() => navigation.navigate('SearchFilters')}
+          >
+            <Ionicons name="search" size={16} color={colors.textMuted} />
+            <Text style={styles.searchPlaceholder} numberOfLines={1}>
+              {filters.query.trim() || 'Search cafes, brunch spots...'}
+            </Text>
+            {hasActiveFilters && <View style={styles.filterActiveDot} />}
+          </Pressable>
 
-        <View style={styles.chipRow}>
-          {CATEGORY_FILTERS.map((f) => (
+          <View style={styles.chipRow}>
+            {CATEGORY_FILTERS.map((f) => (
+              <FilterChip
+                key={f.key}
+                label={f.label}
+                active={category === f.key}
+                onPress={() => setCategory(f.key)}
+              />
+            ))}
             <FilterChip
-              key={f.key}
-              label={f.label}
-              active={category === f.key}
-              onPress={() => setCategory(f.key)}
+              label="Open now"
+              active={openNowOnly}
+              onPress={() => setOpenNowOnly((v) => !v)}
             />
-          ))}
-          <FilterChip
-            label="Open now"
-            active={openNowOnly}
-            onPress={() => setOpenNowOnly((v) => !v)}
-          />
+          </View>
         </View>
-      </View>
+      )}
+
+      {addingBusiness && (
+        <View style={[styles.placementHint, { paddingTop: insets.top + spacing.sm }]}>
+          <Text style={styles.placementHintText}>Move the map to place your pin</Text>
+        </View>
+      )}
 
       <MapView
         ref={mapRef}
         style={styles.map}
         initialRegion={INITIAL_REGION}
         onPress={() => setSelectedSpotId(null)}
+        onRegionChangeComplete={setCurrentRegion}
         showsUserLocation={userLocation.isRealLocation}
         showsMyLocationButton={false}
       >
-        {filteredSpots.map((spot) => {
-          const selected = spot.id === selectedSpotId;
-          return (
-            <Marker
-              key={spot.id}
-              coordinate={{ latitude: spot.lat, longitude: spot.lng }}
-              onPress={(e) => {
-                e.stopPropagation();
-                setSelectedSpotId(spot.id);
-              }}
-              anchor={{ x: 0.5, y: 1 }}
-              tracksViewChanges={false}
-            >
-              <View style={styles.pinWrapper}>
-                <View style={[styles.pinBubble, selected && styles.pinBubbleSelected]}>
-                  <Text style={[styles.pinLabel, selected && styles.pinLabelSelected]}>
-                    {spot.priceRange}
-                  </Text>
+        {!addingBusiness &&
+          filteredSpots.map((spot) => {
+            const selected = spot.id === selectedSpotId;
+            return (
+              <Marker
+                key={spot.id}
+                coordinate={{ latitude: spot.lat, longitude: spot.lng }}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setSelectedSpotId(spot.id);
+                }}
+                anchor={{ x: 0.5, y: 1 }}
+                tracksViewChanges={false}
+              >
+                <View style={styles.pinWrapper}>
+                  <View style={[styles.pinBubble, selected && styles.pinBubbleSelected]}>
+                    <Text style={[styles.pinLabel, selected && styles.pinLabelSelected]}>
+                      {spot.priceRange}
+                    </Text>
+                  </View>
+                  <View style={[styles.pinPointer, selected && styles.pinPointerSelected]} />
                 </View>
-                <View style={[styles.pinPointer, selected && styles.pinPointerSelected]} />
-              </View>
-            </Marker>
-          );
-        })}
+              </Marker>
+            );
+          })}
       </MapView>
 
-      <View style={styles.mapButtons}>
-        <Pressable style={styles.roundButton} onPress={recenter}>
-          <Ionicons name="locate" size={18} color={colors.text} />
-        </Pressable>
-      </View>
+      {addingBusiness && (
+        <View pointerEvents="none" style={styles.centerPinWrapper}>
+          <Ionicons name="location" size={44} color={colors.primary} />
+        </View>
+      )}
 
-      {selectedSpot && (
+      {!addingBusiness && (
+        <View style={styles.mapButtons}>
+          <Pressable style={styles.roundButton} onPress={startAddingBusiness}>
+            <Ionicons name="storefront-outline" size={18} color={colors.text} />
+          </Pressable>
+          <Pressable style={styles.roundButton} onPress={recenter}>
+            <Ionicons name="locate" size={18} color={colors.text} />
+          </Pressable>
+        </View>
+      )}
+
+      {!addingBusiness && selectedSpot && (
         <View style={styles.previewWrapper}>
           <SpotPreviewCard
             spot={selectedSpot}
@@ -169,6 +205,17 @@ export default function MapScreen({ navigation }: Props) {
               navigation.navigate('SpotProfile', { spotId: selectedSpot.id })
             }
           />
+        </View>
+      )}
+
+      {addingBusiness && (
+        <View style={[styles.placementBar, { paddingBottom: insets.bottom + spacing.sm }]}>
+          <Pressable style={styles.placementCancel} onPress={() => setAddingBusiness(false)}>
+            <Text style={styles.placementCancelText}>Cancel</Text>
+          </Pressable>
+          <Pressable style={styles.placementConfirm} onPress={confirmBusinessLocation}>
+            <Text style={styles.placementConfirmText}>Use this location</Text>
+          </Pressable>
         </View>
       )}
     </View>
@@ -262,6 +309,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: spacing.md,
     bottom: 140,
+    gap: spacing.sm,
   },
   roundButton: {
     width: 40,
@@ -281,5 +329,69 @@ const styles = StyleSheet.create({
     left: spacing.md,
     right: spacing.md,
     bottom: spacing.md,
+  },
+  placementHint: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 2,
+    alignItems: 'center',
+    paddingBottom: spacing.sm,
+  },
+  placementHintText: {
+    backgroundColor: colors.card,
+    color: colors.text,
+    fontWeight: '700',
+    fontSize: 13,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: radius.pill,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  centerPinWrapper: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    marginLeft: -22,
+    marginTop: -44,
+  },
+  placementBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    backgroundColor: colors.background,
+  },
+  placementCancel: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  placementCancelText: {
+    color: colors.text,
+    fontWeight: '700',
+  },
+  placementConfirm: {
+    flex: 2,
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.primary,
+  },
+  placementConfirmText: {
+    color: '#fff',
+    fontWeight: '700',
   },
 });
