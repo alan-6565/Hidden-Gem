@@ -51,7 +51,7 @@ export default function AuthScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={[styles.content, { paddingTop: insets.top + spacing.xl }]}>
-        <Text style={styles.logo}>where's the tea?</Text>
+        <Text style={styles.logo}>Kuppio</Text>
         <Text style={styles.subtitle}>
           {mode === 'sign_in' ? 'Welcome back' : 'Create your account'}
         </Text>

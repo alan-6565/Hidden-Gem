@@ -40,7 +40,7 @@ export default function HomeScreen({ navigation }: Props) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Text style={styles.logo}>where's the tea?</Text>
+        <Text style={styles.logo}>Kuppio</Text>
         <Ionicons name="notifications-outline" size={22} color={colors.text} />
       </View>
 

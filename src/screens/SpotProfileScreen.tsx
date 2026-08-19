@@ -74,7 +74,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
   const handleShare = async () => {
     try {
       await Share.share({
-        message: `Check out ${spot.name} on Where's the Tea!${
+        message: `Check out ${spot.name} on Kuppio!${
           spot.isHomeBased ? '' : `\n${spot.address}`
         }`,
       });

@@ -23,7 +23,7 @@ function LoadedApp() {
   if (error) {
     return (
       <View style={styles.center}>
-        <Text style={styles.errorTitle}>Couldn't load Where's the Tea?</Text>
+        <Text style={styles.errorTitle}>Couldn't load Kuppio</Text>
         <Text style={styles.errorText}>{error}</Text>
         <Pressable style={styles.retryButton} onPress={refresh}>
           <Text style={styles.retryText}>Try again</Text>

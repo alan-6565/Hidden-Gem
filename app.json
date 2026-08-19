@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "wheres-the-tea",
+    "name": "Kuppio",
     "slug": "wheres-the-tea",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -27,21 +27,21 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Where's the Tea? needs access to your photos to attach them to reviews and posts.",
-          "cameraPermission": "Where's the Tea? needs camera access so you can take a photo or video to share."
+          "photosPermission": "Kuppio needs access to your photos to attach them to reviews and posts.",
+          "cameraPermission": "Kuppio needs camera access so you can take a photo or video to share."
         }
       ],
       [
         "expo-camera",
         {
-          "cameraPermission": "Where's the Tea? needs camera access so you can record a post.",
-          "microphonePermission": "Where's the Tea? needs microphone access to record sound with your videos."
+          "cameraPermission": "Kuppio needs camera access so you can record a post.",
+          "microphonePermission": "Kuppio needs microphone access to record sound with your videos."
         }
       ],
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Where's the Tea? uses your location to show spots and distances near you."
+          "locationWhenInUsePermission": "Kuppio uses your location to show spots and distances near you."
         }
       ]
     ]

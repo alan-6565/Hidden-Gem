@@ -1,4 +1,4 @@
--- Where's the Tea? — schema + seed data
+-- Kuppio — schema + seed data
 -- Run this once in the Supabase SQL Editor (Project > SQL Editor > New query > paste > Run).
 --
 -- Auth: the app uses real Supabase email/password accounts. saved_spots,
