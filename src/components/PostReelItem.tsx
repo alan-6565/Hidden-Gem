@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Post } from '../types';
@@ -19,9 +19,20 @@ function formatCount(n: number): string {
 }
 
 export default function PostReelItem({ post, height, isActive, onOpenSpot }: Props) {
-  const { spots, isPostLiked, toggleLike } = useAppData();
+  const { spots, isPostLiked, toggleLike, isPostSaved, toggleSavePost } = useAppData();
   const liked = isPostLiked(post.id);
+  const saved = isPostSaved(post.id);
   const spot = spots.find((s) => s.id === post.spotId);
+
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message: `${post.caption ? `${post.caption}\n\n` : ''}Check out ${post.authorName} on Kuppio!`,
+      });
+    } catch {
+      // User cancelled the share sheet — nothing to do.
+    }
+  };
 
   const player = useVideoPlayer(post.isVideo ? post.mediaUrl : null, (p) => {
     p.loop = true;
@@ -73,12 +84,16 @@ export default function PostReelItem({ post, height, isActive, onOpenSpot }: Pro
           <Ionicons name="chatbubble-outline" size={27} color="#fff" />
           <Text style={styles.actionCount}>{formatCount(post.commentCount)}</Text>
         </Pressable>
-        <Pressable style={styles.actionButton}>
+        <Pressable style={styles.actionButton} onPress={handleShare}>
           <Ionicons name="arrow-redo-outline" size={28} color="#fff" />
           <Text style={styles.actionCount}>{formatCount(post.shareCount)}</Text>
         </Pressable>
-        <Pressable style={styles.actionButton}>
-          <Ionicons name="bookmark-outline" size={26} color="#fff" />
+        <Pressable style={styles.actionButton} onPress={() => toggleSavePost(post.id)}>
+          <Ionicons
+            name={saved ? 'bookmark' : 'bookmark-outline'}
+            size={26}
+            color={saved ? colors.primary : '#fff'}
+          />
         </Pressable>
       </View>
 

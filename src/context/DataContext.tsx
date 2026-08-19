@@ -7,6 +7,7 @@ import {
   fetchLikedPostIds,
   fetchPosts,
   fetchReviews,
+  fetchSavedPostIds,
   fetchSavedSpotIds,
   fetchSpots,
   insertPost,
@@ -14,6 +15,7 @@ import {
   NewPostInput,
   NewReviewInput,
   setPostLiked,
+  setPostSaved,
   setSpotSaved,
 } from '../lib/api';
 
@@ -24,6 +26,7 @@ interface DataContextValue {
   collections: Collection[];
   savedSpotIds: string[];
   likedPostIds: string[];
+  savedPostIds: string[];
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -31,6 +34,8 @@ interface DataContextValue {
   toggleSaved: (spotId: string) => Promise<void>;
   isPostLiked: (postId: string) => boolean;
   toggleLike: (postId: string) => Promise<void>;
+  isPostSaved: (postId: string) => boolean;
+  toggleSavePost: (postId: string) => Promise<void>;
   addReview: (input: NewReviewInput) => Promise<void>;
   addPost: (input: NewPostInput) => Promise<void>;
 }
@@ -45,6 +50,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [savedSpotIds, setSavedSpotIds] = useState<string[]>([]);
   const [likedPostIds, setLikedPostIds] = useState<string[]>([]);
+  const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,20 +58,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     try {
       setError(null);
-      const [spotsData, reviewsData, postsData, collectionsData, savedData, likedData] = await Promise.all([
-        fetchSpots(),
-        fetchReviews(),
-        fetchPosts(),
-        fetchCollections(user.id),
-        fetchSavedSpotIds(user.id),
-        fetchLikedPostIds(user.id),
-      ]);
+      const [spotsData, reviewsData, postsData, collectionsData, savedData, likedData, savedPostData] =
+        await Promise.all([
+          fetchSpots(),
+          fetchReviews(),
+          fetchPosts(),
+          fetchCollections(user.id),
+          fetchSavedSpotIds(user.id),
+          fetchLikedPostIds(user.id),
+          fetchSavedPostIds(user.id),
+        ]);
       setSpots(spotsData);
       setReviews(reviewsData);
       setPosts(postsData);
       setCollections(collectionsData);
       setSavedSpotIds(savedData);
       setLikedPostIds(likedData);
+      setSavedPostIds(savedPostData);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load data');
     } finally {
@@ -126,6 +135,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [user, likedPostIds],
   );
 
+  const isPostSaved = useCallback((postId: string) => savedPostIds.includes(postId), [savedPostIds]);
+
+  const toggleSavePost = useCallback(
+    async (postId: string) => {
+      if (!user) return;
+      const currentlySaved = savedPostIds.includes(postId);
+      setSavedPostIds((prev) =>
+        currentlySaved ? prev.filter((id) => id !== postId) : [...prev, postId],
+      );
+      try {
+        await setPostSaved(user.id, postId, !currentlySaved);
+      } catch (e) {
+        setSavedPostIds((prev) =>
+          currentlySaved ? [...prev, postId] : prev.filter((id) => id !== postId),
+        );
+        throw e;
+      }
+    },
+    [user, savedPostIds],
+  );
+
   const addReview = useCallback(
     async (input: NewReviewInput) => {
       if (!user) return;
@@ -155,6 +185,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         collections,
         savedSpotIds,
         likedPostIds,
+        savedPostIds,
         loading,
         error,
         refresh: load,
@@ -162,6 +193,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         toggleSaved,
         isPostLiked,
         toggleLike,
+        isPostSaved,
+        toggleSavePost,
         addReview,
         addPost,
       }}

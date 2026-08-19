@@ -9,6 +9,7 @@ import CategoryIconButton from '../components/CategoryIconButton';
 import SpotTrendingCard from '../components/SpotTrendingCard';
 import { colors, spacing } from '../theme';
 import { TabScreenProps } from '../navigation/types';
+import { useUserLocation } from '../utils/useUserLocation';
 
 type Props = TabScreenProps<'Home'>;
 
@@ -26,6 +27,10 @@ export default function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { spots, savedSpotIds } = useAppData();
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('for_you');
+  const userLocation = useUserLocation();
+  const locationLabel = userLocation.isRealLocation && userLocation.placeName
+    ? userLocation.placeName
+    : 'San Francisco';
 
   const trendingSpots = useMemo(() => {
     const sorted = [...spots].sort((a, b) => b.teaScore - a.teaScore);
@@ -46,7 +51,7 @@ export default function HomeScreen({ navigation }: Props) {
 
       <View style={styles.locationRow}>
         <Ionicons name="location-outline" size={14} color={colors.textMuted} />
-        <Text style={styles.locationText}>San Francisco</Text>
+        <Text style={styles.locationText}>{locationLabel}</Text>
         <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
       </View>
 

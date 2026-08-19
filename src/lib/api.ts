@@ -151,6 +151,31 @@ export async function setPostLiked(userId: string, postId: string, liked: boolea
   }
 }
 
+export async function fetchSavedPostIds(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('saved_posts')
+    .select('post_id')
+    .eq('user_id', userId);
+  if (error) throw error;
+  return (data ?? []).map((row) => row.post_id);
+}
+
+export async function setPostSaved(userId: string, postId: string, saved: boolean): Promise<void> {
+  if (saved) {
+    const { error } = await supabase
+      .from('saved_posts')
+      .upsert({ user_id: userId, post_id: postId });
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from('saved_posts')
+      .delete()
+      .eq('user_id', userId)
+      .eq('post_id', postId);
+    if (error) throw error;
+  }
+}
+
 export interface NewReviewInput {
   spotId: string;
   ratingTaste: number;

@@ -175,6 +175,20 @@ drop trigger if exists trg_post_like_delete on post_likes;
 create trigger trg_post_like_delete after delete on post_likes
   for each row execute function decrement_post_like_count();
 
+-- ── Saved posts (Reels bookmark) ───────────────────────────────────────
+create table if not exists saved_posts (
+  user_id text not null,
+  post_id text not null references posts(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, post_id)
+);
+
+alter table saved_posts enable row level security;
+
+drop policy if exists "own saved_posts" on saved_posts;
+create policy "own saved_posts" on saved_posts for all
+  using (auth.uid()::text = user_id) with check (auth.uid()::text = user_id);
+
 -- ── Seed data ───────────────────────────────────────────────────────────
 insert into spots (id, name, category, tags, is_home_based, lat, lng, address, service_area, price_range, description, photos, hours, menu, tea_score, worth_the_hype_votes, hidden_gem_votes) values
 ('spot-1', 'Matcha Moon', 'matcha', array['cute interior','good for photos','study-friendly'], false, 37.7699, -122.4469, '1234 Haight St, San Francisco, CA', null, '$$', 'Plant-filled matcha bar known for its strawberry matcha and quiet study corner.',
