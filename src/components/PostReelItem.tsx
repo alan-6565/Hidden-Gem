@@ -5,12 +5,14 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { Post } from '../types';
 import { useAppData } from '../context/DataContext';
 import CommentsSheet from './CommentsSheet';
+import { distanceMiles, formatDistance } from '../utils/geo';
 import { colors, radius, spacing } from '../theme';
 
 interface Props {
   post: Post;
   height: number;
   isActive: boolean;
+  userCoords: { lat: number; lng: number };
   onOpenSpot: (spotId: string) => void;
 }
 
@@ -19,7 +21,7 @@ function formatCount(n: number): string {
   return `${n}`;
 }
 
-export default function PostReelItem({ post, height, isActive, onOpenSpot }: Props) {
+export default function PostReelItem({ post, height, isActive, userCoords, onOpenSpot }: Props) {
   const { spots, isPostLiked, toggleLike, isPostSaved, toggleSavePost } = useAppData();
   const liked = isPostLiked(post.id);
   const saved = isPostSaved(post.id);
@@ -108,7 +110,11 @@ export default function PostReelItem({ post, height, isActive, onOpenSpot }: Pro
         {spot && (
           <Pressable style={styles.locationBadge} onPress={() => onOpenSpot(spot.id)}>
             <Ionicons name="location" size={12} color="#fff" />
-            <Text style={styles.locationText}>{spot.name}</Text>
+            <Text style={styles.locationText}>
+              {spot.name} · {formatDistance(distanceMiles(userCoords, { lat: spot.lat, lng: spot.lng }))}
+              {spot.isHomeBased ? ' · Home-based' : ''}
+            </Text>
+            <Ionicons name="chevron-forward" size={12} color="#fff" />
           </Pressable>
         )}
 

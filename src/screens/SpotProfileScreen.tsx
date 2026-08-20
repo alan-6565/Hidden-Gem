@@ -17,22 +17,15 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import RatingStars from '../components/RatingStars';
+import KuppioScoreBadge from '../components/KuppioScoreBadge';
 import { getDisplayRating, getRatingDistribution, getReviewCount } from '../utils/rating';
 import { getStatusLabel, isOpenNow } from '../utils/hours';
+import { isPromoted } from '../utils/promotion';
+import { CATEGORY_LABELS } from '../constants/categories';
 import { colors, radius, spacing } from '../theme';
 import { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SpotProfile'>;
-
-const CATEGORY_LABELS: Record<string, string> = {
-  coffee: 'Cafe',
-  matcha: 'Matcha & Tea',
-  dessert: 'Dessert',
-  brunch: 'Brunch',
-  home_based: 'Home-Based',
-  pop_up: 'Pop-Up',
-  food_truck: 'Food Truck',
-};
 
 export default function SpotProfileScreen({ route, navigation }: Props) {
   const { spotId } = route.params;
@@ -58,7 +51,19 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
   const maxDistribution = Math.max(1, ...distribution);
   const open = isOpenNow(spot.hours);
 
-  let spotReviews = reviews.filter((r) => r.spotId === spot.id);
+  const allSpotReviews = reviews.filter((r) => r.spotId === spot.id);
+  const recommendPercent =
+    allSpotReviews.length > 0
+      ? Math.round(
+          (allSpotReviews.filter((r) => r.ratingOverall >= 4).length / allSpotReviews.length) * 100,
+        )
+      : null;
+
+  const isHiddenGem = spot.hiddenGemVotes > spot.worthTheHypeVotes;
+  const isTopRated = rating >= 4.5;
+  const isPopularSpot = isPromoted(spot) || spot.worthTheHypeVotes > 50;
+
+  let spotReviews = allSpotReviews;
   if (sortBy === 'recent') {
     spotReviews = [...spotReviews].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   } else if (sortBy === 'highest') {
@@ -123,7 +128,17 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
       />
 
       <View style={styles.section}>
-        <Text style={styles.name}>{spot.name}</Text>
+        <View style={styles.nameRow}>
+          <View style={styles.nameWithBadge}>
+            <Text style={styles.name} numberOfLines={1}>
+              {spot.name}
+            </Text>
+            {spot.ownerUserId !== null && (
+              <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+            )}
+          </View>
+          <KuppioScoreBadge score={spot.teaScore} />
+        </View>
         <View style={styles.ratingRow}>
           <RatingStars rating={rating} size={15} />
           <Text style={styles.ratingText}>
@@ -134,6 +149,26 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         <Text style={[styles.status, { color: open ? colors.success : colors.textMuted }]}>
           {getStatusLabel(spot.hours)}
         </Text>
+
+        {(isHiddenGem || isTopRated || isPopularSpot) && (
+          <View style={styles.badgeRow}>
+            {isHiddenGem && (
+              <View style={[styles.achievementBadge, styles.hiddenGemBadge]}>
+                <Text style={styles.achievementBadgeText}>💎 Hidden Gem</Text>
+              </View>
+            )}
+            {isTopRated && (
+              <View style={[styles.achievementBadge, styles.topRatedBadge]}>
+                <Text style={styles.achievementBadgeText}>🏆 Top Rated</Text>
+              </View>
+            )}
+            {isPopularSpot && (
+              <View style={[styles.achievementBadge, styles.popularBadge]}>
+                <Text style={styles.achievementBadgeText}>🔥 Popular</Text>
+              </View>
+            )}
+          </View>
+        )}
 
         {spot.ownerUserId === null && (
           <View style={styles.claimBanner}>
@@ -213,6 +248,13 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
       </View>
 
       <View style={styles.section}>
+        {recommendPercent !== null && (
+          <View style={styles.recommendRow}>
+            <Ionicons name="thumbs-up" size={14} color={colors.success} />
+            <Text style={styles.recommendText}>{recommendPercent}% recommend</Text>
+          </View>
+        )}
+
         <View style={styles.reviewsSummaryRow}>
           <View style={styles.reviewsSummaryLeft}>
             <Text style={styles.bigRating}>{rating.toFixed(1)}</Text>
@@ -291,9 +333,58 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  nameWithBadge: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   name: {
+    flexShrink: 1,
     fontSize: 24,
     fontWeight: '800',
+    color: colors.text,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  achievementBadge: {
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+  },
+  hiddenGemBadge: {
+    backgroundColor: '#E3F2E9',
+  },
+  topRatedBadge: {
+    backgroundColor: '#FCEFD4',
+  },
+  popularBadge: {
+    backgroundColor: colors.primaryMuted,
+  },
+  achievementBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  recommendRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  recommendText: {
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.text,
   },
   ratingRow: {

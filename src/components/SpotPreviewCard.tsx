@@ -6,17 +6,8 @@ import { useAppData } from '../context/DataContext';
 import { getDisplayRating, getReviewCount } from '../utils/rating';
 import { getStatusLabel, isOpenNow } from '../utils/hours';
 import { isPromoted } from '../utils/promotion';
+import { CATEGORY_LABELS } from '../constants/categories';
 import { colors, radius, spacing } from '../theme';
-
-const CATEGORY_LABELS: Record<Spot['category'], string> = {
-  coffee: 'Cafe',
-  matcha: 'Matcha & Tea',
-  dessert: 'Dessert',
-  brunch: 'Brunch',
-  home_based: 'Home-Based',
-  pop_up: 'Pop-Up',
-  food_truck: 'Food Truck',
-};
 
 interface Props {
   spot: Spot;

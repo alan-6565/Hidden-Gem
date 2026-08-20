@@ -15,6 +15,7 @@ import PostReelItem from '../components/PostReelItem';
 import ExploreReelsGrid from '../components/ExploreReelsGrid';
 import { colors, spacing } from '../theme';
 import { TabScreenProps } from '../navigation/types';
+import { useUserLocation } from '../utils/useUserLocation';
 
 type Props = TabScreenProps<'Reels'>;
 
@@ -23,6 +24,7 @@ type Mode = 'for_you' | 'following' | 'explore';
 export default function ReelsScreen({ navigation, route }: Props) {
   const insets = useSafeAreaInsets();
   const { posts } = useAppData();
+  const userLocation = useUserLocation();
   const [containerHeight, setContainerHeight] = useState(0);
   const [mode, setMode] = useState<Mode>('for_you');
   const [exploreTag, setExploreTag] = useState<string | null>(route.params?.exploreTag ?? null);
@@ -135,6 +137,7 @@ export default function ReelsScreen({ navigation, route }: Props) {
               post={item}
               height={containerHeight}
               isActive={index === activeIndex}
+              userCoords={userLocation.coords}
               onOpenSpot={goToSpot}
             />
           )}

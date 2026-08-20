@@ -7,6 +7,7 @@ import { useAppData } from '../context/DataContext';
 import { SpotCategory } from '../types';
 import SpotPreviewCard from '../components/SpotPreviewCard';
 import FilterChip from '../components/FilterChip';
+import { CATEGORY_COLORS, CATEGORY_ICONS } from '../constants/categories';
 import { colors, radius, spacing } from '../theme';
 import { TabScreenProps } from '../navigation/types';
 import { isOpenNow } from '../utils/hours';
@@ -43,6 +44,15 @@ export default function MapScreen({ navigation }: Props) {
   const [addingBusiness, setAddingBusiness] = useState(false);
   const [currentRegion, setCurrentRegion] = useState<Region>(INITIAL_REGION);
   const userLocation = useUserLocation();
+  // Custom Marker children with icon glyphs can render blank on iOS if a
+  // view-snapshot (tracksViewChanges=false) is taken before the icon font
+  // paints. Keep tracking on briefly after mount so pins actually show up,
+  // then switch off for the usual performance win.
+  const [pinsReady, setPinsReady] = useState(false);
+  useEffect(() => {
+    const timer = setTimeout(() => setPinsReady(true), 600);
+    return () => clearTimeout(timer);
+  }, []);
 
   const filteredSpots = useMemo(() => {
     const chipFiltered = spots.filter((s) => {
@@ -156,6 +166,7 @@ export default function MapScreen({ navigation }: Props) {
         {!addingBusiness &&
           filteredSpots.map((spot) => {
             const selected = spot.id === selectedSpotId;
+            const pinColor = CATEGORY_COLORS[spot.category];
             return (
               <Marker
                 key={spot.id}
@@ -165,15 +176,19 @@ export default function MapScreen({ navigation }: Props) {
                   setSelectedSpotId(spot.id);
                 }}
                 anchor={{ x: 0.5, y: 1 }}
-                tracksViewChanges={false}
+                tracksViewChanges={!pinsReady}
               >
                 <View style={styles.pinWrapper}>
-                  <View style={[styles.pinBubble, selected && styles.pinBubbleSelected]}>
-                    <Text style={[styles.pinLabel, selected && styles.pinLabelSelected]}>
-                      {spot.priceRange}
-                    </Text>
+                  <View
+                    style={[
+                      styles.pinBubble,
+                      { backgroundColor: pinColor },
+                      selected && styles.pinBubbleSelected,
+                    ]}
+                  >
+                    <Ionicons name={CATEGORY_ICONS[spot.category]} size={16} color="#fff" />
                   </View>
-                  <View style={[styles.pinPointer, selected && styles.pinPointerSelected]} />
+                  <View style={[styles.pinPointer, { backgroundColor: pinColor }]} />
                 </View>
               </Marker>
             );
@@ -269,11 +284,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pinBubble: {
-    minWidth: 36,
-    height: 28,
-    paddingHorizontal: 6,
-    borderRadius: 14,
-    backgroundColor: colors.primary,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
@@ -284,26 +297,14 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
   },
   pinBubbleSelected: {
-    backgroundColor: colors.primaryDark,
+    borderWidth: 3,
     transform: [{ scale: 1.15 }],
-  },
-  pinLabel: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  pinLabelSelected: {
-    color: '#fff',
   },
   pinPointer: {
     width: 8,
     height: 8,
-    backgroundColor: colors.primary,
     marginTop: -4,
     transform: [{ rotate: '45deg' }],
-  },
-  pinPointerSelected: {
-    backgroundColor: colors.primaryDark,
   },
   mapButtons: {
     position: 'absolute',
