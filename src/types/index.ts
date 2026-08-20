@@ -44,6 +44,7 @@ export interface Spot {
   worthTheHypeVotes: number;
   hiddenGemVotes: number;
   ownerUserId: string | null;
+  promotedUntil: string | null;
 }
 
 export interface Review {

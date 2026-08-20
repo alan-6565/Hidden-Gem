@@ -5,6 +5,7 @@ import { Spot } from '../types';
 import { useAppData } from '../context/DataContext';
 import { getDisplayRating, getReviewCount } from '../utils/rating';
 import { getStatusLabel, isOpenNow } from '../utils/hours';
+import { isPromoted } from '../utils/promotion';
 import { colors, radius, spacing } from '../theme';
 
 const CATEGORY_LABELS: Record<Spot['category'], string> = {
@@ -29,14 +30,22 @@ export default function SpotPreviewCard({ spot, onPress }: Props) {
   const count = getReviewCount(spot, reviews);
   const open = isOpenNow(spot.hours);
   const location = spot.isHomeBased ? spot.serviceArea : spot.address;
+  const promoted = isPromoted(spot);
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
       <Image source={{ uri: spot.photos[0] }} style={styles.image} />
       <View style={styles.body}>
-        <Text style={styles.name} numberOfLines={1}>
-          {spot.name}
-        </Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.name} numberOfLines={1}>
+            {spot.name}
+          </Text>
+          {promoted && (
+            <View style={styles.promotedBadge}>
+              <Ionicons name="rocket" size={9} color="#fff" />
+            </View>
+          )}
+        </View>
         <View style={styles.ratingRow}>
           <Ionicons name="star" size={12} color={colors.gold} />
           <Text style={styles.ratingText}>
@@ -91,10 +100,24 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: spacing.sm,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   name: {
     fontSize: 15,
     fontWeight: '700',
     color: colors.text,
+    flexShrink: 1,
+  },
+  promotedBadge: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   ratingRow: {
     flexDirection: 'row',

@@ -2,6 +2,7 @@ import { Review, Spot, SpotCategory } from '../types';
 import { isOpenNow } from './hours';
 import { distanceMiles } from './geo';
 import { getDisplayRating } from './rating';
+import { isPromoted } from './promotion';
 
 export type SortBy = 'top_match' | 'distance' | 'rating';
 
@@ -63,6 +64,10 @@ export function applySearchFilters(
     );
   } else if (filters.sortBy === 'rating') {
     result = [...result].sort((a, b) => getDisplayRating(b, reviews) - getDisplayRating(a, reviews));
+  } else {
+    // top_match: promoted spots surface first, otherwise keep the
+    // incoming order (already tea_score-sorted from the DB fetch).
+    result = [...result].sort((a, b) => Number(isPromoted(b)) - Number(isPromoted(a)));
   }
 
   return result;

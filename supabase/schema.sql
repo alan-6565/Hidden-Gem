@@ -31,6 +31,7 @@ create table if not exists spots (
   worth_the_hype_votes integer not null default 0,
   hidden_gem_votes integer not null default 0,
   owner_user_id text,
+  promoted_until timestamptz,
   created_at timestamptz not null default now()
 );
 

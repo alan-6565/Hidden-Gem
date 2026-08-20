@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Spot } from '../types';
 import { useAppData } from '../context/DataContext';
 import { getDisplayRating, getReviewCount } from '../utils/rating';
+import { isPromoted } from '../utils/promotion';
 import { colors, radius, spacing } from '../theme';
 
 interface Props {
@@ -16,10 +17,17 @@ export default function SpotTrendingCard({ spot, onPress }: Props) {
   const rating = getDisplayRating(spot, reviews);
   const count = getReviewCount(spot, reviews);
   const location = spot.isHomeBased ? spot.serviceArea : spot.address?.split(',')[0];
+  const promoted = isPromoted(spot);
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
       <Image source={{ uri: spot.photos[0] }} style={styles.image} />
+      {promoted && (
+        <View style={styles.promotedBadge}>
+          <Ionicons name="rocket" size={10} color="#fff" />
+          <Text style={styles.promotedText}>Promoted</Text>
+        </View>
+      )}
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={1}>
           {spot.name}
@@ -52,6 +60,23 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 110,
     backgroundColor: colors.cream,
+  },
+  promotedBadge: {
+    position: 'absolute',
+    top: spacing.xs,
+    left: spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: colors.gold,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.xs + 2,
+    paddingVertical: 3,
+  },
+  promotedText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '800',
   },
   body: {
     padding: spacing.sm,

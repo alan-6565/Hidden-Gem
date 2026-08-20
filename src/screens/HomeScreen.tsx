@@ -10,6 +10,7 @@ import SpotTrendingCard from '../components/SpotTrendingCard';
 import { colors, spacing } from '../theme';
 import { TabScreenProps } from '../navigation/types';
 import { useUserLocation } from '../utils/useUserLocation';
+import { isPromoted } from '../utils/promotion';
 
 type Props = TabScreenProps<'Home'>;
 
@@ -33,7 +34,11 @@ export default function HomeScreen({ navigation }: Props) {
     : 'San Francisco';
 
   const trendingSpots = useMemo(() => {
-    const sorted = [...spots].sort((a, b) => b.teaScore - a.teaScore);
+    const sorted = [...spots].sort((a, b) => {
+      const promoDiff = Number(isPromoted(b)) - Number(isPromoted(a));
+      if (promoDiff !== 0) return promoDiff;
+      return b.teaScore - a.teaScore;
+    });
     if (activeCategory === 'for_you' || activeCategory === 'trending') return sorted;
     return sorted.filter((s) => s.category === activeCategory);
   }, [spots, activeCategory]);

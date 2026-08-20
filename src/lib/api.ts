@@ -21,6 +21,7 @@ function mapSpot(row: any): Spot {
     worthTheHypeVotes: row.worth_the_hype_votes,
     hiddenGemVotes: row.hidden_gem_votes,
     ownerUserId: row.owner_user_id ?? null,
+    promotedUntil: row.promoted_until ?? null,
   };
 }
 
@@ -352,6 +353,7 @@ export interface SpotEditInput {
   hours?: OpenHours[];
   menu?: MenuItem[];
   photos?: string[];
+  promotedUntil?: string | null;
 }
 
 export async function updateSpot(spotId: string, input: SpotEditInput): Promise<Spot> {
@@ -361,6 +363,7 @@ export async function updateSpot(spotId: string, input: SpotEditInput): Promise<
   if (input.hours !== undefined) payload.hours = input.hours;
   if (input.menu !== undefined) payload.menu = input.menu;
   if (input.photos !== undefined) payload.photos = input.photos;
+  if (input.promotedUntil !== undefined) payload.promoted_until = input.promotedUntil;
 
   const { data, error } = await supabase
     .from('spots')

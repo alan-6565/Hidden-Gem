@@ -16,6 +16,7 @@ import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { pickMediaFromLibrary, uploadMedia } from '../lib/mediaUpload';
 import { MenuItem, OpenHours, PriceRange } from '../types';
+import { isPromoted } from '../utils/promotion';
 import { colors, radius, spacing } from '../theme';
 import { RootStackParamList } from '../navigation/types';
 
@@ -23,6 +24,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'BusinessEdit'>;
 
 const DAYS: OpenHours['day'][] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const PRICE_OPTIONS: PriceRange[] = ['$', '$$', '$$$'];
+const BOOST_DAYS = 7;
 
 interface DayState {
   enabled: boolean;
@@ -53,6 +55,7 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
   });
   const [saving, setSaving] = useState(false);
   const [addingPhoto, setAddingPhoto] = useState(false);
+  const [boosting, setBoosting] = useState(false);
 
   if (!spot) {
     return (
@@ -69,6 +72,33 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
       </View>
     );
   }
+
+  const promoted = isPromoted(spot);
+
+  const handleBoost = () => {
+    Alert.alert(
+      'Boost this business?',
+      `Promoted spots get priority placement in Home and Map for ${BOOST_DAYS} days. Payments aren't wired up yet, so this won't actually charge you — it just marks the business as promoted so you can see how it looks.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Boost it',
+          onPress: async () => {
+            setBoosting(true);
+            try {
+              const until = new Date();
+              until.setDate(until.getDate() + BOOST_DAYS);
+              await updateSpot(spotId, { promotedUntil: until.toISOString() });
+            } catch (e: any) {
+              Alert.alert("Couldn't boost this business", e?.message ?? 'Please try again.');
+            } finally {
+              setBoosting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const toggleDay = (day: string) => {
     setHoursByDay((prev) => ({
@@ -142,6 +172,27 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]}
     >
       <Text style={styles.title}>Manage {spot.name}</Text>
+
+      <View style={styles.promoCard}>
+        <View style={styles.promoIconWrap}>
+          <Ionicons name="rocket" size={18} color="#fff" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.promoTitle}>
+            {promoted ? 'Currently promoted' : 'Get more visibility'}
+          </Text>
+          <Text style={styles.promoSubtitle}>
+            {promoted && spot.promotedUntil
+              ? `Boosted until ${new Date(spot.promotedUntil).toLocaleDateString()}`
+              : `Priority placement in Home and Map for ${BOOST_DAYS} days`}
+          </Text>
+        </View>
+        {!promoted && (
+          <Pressable style={styles.promoButton} onPress={handleBoost} disabled={boosting}>
+            <Text style={styles.promoButtonText}>{boosting ? '…' : 'Boost'}</Text>
+          </Pressable>
+        )}
+      </View>
 
       <Text style={styles.sectionLabel}>Photos</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photoRow}>
@@ -277,6 +328,45 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.text,
     marginBottom: spacing.md,
+  },
+  promoCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.md,
+  },
+  promoIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: colors.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  promoTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  promoSubtitle: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  promoButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+  },
+  promoButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
   },
   sectionLabel: {
     fontSize: 14,
