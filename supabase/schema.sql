@@ -450,11 +450,24 @@ create table if not exists business_verifications (
   constraint business_verifications_shape_check check (
     (claim_type = 'claim_existing' and existing_spot_id is not null and category is null)
     or
-    (claim_type = 'create_new' and existing_spot_id is null and category is not null
+    (claim_type = 'create_new' and category is not null
       and lat is not null and lng is not null and price_range is not null)
   )
 );
 alter table business_verifications enable row level security;
+
+-- Patch for installs where the table already existed with the earlier,
+-- buggy version of this constraint (which also required existing_spot_id
+-- is null for create_new — but apply_business_verification_approval()
+-- below legitimately backfills existing_spot_id onto a create_new row once
+-- it materializes the new spot, so that requirement blocked every approval).
+alter table business_verifications drop constraint if exists business_verifications_shape_check;
+alter table business_verifications add constraint business_verifications_shape_check check (
+  (claim_type = 'claim_existing' and existing_spot_id is not null and category is null)
+  or
+  (claim_type = 'create_new' and category is not null
+    and lat is not null and lng is not null and price_range is not null)
+);
 
 drop policy if exists "insert own verification" on business_verifications;
 create policy "insert own verification" on business_verifications for insert
