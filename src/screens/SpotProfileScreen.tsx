@@ -201,6 +201,15 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             </View>
           )}
         />
+        {spot.menu.length > 0 && (
+          <Pressable
+            style={styles.orderButton}
+            onPress={() => navigation.navigate('Order', { spotId })}
+          >
+            <Ionicons name="bag-handle-outline" size={16} color="#fff" />
+            <Text style={styles.orderButtonText}>Order ahead</Text>
+          </Pressable>
+        )}
       </View>
 
       <View style={styles.section}>
@@ -402,6 +411,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textMuted,
     fontWeight: '600',
+  },
+  orderButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm + 2,
+    marginTop: spacing.md,
+  },
+  orderButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
   },
   reviewsSummaryRow: {
     flexDirection: 'row',

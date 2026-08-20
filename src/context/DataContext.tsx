@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { Collection, Comment, Post, Review, Spot } from '../types';
+import { Collection, Comment, Order, OrderStatus, Post, Review, Spot } from '../types';
 import { useAuth } from './AuthContext';
 import { CURRENT_USER_DISPLAY, getDisplayNameFromEmail } from '../constants';
 import {
@@ -7,15 +7,18 @@ import {
   fetchCollections,
   fetchComments,
   fetchLikedPostIds,
+  fetchOrders,
   fetchPosts,
   fetchReviews,
   fetchSavedPostIds,
   fetchSavedSpotIds,
   fetchSpots,
   insertComment,
+  insertOrder,
   insertPost,
   insertReview,
   insertSpot,
+  NewOrderInput,
   NewPostInput,
   NewReviewInput,
   NewSpotInput,
@@ -23,6 +26,7 @@ import {
   setPostSaved,
   setSpotSaved,
   SpotEditInput,
+  updateOrderStatus as apiUpdateOrderStatus,
   updateSpot as apiUpdateSpot,
 } from '../lib/api';
 
@@ -31,6 +35,7 @@ interface DataContextValue {
   reviews: Review[];
   posts: Post[];
   comments: Comment[];
+  orders: Order[];
   collections: Collection[];
   savedSpotIds: string[];
   likedPostIds: string[];
@@ -50,6 +55,8 @@ interface DataContextValue {
   claimSpot: (spotId: string) => Promise<void>;
   updateSpot: (spotId: string, input: SpotEditInput) => Promise<void>;
   addSpot: (input: NewSpotInput) => Promise<Spot>;
+  placeOrder: (input: NewOrderInput) => Promise<Order>;
+  setOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
 }
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
@@ -60,6 +67,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [savedSpotIds, setSavedSpotIds] = useState<string[]>([]);
   const [likedPostIds, setLikedPostIds] = useState<string[]>([]);
@@ -71,21 +79,32 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     try {
       setError(null);
-      const [spotsData, reviewsData, postsData, commentsData, collectionsData, savedData, likedData, savedPostData] =
-        await Promise.all([
-          fetchSpots(),
-          fetchReviews(),
-          fetchPosts(),
-          fetchComments(),
-          fetchCollections(user.id),
-          fetchSavedSpotIds(user.id),
-          fetchLikedPostIds(user.id),
-          fetchSavedPostIds(user.id),
-        ]);
+      const [
+        spotsData,
+        reviewsData,
+        postsData,
+        commentsData,
+        ordersData,
+        collectionsData,
+        savedData,
+        likedData,
+        savedPostData,
+      ] = await Promise.all([
+        fetchSpots(),
+        fetchReviews(),
+        fetchPosts(),
+        fetchComments(),
+        fetchOrders(),
+        fetchCollections(user.id),
+        fetchSavedSpotIds(user.id),
+        fetchLikedPostIds(user.id),
+        fetchSavedPostIds(user.id),
+      ]);
       setSpots(spotsData);
       setReviews(reviewsData);
       setPosts(postsData);
       setComments(commentsData);
+      setOrders(ordersData);
       setCollections(collectionsData);
       setSavedSpotIds(savedData);
       setLikedPostIds(likedData);
@@ -228,6 +247,29 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [user],
   );
 
+  const placeOrder = useCallback(
+    async (input: NewOrderInput) => {
+      if (!user) throw new Error('You must be signed in to place an order.');
+      const created = await insertOrder(user.id, input);
+      setOrders((prev) => [created, ...prev]);
+      return created;
+    },
+    [user],
+  );
+
+  const setOrderStatus = useCallback(async (orderId: string, status: OrderStatus) => {
+    const previous = orders.find((o) => o.id === orderId);
+    setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status } : o)));
+    try {
+      await apiUpdateOrderStatus(orderId, status);
+    } catch (e) {
+      if (previous) {
+        setOrders((prev) => prev.map((o) => (o.id === orderId ? previous : o)));
+      }
+      throw e;
+    }
+  }, [orders]);
+
   return (
     <DataContext.Provider
       value={{
@@ -235,6 +277,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         reviews,
         posts,
         comments,
+        orders,
         collections,
         savedSpotIds,
         likedPostIds,
@@ -254,6 +297,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         claimSpot,
         updateSpot,
         addSpot,
+        placeOrder,
+        setOrderStatus,
       }}
     >
       {children}

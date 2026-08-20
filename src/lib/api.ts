@@ -1,5 +1,19 @@
 import { supabase } from './supabase';
-import { Collection, Comment, MenuItem, OpenHours, Post, PriceRange, Review, Spot, SpotCategory, VibeTag } from '../types';
+import {
+  Collection,
+  Comment,
+  MenuItem,
+  OpenHours,
+  Order,
+  OrderItem,
+  OrderStatus,
+  Post,
+  PriceRange,
+  Review,
+  Spot,
+  SpotCategory,
+  VibeTag,
+} from '../types';
 
 function mapSpot(row: any): Spot {
   return {
@@ -71,6 +85,20 @@ function mapComment(row: any): Comment {
     userName: row.user_name,
     userAvatar: row.user_avatar ?? '',
     text: row.body,
+    createdAt: row.created_at,
+  };
+}
+
+function mapOrder(row: any): Order {
+  return {
+    id: row.id,
+    spotId: row.spot_id,
+    customerUserId: row.customer_user_id,
+    status: row.status as OrderStatus,
+    items: (row.items ?? []) as OrderItem[],
+    total: Number(row.total),
+    note: row.note ?? undefined,
+    pickupTime: row.pickup_time ?? undefined,
     createdAt: row.created_at,
   };
 }
@@ -373,4 +401,52 @@ export async function updateSpot(spotId: string, input: SpotEditInput): Promise<
     .single();
   if (error) throw error;
   return mapSpot(data);
+}
+
+// RLS returns every order the current user can see: their own orders as a
+// customer, plus every order placed against any spot they own — no userId
+// filter needed here, the database already scopes it.
+export async function fetchOrders(): Promise<Order[]> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapOrder);
+}
+
+export interface NewOrderInput {
+  spotId: string;
+  items: OrderItem[];
+  total: number;
+  note?: string;
+  pickupTime?: string;
+}
+
+export async function insertOrder(userId: string, input: NewOrderInput): Promise<Order> {
+  const { data, error } = await supabase
+    .from('orders')
+    .insert({
+      spot_id: input.spotId,
+      customer_user_id: userId,
+      items: input.items,
+      total: input.total,
+      note: input.note ?? null,
+      pickup_time: input.pickupTime ?? null,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return mapOrder(data);
+}
+
+export async function updateOrderStatus(orderId: string, status: OrderStatus): Promise<Order> {
+  const { data, error } = await supabase
+    .from('orders')
+    .update({ status })
+    .eq('id', orderId)
+    .select()
+    .single();
+  if (error) throw error;
+  return mapOrder(data);
 }

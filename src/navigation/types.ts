@@ -10,6 +10,8 @@ export type RootStackParamList = {
   SearchFilters: undefined;
   BusinessEdit: { spotId: string };
   CreateBusiness: { lat: number; lng: number };
+  Order: { spotId: string };
+  Orders: undefined;
 };
 
 export type TabParamList = {

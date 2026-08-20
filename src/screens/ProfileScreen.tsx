@@ -55,6 +55,12 @@ export default function ProfileScreen({ navigation }: Props) {
         </Pressable>
       </View>
 
+      <Pressable style={styles.ordersRow} onPress={() => navigation.navigate('Orders')}>
+        <Ionicons name="bag-handle-outline" size={20} color={colors.text} />
+        <Text style={styles.ordersRowText}>Orders</Text>
+        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+      </Pressable>
+
       <Text style={styles.sectionTitle}>Your Collections</Text>
       {collections.map((col) => (
         <View key={col.id} style={styles.collectionCard}>
@@ -147,6 +153,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.primary,
+  },
+  ordersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    marginBottom: spacing.md,
+  },
+  ordersRowText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
   },
   sectionTitle: {
     fontSize: 17,

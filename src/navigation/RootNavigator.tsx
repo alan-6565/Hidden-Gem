@@ -16,6 +16,8 @@ import ComposeScreen from '../screens/ComposeScreen';
 import SearchFiltersScreen from '../screens/SearchFiltersScreen';
 import BusinessEditScreen from '../screens/BusinessEditScreen';
 import CreateBusinessScreen from '../screens/CreateBusinessScreen';
+import OrderScreen from '../screens/OrderScreen';
+import OrdersScreen from '../screens/OrdersScreen';
 import { RootStackParamList, TabParamList } from './types';
 import { colors, radius } from '../theme';
 
@@ -108,6 +110,8 @@ export default function RootNavigator() {
         component={CreateBusinessScreen}
         options={{ title: 'Add Your Business' }}
       />
+      <Stack.Screen name="Order" component={OrderScreen} options={{ title: 'Order Ahead' }} />
+      <Stack.Screen name="Orders" component={OrdersScreen} options={{ title: 'Orders' }} />
     </Stack.Navigator>
   );
 }

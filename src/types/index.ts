@@ -93,6 +93,27 @@ export interface Comment {
   createdAt: string;
 }
 
+export type OrderStatus = 'pending' | 'accepted' | 'ready' | 'completed' | 'declined' | 'cancelled';
+
+export interface OrderItem {
+  menuItemId: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+export interface Order {
+  id: string;
+  spotId: string;
+  customerUserId: string;
+  status: OrderStatus;
+  items: OrderItem[];
+  total: number;
+  note?: string;
+  pickupTime?: string;
+  createdAt: string;
+}
+
 export interface Collection {
   id: string;
   name: string;

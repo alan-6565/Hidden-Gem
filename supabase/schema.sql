@@ -261,6 +261,51 @@ drop trigger if exists trg_post_comment_insert on post_comments;
 create trigger trg_post_comment_insert after insert on post_comments
   for each row execute function increment_post_comment_count();
 
+-- ── Orders (preorder / pay-at-pickup) ──────────────────────────────────
+-- No real payment processor is wired up yet (that needs Stripe Connect,
+-- which requires each business owner's own account onboarding), so this
+-- is order-ahead-and-pay-in-person, not a charged transaction.
+create table if not exists orders (
+  id text primary key default gen_random_uuid()::text,
+  spot_id text not null references spots(id) on delete cascade,
+  customer_user_id text not null,
+  status text not null default 'pending' check (status in ('pending','accepted','ready','completed','declined','cancelled')),
+  items jsonb not null default '[]',
+  total numeric not null default 0,
+  note text,
+  pickup_time text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+alter table orders enable row level security;
+
+-- Customers can see/manage their own orders; owners can see/manage
+-- orders placed against spots they own. Kept as broad "for all" policies
+-- (rather than granular per-action) since there's no real money at stake
+-- yet — worst case is someone edits their own order's status, which they
+-- could just as easily simulate by not showing up to pick it up.
+drop policy if exists "customer manage own order" on orders;
+create policy "customer manage own order" on orders for all
+  using (auth.uid()::text = customer_user_id)
+  with check (auth.uid()::text = customer_user_id);
+
+drop policy if exists "owner manage orders for their spots" on orders;
+create policy "owner manage orders for their spots" on orders for all
+  using (exists (select 1 from spots where spots.id = orders.spot_id and spots.owner_user_id = auth.uid()::text))
+  with check (exists (select 1 from spots where spots.id = orders.spot_id and spots.owner_user_id = auth.uid()::text));
+
+create or replace function set_order_updated_at() returns trigger as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_order_updated_at on orders;
+create trigger trg_order_updated_at before update on orders
+  for each row execute function set_order_updated_at();
+
 -- ── Seed data ───────────────────────────────────────────────────────────
 insert into spots (id, name, category, tags, is_home_based, lat, lng, address, service_area, price_range, description, photos, hours, menu, tea_score, worth_the_hype_votes, hidden_gem_votes) values
 ('spot-1', 'Matcha Moon', 'matcha', array['cute interior','good for photos','study-friendly'], false, 37.7699, -122.4469, '1234 Haight St, San Francisco, CA', null, '$$', 'Plant-filled matcha bar known for its strawberry matcha and quiet study corner.',
