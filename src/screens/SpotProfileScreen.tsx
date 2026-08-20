@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import RatingStars from '../components/RatingStars';
@@ -24,14 +25,18 @@ import { isPromoted } from '../utils/promotion';
 import { CATEGORY_LABELS } from '../constants/categories';
 import { colors, radius, spacing } from '../theme';
 import { RootStackParamList } from '../navigation/types';
+import { distanceMiles, formatDistance } from '../utils/geo';
+import { useUserLocation } from '../utils/useUserLocation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SpotProfile'>;
 
 export default function SpotProfileScreen({ route, navigation }: Props) {
   const { spotId } = route.params;
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { spots, reviews, isSaved, toggleSaved, claimSpot } = useAppData();
   const { user } = useAuth();
+  const userLocation = useUserLocation();
   const spot = spots.find((s) => s.id === spotId);
   const saved = isSaved(spotId);
   const [sortBy, setSortBy] = useState<'helpful' | 'recent' | 'highest'>('helpful');
@@ -50,6 +55,9 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
   const distribution = getRatingDistribution(spot.id, reviews);
   const maxDistribution = Math.max(1, ...distribution);
   const open = isOpenNow(spot.hours);
+  const distance = formatDistance(
+    distanceMiles(userLocation.coords, { lat: spot.lat, lng: spot.lng }),
+  );
 
   const allSpotReviews = reviews.filter((r) => r.spotId === spot.id);
   const recommendPercent =
@@ -116,16 +124,35 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <FlatList
-        data={spot.photos}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(uri, i) => `${uri}-${i}`}
-        renderItem={({ item }) => (
-          <Image source={{ uri: item }} style={{ width, height: 240 }} />
-        )}
-      />
+      <View style={styles.photoWrapper}>
+        <FlatList
+          data={spot.photos}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(uri, i) => `${uri}-${i}`}
+          renderItem={({ item }) => (
+            <Image source={{ uri: item }} style={{ width, height: 240 }} />
+          )}
+        />
+        <View style={[styles.photoOverlayRow, { top: insets.top + spacing.xs }]}>
+          <Pressable style={styles.photoOverlayButton} onPress={() => navigation.goBack()}>
+            <Ionicons name="chevron-back" size={20} color="#fff" />
+          </Pressable>
+          <View style={styles.photoOverlayRight}>
+            <Pressable style={styles.photoOverlayButton} onPress={handleShare}>
+              <Ionicons name="share-social-outline" size={18} color="#fff" />
+            </Pressable>
+            <Pressable style={styles.photoOverlayButton} onPress={() => toggleSaved(spotId)}>
+              <Ionicons
+                name={saved ? 'heart' : 'heart-outline'}
+                size={18}
+                color={saved ? colors.primary : '#fff'}
+              />
+            </Pressable>
+          </View>
+        </View>
+      </View>
 
       <View style={styles.section}>
         <View style={styles.nameRow}>
@@ -137,7 +164,10 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
               <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
             )}
           </View>
-          <KuppioScoreBadge score={spot.teaScore} />
+          <View style={styles.scoreColumn}>
+            <KuppioScoreBadge score={spot.teaScore} variant="light" />
+            <Text style={styles.scoreCaption}>Kuppio Score</Text>
+          </View>
         </View>
         <View style={styles.ratingRow}>
           <RatingStars rating={rating} size={15} />
@@ -145,7 +175,10 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             {rating.toFixed(1)} ({reviewCount} reviews) · {CATEGORY_LABELS[spot.category]}
           </Text>
         </View>
-        <Text style={styles.address}>{spot.isHomeBased ? spot.serviceArea : spot.address}</Text>
+        <View style={styles.addressRow}>
+          <Text style={styles.address}>{spot.isHomeBased ? spot.serviceArea : spot.address}</Text>
+          <Text style={styles.distanceText}>{distance}</Text>
+        </View>
         <Text style={[styles.status, { color: open ? colors.success : colors.textMuted }]}>
           {getStatusLabel(spot.hours)}
         </Text>
@@ -248,6 +281,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
       </View>
 
       <View style={styles.section}>
+        <Text style={styles.sectionTitle}>What people say</Text>
         {recommendPercent !== null && (
           <View style={styles.recommendRow}>
             <Ionicons name="thumbs-up" size={14} color={colors.success} />
@@ -329,6 +363,29 @@ const styles = StyleSheet.create({
   content: {
     paddingBottom: spacing.xl,
   },
+  photoWrapper: {
+    position: 'relative',
+  },
+  photoOverlayRow: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  photoOverlayRight: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  photoOverlayButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   section: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,
@@ -350,6 +407,15 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: '800',
     color: colors.text,
+  },
+  scoreColumn: {
+    alignItems: 'center',
+  },
+  scoreCaption: {
+    fontSize: 10,
+    color: colors.textMuted,
+    fontWeight: '600',
+    marginTop: 3,
   },
   badgeRow: {
     flexDirection: 'row',
@@ -398,10 +464,21 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontWeight: '600',
   },
-  address: {
-    color: colors.textMuted,
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: 4,
+  },
+  address: {
+    flex: 1,
+    color: colors.textMuted,
     fontSize: 13,
+  },
+  distanceText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
   },
   status: {
     fontSize: 13,

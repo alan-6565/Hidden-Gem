@@ -83,7 +83,7 @@ export default function RootNavigator() {
       <Stack.Screen
         name="SpotProfile"
         component={SpotProfileScreen}
-        options={{ title: '' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="AddReview"
