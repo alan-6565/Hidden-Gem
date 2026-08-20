@@ -1,4 +1,6 @@
-import * as FileSystem from 'expo-file-system';
+// SDK 57 deprecated readAsStringAsync on the top-level "expo-file-system"
+// import — it now throws at runtime. The legacy import path still works.
+import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from './supabase';
