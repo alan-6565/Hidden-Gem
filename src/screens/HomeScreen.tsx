@@ -9,7 +9,7 @@ import CategoryIconButton from '../components/CategoryIconButton';
 import SpotTrendingCard from '../components/SpotTrendingCard';
 import SpotDropCard from '../components/SpotDropCard';
 import SpotHeroCard from '../components/SpotHeroCard';
-import { CATEGORY_ICONS, CATEGORY_LABELS } from '../constants/categories';
+import { CATEGORY_COLORS, CATEGORY_ICONS, CATEGORY_LABELS } from '../constants/categories';
 import { colors, radius, spacing } from '../theme';
 import { TabScreenProps } from '../navigation/types';
 import { useUserLocation } from '../utils/useUserLocation';
@@ -29,9 +29,14 @@ const HOME_CATEGORY_LABELS: Record<SpotCategory, string> = {
   food_truck: 'Trucks',
 };
 
-const CATEGORIES: { key: CategoryFilter; label: string; icon?: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'all', label: 'All', icon: 'grid-outline' },
-  ...HOME_CATEGORIES.map((key) => ({ key, label: HOME_CATEGORY_LABELS[key], icon: CATEGORY_ICONS[key] })),
+const CATEGORIES: { key: CategoryFilter; label: string; icon?: keyof typeof Ionicons.glyphMap; color: string }[] = [
+  { key: 'all', label: 'All', icon: 'grid-outline', color: colors.primary },
+  ...HOME_CATEGORIES.map((key) => ({
+    key,
+    label: HOME_CATEGORY_LABELS[key],
+    icon: CATEGORY_ICONS[key],
+    color: CATEGORY_COLORS[key],
+  })),
 ];
 
 export default function HomeScreen({ navigation }: Props) {
@@ -101,6 +106,7 @@ export default function HomeScreen({ navigation }: Props) {
           <CategoryIconButton
             label={item.label}
             icon={item.icon}
+            color={item.color}
             active={activeCategory === item.key}
             onPress={() => setActiveCategory(item.key)}
           />
@@ -108,7 +114,12 @@ export default function HomeScreen({ navigation }: Props) {
       />
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>🔥 Happening Today</Text>
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>🔥 Happening Today</Text>
+          <Pressable onPress={() => navigation.navigate('Map')}>
+            <Text style={styles.seeAll}>See all</Text>
+          </Pressable>
+        </View>
         {happeningTodaySpots.length === 0 ? (
           <Text style={styles.emptyText}>Nothing happening yet.</Text>
         ) : (
@@ -130,7 +141,12 @@ export default function HomeScreen({ navigation }: Props) {
 
       {hiddenGemSpot && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>💎 Hidden Gems Near You</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>💎 Hidden Gems Near You</Text>
+            <Pressable onPress={() => navigation.navigate('Map')}>
+              <Text style={styles.seeAll}>See all</Text>
+            </Pressable>
+          </View>
           <SpotHeroCard spot={hiddenGemSpot} onPress={() => goToSpot(hiddenGemSpot.id)} />
         </View>
       )}
@@ -239,11 +255,21 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     paddingHorizontal: spacing.md,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: spacing.sm,
+  },
+  seeAll: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
   },
   emptyText: {
     color: colors.textMuted,

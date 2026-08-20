@@ -20,10 +20,9 @@ export default function SpotHeroCard({ spot, onPress }: Props) {
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
-      <View style={styles.imageWrapper}>
-        <Image source={{ uri: spot.photos[0] }} style={styles.image} />
-        <KuppioScoreBadge score={spot.teaScore} style={styles.scoreBadge} />
-      </View>
+      <Image source={{ uri: spot.photos[0] }} style={styles.image} />
+      <KuppioScoreBadge score={spot.teaScore} style={styles.scoreBadge} />
+      <View style={styles.scrim} />
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={1}>
           {spot.name}
@@ -42,18 +41,13 @@ export default function SpotHeroCard({ spot, onPress }: Props) {
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
     borderRadius: radius.md,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  imageWrapper: {
     position: 'relative',
   },
   image: {
     width: '100%',
-    height: 160,
+    height: 220,
     backgroundColor: colors.cream,
   },
   scoreBadge: {
@@ -61,13 +55,25 @@ const styles = StyleSheet.create({
     top: spacing.sm,
     right: spacing.sm,
   },
+  scrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 110,
+    backgroundColor: colors.dark,
+    opacity: 0.55,
+  },
   body: {
-    padding: spacing.md,
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    bottom: spacing.md,
   },
   name: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
-    color: colors.text,
+    color: '#fff',
   },
   ratingRow: {
     flexDirection: 'row',
@@ -77,13 +83,13 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     fontSize: 12,
-    color: colors.textMuted,
+    color: 'rgba(255,255,255,0.85)',
     fontWeight: '600',
   },
   tagLine: {
     fontSize: 12,
-    color: colors.matchaDark,
-    fontWeight: '600',
+    color: '#fff',
+    fontWeight: '700',
     marginTop: 4,
   },
 });
