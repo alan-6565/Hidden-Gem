@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Region } from 'react-native-maps';
@@ -15,14 +15,16 @@ import { MOCK_USER_LOCATION } from '../utils/geo';
 import { useUserLocation } from '../utils/useUserLocation';
 import { useSearchFilters } from '../context/SearchFilterContext';
 import { applySearchFilters, DEFAULT_SEARCH_FILTERS } from '../utils/searchFilters';
+import { isPromoted } from '../utils/promotion';
 
 type Props = TabScreenProps<'Map'>;
 
 const CATEGORY_FILTERS: { key: SpotCategory | 'all'; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'coffee', label: 'Cafes' },
-  { key: 'brunch', label: 'Brunch' },
+  { key: 'matcha', label: 'Matcha' },
   { key: 'dessert', label: 'Desserts' },
+  { key: 'home_based', label: 'Home' },
 ];
 
 const REGION_DELTA = { latitudeDelta: 0.12, longitudeDelta: 0.12 };
@@ -43,6 +45,7 @@ export default function MapScreen({ navigation }: Props) {
   const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
   const [addingBusiness, setAddingBusiness] = useState(false);
   const [currentRegion, setCurrentRegion] = useState<Region>(INITIAL_REGION);
+  const [trendingDismissed, setTrendingDismissed] = useState(false);
   const userLocation = useUserLocation();
   // Custom Marker children with icon glyphs can render blank on iOS if a
   // view-snapshot (tracksViewChanges=false) is taken before the icon font
@@ -69,6 +72,16 @@ export default function MapScreen({ navigation }: Props) {
   }, [spots, category, openNowOnly, filters, reviews, userLocation.isRealLocation, userLocation.coords]);
 
   const selectedSpot = spots.find((s) => s.id === selectedSpotId) ?? null;
+
+  const trendingSpots = useMemo(() => {
+    return [...filteredSpots]
+      .sort((a, b) => {
+        const promoDiff = Number(isPromoted(b)) - Number(isPromoted(a));
+        if (promoDiff !== 0) return promoDiff;
+        return b.teaScore - a.teaScore;
+      })
+      .slice(0, 10);
+  }, [filteredSpots]);
 
   useEffect(() => {
     if (userLocation.isRealLocation) {
@@ -223,6 +236,45 @@ export default function MapScreen({ navigation }: Props) {
         </View>
       )}
 
+      {!addingBusiness && !selectedSpot && !trendingDismissed && trendingSpots.length > 0 && (
+        <View style={[styles.trendingCard, { marginBottom: insets.bottom + spacing.sm }]}>
+          <View style={styles.trendingHeader}>
+            <View style={styles.trendingHeaderText}>
+              <Text style={styles.trendingTitle}>🔥 {trendingSpots.length} trending spots</Text>
+              <Text style={styles.trendingSubtitle}>in this area</Text>
+            </View>
+            <Pressable
+              style={styles.trendingClose}
+              onPress={() => setTrendingDismissed(true)}
+              hitSlop={8}
+            >
+              <Ionicons name="close" size={18} color={colors.textMuted} />
+            </Pressable>
+          </View>
+          <FlatList
+            data={trendingSpots}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.trendingThumbRow}
+            renderItem={({ item }) => (
+              <Pressable
+                style={styles.trendingThumb}
+                onPress={() => {
+                  setSelectedSpotId(item.id);
+                  mapRef.current?.animateToRegion(
+                    { latitude: item.lat, longitude: item.lng, ...REGION_DELTA },
+                    400,
+                  );
+                }}
+              >
+                <Image source={{ uri: item.photos[0] }} style={styles.trendingThumbImage} />
+              </Pressable>
+            )}
+          />
+        </View>
+      )}
+
       {addingBusiness && (
         <View style={[styles.placementBar, { paddingBottom: insets.bottom + spacing.sm }]}>
           <Pressable style={styles.placementCancel} onPress={() => setAddingBusiness(false)}>
@@ -330,6 +382,60 @@ const styles = StyleSheet.create({
     left: spacing.md,
     right: spacing.md,
     bottom: spacing.md,
+  },
+  trendingCard: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    bottom: spacing.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  },
+  trendingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  trendingHeaderText: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: spacing.xs,
+  },
+  trendingTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  trendingSubtitle: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
+  trendingClose: {
+    padding: 2,
+  },
+  trendingThumbRow: {
+    paddingHorizontal: spacing.xs,
+    gap: spacing.sm,
+  },
+  trendingThumb: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.sm,
+    overflow: 'hidden',
+    marginRight: spacing.sm,
+  },
+  trendingThumbImage: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: colors.cream,
   },
   placementHint: {
     position: 'absolute',
