@@ -34,13 +34,15 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
   const { spotId } = route.params;
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { spots, reviews, isSaved, toggleSaved, claimSpot } = useAppData();
+  const { spots, reviews, isSaved, toggleSaved, myVerifications } = useAppData();
   const { user } = useAuth();
   const userLocation = useUserLocation();
   const spot = spots.find((s) => s.id === spotId);
   const saved = isSaved(spotId);
   const [sortBy, setSortBy] = useState<'helpful' | 'recent' | 'highest'>('helpful');
-  const [claiming, setClaiming] = useState(false);
+  const pendingVerification = myVerifications.find(
+    (v) => v.status === 'pending' && v.existingSpotId === spotId,
+  );
 
   if (!spot) {
     return (
@@ -97,29 +99,6 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
     } catch {
       // User cancelled the share sheet — nothing to do.
     }
-  };
-
-  const handleClaim = () => {
-    Alert.alert(
-      'Claim this business?',
-      `You'll be able to edit ${spot.name}'s hours, menu, and photos, and your posts here will show an Owner badge. Anyone can claim an unclaimed spot for now — there's no verification yet.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Claim it',
-          onPress: async () => {
-            setClaiming(true);
-            try {
-              await claimSpot(spotId);
-            } catch (e: any) {
-              Alert.alert("Couldn't claim this business", e?.message ?? 'Please try again.');
-            } finally {
-              setClaiming(false);
-            }
-          },
-        },
-      ],
-    );
   };
 
   return (
@@ -203,14 +182,22 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
           </View>
         )}
 
-        {spot.ownerUserId === null && (
+        {spot.ownerUserId === null && pendingVerification && (
+          <View style={styles.claimBanner}>
+            <Ionicons name="time-outline" size={18} color={colors.primaryDark} />
+            <Text style={styles.claimBannerText}>Your claim is pending review</Text>
+            <Pressable onPress={() => navigation.navigate('VerificationStatus')}>
+              <Text style={styles.claimBannerAction}>View status</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {spot.ownerUserId === null && !pendingVerification && (
           <View style={styles.claimBanner}>
             <Ionicons name="storefront-outline" size={18} color={colors.primaryDark} />
             <Text style={styles.claimBannerText}>Is this your business?</Text>
-            <Pressable onPress={handleClaim} disabled={claiming}>
-              <Text style={styles.claimBannerAction}>
-                {claiming ? 'Claiming…' : 'Claim it'}
-              </Text>
+            <Pressable onPress={() => navigation.navigate('ClaimBusiness', { spotId })}>
+              <Text style={styles.claimBannerAction}>Claim it</Text>
             </Pressable>
           </View>
         )}

@@ -1,12 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { Collection, Comment, Order, OrderStatus, Post, Review, Spot } from '../types';
+import { BusinessVerification, Collection, Comment, NewBusinessVerificationInput, Order, OrderStatus, Post, Review, Spot } from '../types';
 import { useAuth } from './AuthContext';
 import { CURRENT_USER_DISPLAY, getDisplayNameFromEmail } from '../constants';
 import {
-  claimSpot as apiClaimSpot,
   fetchCollections,
   fetchComments,
   fetchLikedPostIds,
+  fetchMyVerifications,
   fetchOrders,
   fetchPosts,
   fetchReviews,
@@ -17,15 +17,14 @@ import {
   insertOrder,
   insertPost,
   insertReview,
-  insertSpot,
   NewOrderInput,
   NewPostInput,
   NewReviewInput,
-  NewSpotInput,
   setPostLiked,
   setPostSaved,
   setSpotSaved,
   SpotEditInput,
+  submitBusinessVerification,
   updateOrderStatus as apiUpdateOrderStatus,
   updateSpot as apiUpdateSpot,
 } from '../lib/api';
@@ -40,6 +39,7 @@ interface DataContextValue {
   savedSpotIds: string[];
   likedPostIds: string[];
   savedPostIds: string[];
+  myVerifications: BusinessVerification[];
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -52,9 +52,8 @@ interface DataContextValue {
   addReview: (input: NewReviewInput) => Promise<void>;
   addPost: (input: NewPostInput) => Promise<void>;
   addComment: (postId: string, text: string) => Promise<void>;
-  claimSpot: (spotId: string) => Promise<void>;
   updateSpot: (spotId: string, input: SpotEditInput) => Promise<void>;
-  addSpot: (input: NewSpotInput) => Promise<Spot>;
+  submitVerification: (input: NewBusinessVerificationInput) => Promise<BusinessVerification>;
   placeOrder: (input: NewOrderInput) => Promise<Order>;
   setOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
 }
@@ -72,6 +71,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [savedSpotIds, setSavedSpotIds] = useState<string[]>([]);
   const [likedPostIds, setLikedPostIds] = useState<string[]>([]);
   const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
+  const [myVerifications, setMyVerifications] = useState<BusinessVerification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,6 +89,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         savedData,
         likedData,
         savedPostData,
+        verificationsData,
       ] = await Promise.all([
         fetchSpots(),
         fetchReviews(),
@@ -99,6 +100,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         fetchSavedSpotIds(user.id),
         fetchLikedPostIds(user.id),
         fetchSavedPostIds(user.id),
+        fetchMyVerifications(user.id),
       ]);
       setSpots(spotsData);
       setReviews(reviewsData);
@@ -109,6 +111,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setSavedSpotIds(savedData);
       setLikedPostIds(likedData);
       setSavedPostIds(savedPostData);
+      setMyVerifications(verificationsData);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load data');
     } finally {
@@ -223,25 +226,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [user],
   );
 
-  const claimSpot = useCallback(
-    async (spotId: string) => {
-      if (!user) return;
-      const updated = await apiClaimSpot(user.id, spotId);
-      setSpots((prev) => prev.map((s) => (s.id === spotId ? updated : s)));
-    },
-    [user],
-  );
-
   const updateSpot = useCallback(async (spotId: string, input: SpotEditInput) => {
     const updated = await apiUpdateSpot(spotId, input);
     setSpots((prev) => prev.map((s) => (s.id === spotId ? updated : s)));
   }, []);
 
-  const addSpot = useCallback(
-    async (input: NewSpotInput) => {
-      if (!user) throw new Error('You must be signed in to add a business.');
-      const created = await insertSpot(user.id, input);
-      setSpots((prev) => [created, ...prev]);
+  const submitVerification = useCallback(
+    async (input: NewBusinessVerificationInput) => {
+      if (!user) throw new Error('You must be signed in to submit a business for review.');
+      const created = await submitBusinessVerification(user.id, input);
+      setMyVerifications((prev) => [created, ...prev]);
       return created;
     },
     [user],
@@ -282,6 +276,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         savedSpotIds,
         likedPostIds,
         savedPostIds,
+        myVerifications,
         loading,
         error,
         refresh: load,
@@ -294,9 +289,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         addReview,
         addPost,
         addComment,
-        claimSpot,
         updateSpot,
-        addSpot,
+        submitVerification,
         placeOrder,
         setOrderStatus,
       }}

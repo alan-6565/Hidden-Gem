@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
+import { checkIsAdmin } from '../lib/api';
 import { CURRENT_USER_DISPLAY } from '../constants';
 import { SpotCategory } from '../types';
 import FilterChip from '../components/FilterChip';
@@ -35,7 +36,15 @@ export default function ProfileScreen({ navigation }: Props) {
   const { spots, collections, savedSpotIds, toggleSaved } = useAppData();
   const { user, signOut } = useAuth();
   const [filter, setFilter] = useState<SpotCategory | 'all'>('all');
+  const [isAdmin, setIsAdmin] = useState(false);
   const displayName = user?.email?.split('@')[0] ?? CURRENT_USER_DISPLAY.name;
+
+  useEffect(() => {
+    if (!user) return;
+    checkIsAdmin(user.id)
+      .then(setIsAdmin)
+      .catch(() => setIsAdmin(false));
+  }, [user]);
 
   const savedSpots = spots
     .filter((s) => savedSpotIds.includes(s.id))
@@ -60,6 +69,20 @@ export default function ProfileScreen({ navigation }: Props) {
         <Text style={styles.ordersRowText}>Orders</Text>
         <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
       </Pressable>
+
+      <Pressable style={styles.ordersRow} onPress={() => navigation.navigate('VerificationStatus')}>
+        <Ionicons name="document-text-outline" size={20} color={colors.text} />
+        <Text style={styles.ordersRowText}>My business applications</Text>
+        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+      </Pressable>
+
+      {isAdmin && (
+        <Pressable style={styles.ordersRow} onPress={() => navigation.navigate('AdminReview')}>
+          <Ionicons name="shield-checkmark-outline" size={20} color={colors.text} />
+          <Text style={styles.ordersRowText}>Review applications</Text>
+          <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+        </Pressable>
+      )}
 
       <Text style={styles.sectionTitle}>Your Collections</Text>
       {collections.map((col) => (

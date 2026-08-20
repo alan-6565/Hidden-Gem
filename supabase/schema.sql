@@ -106,20 +106,21 @@ alter table saved_spots enable row level security;
 drop policy if exists "public read spots" on spots;
 create policy "public read spots" on spots for select using (true);
 
--- Claiming: anyone can update an unclaimed spot (owner_user_id is null) as
--- long as the result makes them the owner; once claimed, only that owner
--- can keep editing it.
+-- Ownership is only ever granted by apply_business_verification_approval()
+-- below (a security-definer trigger), never directly by the client — see
+-- the business_verifications section further down. Once a spot has an
+-- owner, only that owner can keep editing it; owner_user_id itself can
+-- only ever be set to the caller's own id, so no takeover via update.
 drop policy if exists "own or claim spot" on spots;
-create policy "own or claim spot" on spots for update
-  using (owner_user_id is null or auth.uid()::text = owner_user_id)
+create policy "owner can update own spot" on spots for update
+  using (auth.uid()::text = owner_user_id)
   with check (auth.uid()::text = owner_user_id);
 
--- Creating a brand-new spot (e.g. a home-based seller with no existing
--- listing to claim) — you can only insert one that's immediately owned
--- by yourself.
+-- No insert policy at all for the authenticated role — all spot creation
+-- happens exclusively inside apply_business_verification_approval().
 drop policy if exists "insert own spot" on spots;
-create policy "insert own spot" on spots for insert
-  with check (auth.uid()::text = owner_user_id);
+
+create unique index if not exists spots_name_unique_idx on spots (lower(name));
 
 -- reviews stay publicly readable (that's the point of a review), but you can
 -- only post a review as yourself, matching the authenticated user's id.
@@ -397,3 +398,159 @@ create policy "users upload own media" on storage.objects for insert
 drop policy if exists "users delete own media" on storage.objects;
 create policy "users delete own media" on storage.objects for delete
   using (bucket_id = 'media' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ── Business verification ──────────────────────────────────────────────
+-- Claiming an existing spot or creating a new business no longer grants
+-- ownership instantly. Applicants submit an ID photo, a business/storefront
+-- photo, contact info, and (optionally) a Google Maps listing link for a
+-- human admin to review. Ownership is only ever granted by
+-- apply_business_verification_approval() below, when an admin flips a
+-- pending row's status to 'approved' — never directly by the client.
+
+-- admins: the reviewer allowlist. Add your own user id here once via
+-- Supabase Studio; there's no in-app signup path for this table.
+create table if not exists admins (user_id text primary key);
+alter table admins enable row level security;
+
+drop policy if exists "self check admin" on admins;
+-- Lets a client check only whether ITS OWN id is present (to conditionally
+-- show the admin review screen) without leaking the full admin list.
+create policy "self check admin" on admins for select using (auth.uid()::text = user_id);
+
+create or replace function is_admin() returns boolean as $$
+  select exists(select 1 from admins where user_id = auth.uid()::text);
+$$ language sql stable;
+
+create table if not exists business_verifications (
+  id text primary key default gen_random_uuid()::text,
+  user_id text not null,
+  claim_type text not null check (claim_type in ('claim_existing', 'create_new')),
+  existing_spot_id text references spots(id),
+  business_name text not null,
+  category text,
+  is_home_based boolean,
+  lat double precision,
+  lng double precision,
+  address text,
+  service_area text,
+  price_range text,
+  description text,
+  photos text[],
+  hours jsonb,
+  menu jsonb,
+  contact_email text not null,
+  contact_phone text,
+  google_maps_url text,
+  id_photo_path text not null,
+  business_photo_path text not null,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  reviewer_note text,
+  created_at timestamptz not null default now(),
+  reviewed_at timestamptz,
+  constraint business_verifications_shape_check check (
+    (claim_type = 'claim_existing' and existing_spot_id is not null and category is null)
+    or
+    (claim_type = 'create_new' and existing_spot_id is null and category is not null
+      and lat is not null and lng is not null and price_range is not null)
+  )
+);
+alter table business_verifications enable row level security;
+
+drop policy if exists "insert own verification" on business_verifications;
+create policy "insert own verification" on business_verifications for insert
+  with check (auth.uid()::text = user_id);
+
+drop policy if exists "read own or admin" on business_verifications;
+create policy "read own or admin" on business_verifications for select
+  using (auth.uid()::text = user_id or is_admin());
+
+-- The admin can update any column here (status, reviewer_note) — the client
+-- (reviewVerification) must only ever send { status, reviewer_note }, never
+-- a full row, since RLS doesn't restrict which columns change.
+drop policy if exists "admin update status" on business_verifications;
+create policy "admin update status" on business_verifications for update
+  using (is_admin()) with check (is_admin());
+
+-- reviewed_at is set server-side so it's correct whether a status change
+-- comes from the in-app admin screen or a direct edit in Supabase Studio.
+create or replace function set_verification_reviewed_at() returns trigger as $$
+begin
+  if new.status is distinct from old.status then
+    new.reviewed_at := now();
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_verification_reviewed_at on business_verifications;
+create trigger trg_verification_reviewed_at before update on business_verifications
+  for each row execute function set_verification_reviewed_at();
+
+-- The only place spot ownership is ever granted. security definer so its
+-- internal spots writes bypass spots' RLS (the admin invoking the UPDATE is
+-- a normal authenticated role, not the table owner). Deliberately a
+-- trigger, not a callable RPC: authorization lives once, in the
+-- business_verifications update policy above — no separate is_admin() check
+-- to remember inside a function body, no "revoke execute from public" to
+-- remember either. Function owner (postgres, via the SQL Editor) has
+-- BYPASSRLS — if this migration is ever run under a different, non-
+-- bypassing role, this trigger will start failing with RLS-denied errors.
+create or replace function apply_business_verification_approval() returns trigger as $$
+declare
+  new_id text;
+begin
+  if new.claim_type = 'claim_existing' then
+    update spots set owner_user_id = new.user_id
+      where id = new.existing_spot_id and owner_user_id is null;
+    if not found then
+      raise exception 'This spot was already claimed by someone else.';
+    end if;
+  else
+    if exists (select 1 from spots where lower(name) = lower(new.business_name)) then
+      raise exception 'A business named "%" already exists.', new.business_name;
+    end if;
+    insert into spots (
+      name, category, is_home_based, lat, lng, address, service_area,
+      price_range, description, photos, hours, menu, owner_user_id
+    ) values (
+      new.business_name, new.category, new.is_home_based, new.lat, new.lng,
+      new.address, new.service_area, new.price_range, new.description,
+      coalesce(new.photos, '{}'), coalesce(new.hours, '[]'), coalesce(new.menu, '[]'),
+      new.user_id
+    ) returning id into new_id;
+    -- Doesn't change status, so the trigger's when-clause below correctly
+    -- does not refire on this second update (no infinite loop).
+    update business_verifications set existing_spot_id = new_id where id = new.id;
+  end if;
+  return new;
+end;
+$$ language plpgsql security definer set search_path = public;
+
+drop trigger if exists trg_apply_business_verification_approval on business_verifications;
+create trigger trg_apply_business_verification_approval
+  after update on business_verifications
+  for each row
+  when (old.status is distinct from 'approved' and new.status = 'approved')
+  execute function apply_business_verification_approval();
+
+-- ── Storage: private bucket for ID / business verification photos ─────────
+-- Unlike the public `media` bucket, these are never publicly readable —
+-- only the uploader and admins can view them (via signed URLs). ID/business
+-- photos are kept indefinitely for now (no auto-delete job); the delete
+-- policy below at least makes a manual cleanup pass possible later.
+insert into storage.buckets (id, name, public) values ('verification-docs', 'verification-docs', false)
+on conflict (id) do nothing;
+
+drop policy if exists "own or admin read verification docs" on storage.objects;
+create policy "own or admin read verification docs" on storage.objects for select
+  using (bucket_id = 'verification-docs' and
+    ((storage.foldername(name))[1] = auth.uid()::text or is_admin()));
+
+drop policy if exists "users upload own verification docs" on storage.objects;
+create policy "users upload own verification docs" on storage.objects for insert
+  with check (bucket_id = 'verification-docs' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "own or admin delete verification docs" on storage.objects;
+create policy "own or admin delete verification docs" on storage.objects for delete
+  using (bucket_id = 'verification-docs' and
+    ((storage.foldername(name))[1] = auth.uid()::text or is_admin()));

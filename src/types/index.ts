@@ -128,3 +128,56 @@ export interface User {
   savedSpotIds: string[];
   collectionIds: string[];
 }
+
+export type VerificationClaimType = 'claim_existing' | 'create_new';
+export type VerificationStatus = 'pending' | 'approved' | 'rejected';
+
+export interface BusinessVerification {
+  id: string;
+  userId: string;
+  claimType: VerificationClaimType;
+  existingSpotId: string | null;
+  businessName: string;
+  category: SpotCategory | null;
+  isHomeBased: boolean | null;
+  lat: number | null;
+  lng: number | null;
+  address?: string;
+  serviceArea?: string;
+  priceRange: PriceRange | null;
+  description?: string;
+  photos: string[];
+  hours: OpenHours[];
+  menu: MenuItem[];
+  contactEmail: string;
+  contactPhone?: string;
+  googleMapsUrl?: string;
+  idPhotoPath: string;
+  businessPhotoPath: string;
+  status: VerificationStatus;
+  reviewerNote?: string;
+  createdAt: string;
+  reviewedAt: string | null;
+}
+
+export interface NewBusinessVerificationInput {
+  claimType: VerificationClaimType;
+  existingSpotId?: string;
+  businessName: string;
+  category?: SpotCategory;
+  isHomeBased?: boolean;
+  lat?: number;
+  lng?: number;
+  address?: string;
+  serviceArea?: string;
+  priceRange?: PriceRange;
+  description?: string;
+  photos?: string[];
+  hours?: OpenHours[];
+  menu?: MenuItem[];
+  contactEmail: string;
+  contactPhone?: string;
+  googleMapsUrl?: string;
+  idPhotoPath: string;
+  businessPhotoPath: string;
+}

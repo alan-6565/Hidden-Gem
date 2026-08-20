@@ -15,7 +15,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { pickMediaFromLibrary, uploadMedia } from '../lib/mediaUpload';
+import { pickMediaFromLibrary, uploadMedia, uploadVerificationDoc } from '../lib/mediaUpload';
 import { MenuItem, OpenHours, PriceRange, SpotCategory } from '../types';
 import { colors, radius, spacing } from '../theme';
 import { RootStackParamList } from '../navigation/types';
@@ -44,7 +44,7 @@ interface DayState {
 export default function CreateBusinessScreen({ route, navigation }: Props) {
   const { lat, lng } = route.params;
   const insets = useSafeAreaInsets();
-  const { addSpot } = useAppData();
+  const { submitVerification } = useAppData();
   const { user } = useAuth();
 
   const [name, setName] = useState('');
@@ -56,6 +56,13 @@ export default function CreateBusinessScreen({ route, navigation }: Props) {
   const [priceRange, setPriceRange] = useState<PriceRange>('$');
   const [photos, setPhotos] = useState<string[]>([]);
   const [menu, setMenu] = useState<MenuItem[]>([]);
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [googleMapsUrl, setGoogleMapsUrl] = useState('');
+  const [idPhotoPath, setIdPhotoPath] = useState<string | null>(null);
+  const [businessPhotoPath, setBusinessPhotoPath] = useState<string | null>(null);
+  const [uploadingIdPhoto, setUploadingIdPhoto] = useState(false);
+  const [uploadingBusinessPhoto, setUploadingBusinessPhoto] = useState(false);
   const [hoursByDay, setHoursByDay] = useState<Record<string, DayState>>(() => {
     const initial: Record<string, DayState> = {};
     for (const day of DAYS) {
@@ -108,9 +115,50 @@ export default function CreateBusinessScreen({ route, navigation }: Props) {
     setPhotos((prev) => prev.filter((p) => p !== uri));
   };
 
+  const handlePickIdPhoto = async () => {
+    if (!user) return;
+    setUploadingIdPhoto(true);
+    try {
+      const picked = await pickMediaFromLibrary({ allowVideos: false });
+      if (!picked) return;
+      const path = await uploadVerificationDoc(user.id, picked);
+      setIdPhotoPath(path);
+    } catch (e: any) {
+      Alert.alert("Couldn't add photo", e?.message ?? 'Please try again.');
+    } finally {
+      setUploadingIdPhoto(false);
+    }
+  };
+
+  const handlePickBusinessPhoto = async () => {
+    if (!user) return;
+    setUploadingBusinessPhoto(true);
+    try {
+      const picked = await pickMediaFromLibrary({ allowVideos: false });
+      if (!picked) return;
+      const path = await uploadVerificationDoc(user.id, picked);
+      setBusinessPhotoPath(path);
+    } catch (e: any) {
+      Alert.alert("Couldn't add photo", e?.message ?? 'Please try again.');
+    } finally {
+      setUploadingBusinessPhoto(false);
+    }
+  };
+
   const handleCreate = async () => {
     if (!name.trim()) {
-      Alert.alert('Add a name', 'Give your business a name before creating it.');
+      Alert.alert('Add a name', 'Give your business a name before submitting it.');
+      return;
+    }
+    if (!contactEmail.trim()) {
+      Alert.alert('Add a contact email', "We'll use this to reach you about your application.");
+      return;
+    }
+    if (!idPhotoPath || !businessPhotoPath) {
+      Alert.alert(
+        'Add verification photos',
+        'A photo ID and a photo of your business (storefront, workspace, or product) are required for review.',
+      );
       return;
     }
     setSaving(true);
@@ -121,8 +169,9 @@ export default function CreateBusinessScreen({ route, navigation }: Props) {
         close: hoursByDay[day].close,
       }));
       const cleanedMenu = menu.filter((item) => item.name.trim().length > 0);
-      const created = await addSpot({
-        name: name.trim(),
+      await submitVerification({
+        claimType: 'create_new',
+        businessName: name.trim(),
         category,
         isHomeBased,
         lat,
@@ -134,10 +183,15 @@ export default function CreateBusinessScreen({ route, navigation }: Props) {
         photos,
         hours,
         menu: cleanedMenu,
+        contactEmail: contactEmail.trim(),
+        contactPhone: contactPhone.trim() || undefined,
+        googleMapsUrl: googleMapsUrl.trim() || undefined,
+        idPhotoPath,
+        businessPhotoPath,
       });
-      navigation.replace('SpotProfile', { spotId: created.id });
+      navigation.replace('VerificationStatus');
     } catch (e: any) {
-      Alert.alert("Couldn't create business", e?.message ?? 'Please try again.');
+      Alert.alert("Couldn't submit for review", e?.message ?? 'Please try again.');
     } finally {
       setSaving(false);
     }
@@ -150,7 +204,8 @@ export default function CreateBusinessScreen({ route, navigation }: Props) {
     >
       <Text style={styles.title}>Add your business</Text>
       <Text style={styles.subtitle}>
-        This pin will be placed at the location you picked on the map.
+        This pin will be placed at the location you picked on the map. We review new
+        businesses before they go live — you'll hear back once it's approved.
       </Text>
 
       <Text style={styles.sectionLabel}>Name</Text>
@@ -324,12 +379,88 @@ export default function CreateBusinessScreen({ route, navigation }: Props) {
         </View>
       ))}
 
+      <Text style={styles.sectionLabel}>Verification</Text>
+      <Text style={styles.verificationHint}>
+        A photo ID and a photo of your business are required so we can confirm you're the
+        owner. These are kept private and only visible to you and our review team.
+      </Text>
+
+      <Text style={styles.sectionLabelInline}>Contact email</Text>
+      <TextInput
+        style={[styles.textInput, { marginTop: spacing.sm }]}
+        value={contactEmail}
+        onChangeText={setContactEmail}
+        placeholder="you@example.com"
+        placeholderTextColor={colors.textMuted}
+        autoCapitalize="none"
+        keyboardType="email-address"
+      />
+
+      <Text style={[styles.sectionLabelInline, { marginTop: spacing.md }]}>
+        Contact phone (optional)
+      </Text>
+      <TextInput
+        style={[styles.textInput, { marginTop: spacing.sm }]}
+        value={contactPhone}
+        onChangeText={setContactPhone}
+        placeholder="(555) 555-5555"
+        placeholderTextColor={colors.textMuted}
+        keyboardType="phone-pad"
+      />
+
+      <Text style={[styles.sectionLabelInline, { marginTop: spacing.md }]}>
+        Google Maps listing (optional)
+      </Text>
+      <TextInput
+        style={[styles.textInput, { marginTop: spacing.sm }]}
+        value={googleMapsUrl}
+        onChangeText={setGoogleMapsUrl}
+        placeholder="Paste your Google Maps link, if you have one"
+        placeholderTextColor={colors.textMuted}
+        autoCapitalize="none"
+      />
+
+      <View style={styles.verificationPhotoRow}>
+        <Pressable
+          style={styles.verificationPhotoTile}
+          onPress={handlePickIdPhoto}
+          disabled={uploadingIdPhoto}
+        >
+          {idPhotoPath ? (
+            <Ionicons name="checkmark-circle" size={22} color={colors.success} />
+          ) : (
+            <Ionicons name="card-outline" size={22} color={colors.textMuted} />
+          )}
+          <Text style={styles.verificationPhotoText}>
+            {uploadingIdPhoto ? 'Uploading…' : idPhotoPath ? 'ID photo added' : 'Add photo ID'}
+          </Text>
+        </Pressable>
+        <Pressable
+          style={styles.verificationPhotoTile}
+          onPress={handlePickBusinessPhoto}
+          disabled={uploadingBusinessPhoto}
+        >
+          {businessPhotoPath ? (
+            <Ionicons name="checkmark-circle" size={22} color={colors.success} />
+          ) : (
+            <Ionicons name="storefront-outline" size={22} color={colors.textMuted} />
+          )}
+          <Text style={styles.verificationPhotoText}>
+            {uploadingBusinessPhoto
+              ? 'Uploading…'
+              : businessPhotoPath
+                ? 'Business photo added'
+                : 'Add business photo'}
+          </Text>
+        </Pressable>
+      </View>
+
       <Pressable
         style={[styles.saveButton, saving && styles.saveButtonDisabled]}
         onPress={handleCreate}
         disabled={saving}
       >
-        <Text style={styles.saveButtonText}>{saving ? 'Creating…' : 'Create business'}</Text>
+        <Text style={styles.saveButtonText}>{saving ? 'Submitting…' : 'Submit for review'}</Text>
       </Pressable>
     </ScrollView>
   );
@@ -568,6 +699,33 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs + 2,
     fontSize: 13,
     color: colors.text,
+  },
+  verificationHint: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  verificationPhotoRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  verificationPhotoTile: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.lg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
+  },
+  verificationPhotoText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textMuted,
+    textAlign: 'center',
   },
   saveButton: {
     backgroundColor: colors.primary,

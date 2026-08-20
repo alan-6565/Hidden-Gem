@@ -1,8 +1,10 @@
 import { supabase } from './supabase';
 import {
+  BusinessVerification,
   Collection,
   Comment,
   MenuItem,
+  NewBusinessVerificationInput,
   OpenHours,
   Order,
   OrderItem,
@@ -325,54 +327,128 @@ export async function insertPost(
   return mapPost(data);
 }
 
-export async function claimSpot(userId: string, spotId: string): Promise<Spot> {
-  const { data, error } = await supabase
-    .from('spots')
-    .update({ owner_user_id: userId })
-    .eq('id', spotId)
-    .select()
-    .single();
-  if (error) throw error;
-  return mapSpot(data);
+// Business verification — ownership is only ever granted once an admin
+// approves a submitted business_verifications row (see supabase/schema.sql,
+// apply_business_verification_approval). There's no client-side path to
+// instantly claim or create-and-own a spot anymore.
+
+function mapVerification(row: any): BusinessVerification {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    claimType: row.claim_type,
+    existingSpotId: row.existing_spot_id ?? null,
+    businessName: row.business_name,
+    category: row.category ?? null,
+    isHomeBased: row.is_home_based ?? null,
+    lat: row.lat ?? null,
+    lng: row.lng ?? null,
+    address: row.address ?? undefined,
+    serviceArea: row.service_area ?? undefined,
+    priceRange: row.price_range ?? null,
+    description: row.description ?? undefined,
+    photos: row.photos ?? [],
+    hours: (row.hours ?? []) as OpenHours[],
+    menu: (row.menu ?? []) as MenuItem[],
+    contactEmail: row.contact_email,
+    contactPhone: row.contact_phone ?? undefined,
+    googleMapsUrl: row.google_maps_url ?? undefined,
+    idPhotoPath: row.id_photo_path,
+    businessPhotoPath: row.business_photo_path,
+    status: row.status,
+    reviewerNote: row.reviewer_note ?? undefined,
+    createdAt: row.created_at,
+    reviewedAt: row.reviewed_at ?? null,
+  };
 }
 
-export interface NewSpotInput {
-  name: string;
-  category: SpotCategory;
-  isHomeBased: boolean;
-  lat: number;
-  lng: number;
-  address?: string;
-  serviceArea?: string;
-  priceRange: PriceRange;
-  description?: string;
-  photos: string[];
-  hours: OpenHours[];
-  menu: MenuItem[];
-}
-
-export async function insertSpot(userId: string, input: NewSpotInput): Promise<Spot> {
+export async function submitBusinessVerification(
+  userId: string,
+  input: NewBusinessVerificationInput,
+): Promise<BusinessVerification> {
   const { data, error } = await supabase
-    .from('spots')
+    .from('business_verifications')
     .insert({
-      name: input.name,
-      category: input.category,
-      is_home_based: input.isHomeBased,
-      lat: input.lat,
-      lng: input.lng,
+      user_id: userId,
+      claim_type: input.claimType,
+      existing_spot_id: input.existingSpotId ?? null,
+      business_name: input.businessName,
+      category: input.category ?? null,
+      is_home_based: input.isHomeBased ?? null,
+      lat: input.lat ?? null,
+      lng: input.lng ?? null,
       address: input.isHomeBased ? null : input.address ?? null,
       service_area: input.isHomeBased ? input.serviceArea ?? null : null,
-      price_range: input.priceRange,
+      price_range: input.priceRange ?? null,
       description: input.description ?? null,
-      photos: input.photos,
-      hours: input.hours,
-      menu: input.menu,
-      owner_user_id: userId,
+      photos: input.photos ?? [],
+      hours: input.hours ?? [],
+      menu: input.menu ?? [],
+      contact_email: input.contactEmail,
+      contact_phone: input.contactPhone ?? null,
+      google_maps_url: input.googleMapsUrl ?? null,
+      id_photo_path: input.idPhotoPath,
+      business_photo_path: input.businessPhotoPath,
     })
     .select()
     .single();
   if (error) throw error;
-  return mapSpot(data);
+  return mapVerification(data);
+}
+
+export async function fetchMyVerifications(userId: string): Promise<BusinessVerification[]> {
+  const { data, error } = await supabase
+    .from('business_verifications')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapVerification);
+}
+
+export async function fetchPendingVerifications(): Promise<BusinessVerification[]> {
+  const { data, error } = await supabase
+    .from('business_verifications')
+    .select('*')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(mapVerification);
+}
+
+export async function reviewVerification(
+  id: string,
+  status: 'approved' | 'rejected',
+  note?: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('business_verifications')
+    .update({ status, reviewer_note: note ?? null })
+    .eq('id', id);
+  if (error) {
+    if (error.code === '23505') {
+      throw new Error('A business with that name already exists.');
+    }
+    throw error;
+  }
+}
+
+export async function checkIsAdmin(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('admins')
+    .select('user_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data !== null;
+}
+
+export async function getVerificationDocUrl(path: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('verification-docs')
+    .createSignedUrl(path, 600);
+  if (error) throw error;
+  return data.signedUrl;
 }
 
 export interface SpotEditInput {

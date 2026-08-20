@@ -16,6 +16,9 @@ import ComposeScreen from '../screens/ComposeScreen';
 import SearchFiltersScreen from '../screens/SearchFiltersScreen';
 import BusinessEditScreen from '../screens/BusinessEditScreen';
 import CreateBusinessScreen from '../screens/CreateBusinessScreen';
+import ClaimBusinessScreen from '../screens/ClaimBusinessScreen';
+import VerificationStatusScreen from '../screens/VerificationStatusScreen';
+import AdminReviewScreen from '../screens/AdminReviewScreen';
 import OrderScreen from '../screens/OrderScreen';
 import OrdersScreen from '../screens/OrdersScreen';
 import { RootStackParamList, TabParamList } from './types';
@@ -109,6 +112,21 @@ export default function RootNavigator() {
         name="CreateBusiness"
         component={CreateBusinessScreen}
         options={{ title: 'Add Your Business' }}
+      />
+      <Stack.Screen
+        name="ClaimBusiness"
+        component={ClaimBusinessScreen}
+        options={{ title: 'Claim Business' }}
+      />
+      <Stack.Screen
+        name="VerificationStatus"
+        component={VerificationStatusScreen}
+        options={{ title: 'My Applications' }}
+      />
+      <Stack.Screen
+        name="AdminReview"
+        component={AdminReviewScreen}
+        options={{ title: 'Review Applications' }}
       />
       <Stack.Screen name="Order" component={OrderScreen} options={{ title: 'Order Ahead' }} />
       <Stack.Screen name="Orders" component={OrdersScreen} options={{ title: 'Orders' }} />
