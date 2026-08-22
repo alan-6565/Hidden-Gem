@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAppData } from '../context/DataContext';
 import { BusinessVerification, VerificationStatus } from '../types';
 import { colors, radius, spacing } from '../theme';
@@ -16,7 +17,16 @@ const STATUS_META: Record<VerificationStatus, { label: string; color: string; bg
 };
 
 export default function VerificationStatusScreen({ navigation }: Props) {
-  const { myVerifications } = useAppData();
+  const { myVerifications, refresh } = useAppData();
+
+  // Approval/rejection happens out-of-band (the admin reviewing on their own
+  // screen) — myVerifications is only loaded once at app launch otherwise,
+  // so without this the status shown here would silently go stale.
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh]),
+  );
 
   const renderItem = ({ item }: { item: BusinessVerification }) => {
     const meta = STATUS_META[item.status];
