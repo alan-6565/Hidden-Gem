@@ -1,8 +1,11 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { BusinessVerification, Collection, Comment, NewBusinessVerificationInput, Order, OrderStatus, Post, Review, Spot } from '../types';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { BusinessVerification, Collection, Comment, NewBusinessVerificationInput, Order, OrderStatus, Post, ReportTargetType, Review, Spot } from '../types';
 import { useAuth } from './AuthContext';
 import { CURRENT_USER_DISPLAY, getDisplayNameFromEmail } from '../constants';
 import {
+  blockUser as apiBlockUser,
+  deleteOwnAccount,
+  fetchBlockedUserIds,
   fetchCollections,
   fetchComments,
   fetchLikedPostIds,
@@ -25,6 +28,8 @@ import {
   setSpotSaved,
   SpotEditInput,
   submitBusinessVerification,
+  submitReport,
+  unblockUser as apiUnblockUser,
   updateOrderStatus as apiUpdateOrderStatus,
   updateSpot as apiUpdateSpot,
 } from '../lib/api';
@@ -40,6 +45,7 @@ interface DataContextValue {
   likedPostIds: string[];
   savedPostIds: string[];
   myVerifications: BusinessVerification[];
+  blockedUserIds: string[];
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -56,6 +62,10 @@ interface DataContextValue {
   submitVerification: (input: NewBusinessVerificationInput) => Promise<BusinessVerification>;
   placeOrder: (input: NewOrderInput) => Promise<Order>;
   setOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
+  reportContent: (targetType: ReportTargetType, targetId: string, reason: string) => Promise<void>;
+  blockUser: (userId: string) => Promise<void>;
+  unblockUser: (userId: string) => Promise<void>;
+  deleteAccount: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextValue | undefined>(undefined);
@@ -63,15 +73,16 @@ const DataContext = createContext<DataContextValue | undefined>(undefined);
 export function DataProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [spots, setSpots] = useState<Spot[]>([]);
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [rawReviews, setReviews] = useState<Review[]>([]);
+  const [rawPosts, setPosts] = useState<Post[]>([]);
+  const [rawComments, setComments] = useState<Comment[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [savedSpotIds, setSavedSpotIds] = useState<string[]>([]);
   const [likedPostIds, setLikedPostIds] = useState<string[]>([]);
   const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
   const [myVerifications, setMyVerifications] = useState<BusinessVerification[]>([]);
+  const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,6 +101,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         likedData,
         savedPostData,
         verificationsData,
+        blockedData,
       ] = await Promise.all([
         fetchSpots(),
         fetchReviews(),
@@ -101,6 +113,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         fetchLikedPostIds(user.id),
         fetchSavedPostIds(user.id),
         fetchMyVerifications(user.id),
+        fetchBlockedUserIds(user.id),
       ]);
       setSpots(spotsData);
       setReviews(reviewsData);
@@ -112,6 +125,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setLikedPostIds(likedData);
       setSavedPostIds(savedPostData);
       setMyVerifications(verificationsData);
+      setBlockedUserIds(blockedData);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load data');
     } finally {
@@ -122,6 +136,22 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Blocked users' content is also excluded server-side by RLS (see
+  // supabase/schema.sql), but filtering here too means blocking someone
+  // hides their content immediately, without waiting on a refetch.
+  const reviews = useMemo(
+    () => rawReviews.filter((r) => !blockedUserIds.includes(r.userId)),
+    [rawReviews, blockedUserIds],
+  );
+  const posts = useMemo(
+    () => rawPosts.filter((p) => !p.userId || !blockedUserIds.includes(p.userId)),
+    [rawPosts, blockedUserIds],
+  );
+  const comments = useMemo(
+    () => rawComments.filter((c) => !blockedUserIds.includes(c.userId)),
+    [rawComments, blockedUserIds],
+  );
 
   const isSaved = useCallback((spotId: string) => savedSpotIds.includes(spotId), [savedSpotIds]);
 
@@ -264,6 +294,46 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [orders]);
 
+  const reportContent = useCallback(
+    async (targetType: ReportTargetType, targetId: string, reason: string) => {
+      if (!user) return;
+      await submitReport(user.id, targetType, targetId, reason);
+    },
+    [user],
+  );
+
+  const blockUser = useCallback(
+    async (blockedUserId: string) => {
+      if (!user) return;
+      setBlockedUserIds((prev) => (prev.includes(blockedUserId) ? prev : [...prev, blockedUserId]));
+      try {
+        await apiBlockUser(user.id, blockedUserId);
+      } catch (e) {
+        setBlockedUserIds((prev) => prev.filter((id) => id !== blockedUserId));
+        throw e;
+      }
+    },
+    [user],
+  );
+
+  const unblockUser = useCallback(
+    async (blockedUserId: string) => {
+      if (!user) return;
+      setBlockedUserIds((prev) => prev.filter((id) => id !== blockedUserId));
+      try {
+        await apiUnblockUser(user.id, blockedUserId);
+      } catch (e) {
+        setBlockedUserIds((prev) => (prev.includes(blockedUserId) ? prev : [...prev, blockedUserId]));
+        throw e;
+      }
+    },
+    [user],
+  );
+
+  const deleteAccount = useCallback(async () => {
+    await deleteOwnAccount();
+  }, []);
+
   return (
     <DataContext.Provider
       value={{
@@ -277,6 +347,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         likedPostIds,
         savedPostIds,
         myVerifications,
+        blockedUserIds,
         loading,
         error,
         refresh: load,
@@ -293,6 +364,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         submitVerification,
         placeOrder,
         setOrderStatus,
+        reportContent,
+        blockUser,
+        unblockUser,
+        deleteAccount,
       }}
     >
       {children}

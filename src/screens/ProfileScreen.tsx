@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppData } from '../context/DataContext';
@@ -33,10 +33,11 @@ const CATEGORY_LABELS: Record<SpotCategory, string> = {
 
 export default function ProfileScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { spots, collections, savedSpotIds, toggleSaved } = useAppData();
+  const { spots, collections, savedSpotIds, toggleSaved, deleteAccount } = useAppData();
   const { user, signOut } = useAuth();
   const [filter, setFilter] = useState<SpotCategory | 'all'>('all');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const displayName = user?.email?.split('@')[0] ?? CURRENT_USER_DISPLAY.name;
 
   useEffect(() => {
@@ -45,6 +46,30 @@ export default function ProfileScreen({ navigation }: Props) {
       .then(setIsAdmin)
       .catch(() => setIsAdmin(false));
   }, [user]);
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Delete your account?',
+      'This permanently deletes your reviews, posts, comments, and saved items. Any business you manage will be unclaimed, not deleted. This can\'t be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete account',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await deleteAccount();
+              await signOut();
+            } catch (e: any) {
+              Alert.alert("Couldn't delete account", e?.message ?? 'Please try again.');
+              setDeleting(false);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const savedSpots = spots
     .filter((s) => savedSpotIds.includes(s.id))
@@ -61,6 +86,11 @@ export default function ProfileScreen({ navigation }: Props) {
         <Text style={styles.email}>{user?.email}</Text>
         <Pressable style={styles.signOutButton} onPress={() => signOut()}>
           <Text style={styles.signOutText}>Sign out</Text>
+        </Pressable>
+        <Pressable onPress={handleDeleteAccount} disabled={deleting} hitSlop={8}>
+          <Text style={styles.deleteAccountText}>
+            {deleting ? 'Deleting…' : 'Delete account'}
+          </Text>
         </Pressable>
       </View>
 
@@ -176,6 +206,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.primary,
+  },
+  deleteAccountText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textMuted,
+    marginTop: spacing.sm,
   },
   ordersRow: {
     flexDirection: 'row',

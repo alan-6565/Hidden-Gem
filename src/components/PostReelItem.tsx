@@ -5,6 +5,7 @@ import { useVideoPlayer, VideoView } from 'expo-video';
 import { Post } from '../types';
 import { useAppData } from '../context/DataContext';
 import CommentsSheet from './CommentsSheet';
+import ReportMenuButton from './ReportMenuButton';
 import { distanceMiles, formatDistance } from '../utils/geo';
 import { colors, radius, spacing } from '../theme';
 
@@ -99,6 +100,14 @@ export default function PostReelItem({ post, height, isActive, userCoords, onOpe
             color={saved ? colors.primary : '#fff'}
           />
         </Pressable>
+        <ReportMenuButton
+          targetType="post"
+          targetId={post.id}
+          authorUserId={post.userId}
+          authorName={post.authorName}
+          color="#fff"
+          size={22}
+        />
       </View>
 
       <View style={styles.bottomContent}>

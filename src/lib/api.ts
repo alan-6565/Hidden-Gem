@@ -11,6 +11,7 @@ import {
   OrderStatus,
   Post,
   PriceRange,
+  ReportTargetType,
   Review,
   Spot,
   SpotCategory,
@@ -64,6 +65,7 @@ function mapPost(row: any): Post {
   return {
     id: row.id,
     spotId: row.spot_id ?? null,
+    userId: row.user_id ?? null,
     authorType: row.author_type,
     authorName: row.author_name,
     authorAvatar: row.author_avatar ?? '',
@@ -525,4 +527,54 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus): P
     .single();
   if (error) throw error;
   return mapOrder(data);
+}
+
+// Reports & blocking — minimum-viable content moderation (App Store
+// Guideline 1.2). Visibility filtering for blocked users' content is
+// enforced server-side by RLS on posts/reviews/post_comments (see
+// supabase/schema.sql), not just here.
+
+export async function submitReport(
+  userId: string,
+  targetType: ReportTargetType,
+  targetId: string,
+  reason: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('reports')
+    .insert({ reporter_user_id: userId, target_type: targetType, target_id: targetId, reason });
+  if (error) throw error;
+}
+
+export async function fetchBlockedUserIds(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('blocked_users')
+    .select('blocked_user_id')
+    .eq('blocker_user_id', userId);
+  if (error) throw error;
+  return (data ?? []).map((row: any) => row.blocked_user_id);
+}
+
+export async function blockUser(blockerUserId: string, blockedUserId: string): Promise<void> {
+  const { error } = await supabase
+    .from('blocked_users')
+    .insert({ blocker_user_id: blockerUserId, blocked_user_id: blockedUserId });
+  if (error) throw error;
+}
+
+export async function unblockUser(blockerUserId: string, blockedUserId: string): Promise<void> {
+  const { error } = await supabase
+    .from('blocked_users')
+    .delete()
+    .eq('blocker_user_id', blockerUserId)
+    .eq('blocked_user_id', blockedUserId);
+  if (error) throw error;
+}
+
+// Deletes everything the caller owns and their auth account (see
+// delete_own_account() in supabase/schema.sql). The caller must sign out
+// immediately after this resolves — their session is no longer valid.
+export async function deleteOwnAccount(): Promise<void> {
+  const { error } = await supabase.rpc('delete_own_account');
+  if (error) throw error;
 }

@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
 import { CURRENT_USER_DISPLAY } from '../constants';
+import ReportMenuButton from './ReportMenuButton';
 import { colors, radius, spacing } from '../theme';
 
 interface Props {
@@ -80,6 +81,12 @@ export default function CommentsSheet({ postId, visible, onClose }: Props) {
                   <Text style={styles.commentAuthor}>{item.userName}</Text>
                   <Text style={styles.commentText}>{item.text}</Text>
                 </View>
+                <ReportMenuButton
+                  targetType="comment"
+                  targetId={item.id}
+                  authorUserId={item.userId}
+                  authorName={item.userName}
+                />
               </View>
             )}
           />

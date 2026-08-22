@@ -567,3 +567,107 @@ drop policy if exists "own or admin delete verification docs" on storage.objects
 create policy "own or admin delete verification docs" on storage.objects for delete
   using (bucket_id = 'verification-docs' and
     ((storage.foldername(name))[1] = auth.uid()::text or is_admin()));
+
+-- ── Reports & blocking ──────────────────────────────────────────────────
+-- Minimum-viable content moderation: anyone can report a post/review/
+-- comment, and block another user to stop seeing their content. Required
+-- for App Store review (Guideline 1.2) — see the launch-roadmap plan.
+
+create table if not exists blocked_users (
+  blocker_user_id text not null,
+  blocked_user_id text not null,
+  created_at timestamptz not null default now(),
+  primary key (blocker_user_id, blocked_user_id)
+);
+alter table blocked_users enable row level security;
+
+drop policy if exists "own blocked_users" on blocked_users;
+create policy "own blocked_users" on blocked_users for all
+  using (auth.uid()::text = blocker_user_id) with check (auth.uid()::text = blocker_user_id);
+
+create table if not exists reports (
+  id text primary key default gen_random_uuid()::text,
+  reporter_user_id text not null,
+  target_type text not null check (target_type in ('post', 'review', 'comment', 'user')),
+  target_id text not null,
+  reason text not null,
+  status text not null default 'open' check (status in ('open', 'resolved', 'dismissed')),
+  created_at timestamptz not null default now(),
+  resolved_at timestamptz
+);
+alter table reports enable row level security;
+
+drop policy if exists "insert own report" on reports;
+create policy "insert own report" on reports for insert
+  with check (auth.uid()::text = reporter_user_id);
+
+drop policy if exists "read own or admin reports" on reports;
+create policy "read own or admin reports" on reports for select
+  using (auth.uid()::text = reporter_user_id or is_admin());
+
+drop policy if exists "admin update report" on reports;
+create policy "admin update report" on reports for update
+  using (is_admin()) with check (is_admin());
+
+-- Extend the existing public-read policies so a blocked author's posts,
+-- reviews, and comments become invisible to whoever blocked them — not
+-- just filtered client-side, so it can't be bypassed by inspecting
+-- network traffic.
+drop policy if exists "public read posts" on posts;
+create policy "public read posts" on posts for select using (
+  user_id is null or not exists (
+    select 1 from blocked_users b
+    where b.blocker_user_id = auth.uid()::text and b.blocked_user_id = posts.user_id
+  )
+);
+
+drop policy if exists "public read reviews" on reviews;
+create policy "public read reviews" on reviews for select using (
+  not exists (
+    select 1 from blocked_users b
+    where b.blocker_user_id = auth.uid()::text and b.blocked_user_id = reviews.user_id
+  )
+);
+
+drop policy if exists "public read post_comments" on post_comments;
+create policy "public read post_comments" on post_comments for select using (
+  not exists (
+    select 1 from blocked_users b
+    where b.blocker_user_id = auth.uid()::text and b.blocked_user_id = post_comments.user_id
+  )
+);
+
+-- ── Account deletion ────────────────────────────────────────────────────
+-- Required for App Store review (Guideline 5.1.1(v)). Deletes everything
+-- the caller owns and their auth.users row — always operates on auth.uid()
+-- alone (no parameter), so it can only ever delete the caller's own
+-- account. security definer because deleting from auth.users needs
+-- elevated privilege the client role doesn't have; auth.users' own
+-- on-delete-cascade foreign keys clean up auth.identities/sessions/etc.
+--
+-- Deliberately NOT touched: `spots` a caller owns are un-claimed
+-- (owner_user_id set to null) rather than deleted, and `orders` are left
+-- as-is — both are the business's records, not solely the deleted user's.
+create or replace function delete_own_account() returns void as $$
+declare
+  uid text := auth.uid()::text;
+begin
+  if uid is null then
+    raise exception 'Not signed in.';
+  end if;
+
+  update spots set owner_user_id = null where owner_user_id = uid;
+  delete from reviews where user_id = uid;
+  delete from posts where user_id = uid;
+  delete from post_comments where user_id = uid;
+  delete from post_likes where user_id = uid;
+  delete from saved_posts where user_id = uid;
+  delete from collections where user_id = uid;
+  delete from saved_spots where user_id = uid;
+  delete from business_verifications where user_id = uid;
+  delete from reports where reporter_user_id = uid;
+  delete from blocked_users where blocker_user_id = uid or blocked_user_id = uid;
+  delete from admins where user_id = uid;
+  delete from auth.users where id = uid::uuid;
+end;
+$$ language plpgsql security definer set search_path = public;

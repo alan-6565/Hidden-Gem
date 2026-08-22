@@ -19,6 +19,7 @@ import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import RatingStars from '../components/RatingStars';
 import KuppioScoreBadge from '../components/KuppioScoreBadge';
+import ReportMenuButton from '../components/ReportMenuButton';
 import { getDisplayRating, getRatingDistribution, getReviewCount } from '../utils/rating';
 import { getStatusLabel, isOpenNow } from '../utils/hours';
 import { isPromoted } from '../utils/promotion';
@@ -327,6 +328,12 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
                 <Text style={styles.reviewUser}>{review.userName}</Text>
                 <Text style={styles.reviewDate}>{review.createdAt}</Text>
               </View>
+              <ReportMenuButton
+                targetType="review"
+                targetId={review.id}
+                authorUserId={review.userId}
+                authorName={review.userName}
+              />
             </View>
             <RatingStars rating={review.ratingOverall} size={13} />
             <Text style={styles.reviewText}>{review.text}</Text>

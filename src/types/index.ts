@@ -69,6 +69,7 @@ export type PostAuthorType = 'customer' | 'owner';
 export interface Post {
   id: string;
   spotId: string | null;
+  userId: string | null;
   authorType: PostAuthorType;
   authorName: string;
   authorAvatar: string;
@@ -180,4 +181,17 @@ export interface NewBusinessVerificationInput {
   googleMapsUrl?: string;
   idPhotoPath: string;
   businessPhotoPath: string;
+}
+
+export type ReportTargetType = 'post' | 'review' | 'comment' | 'user';
+
+export interface Report {
+  id: string;
+  reporterUserId: string;
+  targetType: ReportTargetType;
+  targetId: string;
+  reason: string;
+  status: 'open' | 'resolved' | 'dismissed';
+  createdAt: string;
+  resolvedAt: string | null;
 }
