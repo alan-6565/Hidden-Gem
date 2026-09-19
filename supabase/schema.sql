@@ -69,8 +69,19 @@ create table if not exists posts (
   like_count integer not null default 0,
   comment_count integer not null default 0,
   share_count integer not null default 0,
+  is_story boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+-- Idempotent for an already-existing posts table (create table above only
+-- runs on a fresh database). A story is just a post with is_story = true —
+-- "disappearing after 24h" is enforced by the app's fetch query filtering on
+-- created_at, not by deleting rows, so likes/reports on an expired story
+-- still resolve to a real row.
+alter table posts add column if not exists is_story boolean not null default false;
+
+create index if not exists posts_stories_idx on posts (is_story, created_at desc)
+  where is_story = true;
 
 -- ── Collections ─────────────────────────────────────────────────────────
 create table if not exists collections (
@@ -258,6 +269,24 @@ create trigger trg_spot_hype_vote_insert after insert on spot_hype_votes
 drop trigger if exists trg_spot_hype_vote_delete on spot_hype_votes;
 create trigger trg_spot_hype_vote_delete after delete on spot_hype_votes
   for each row execute function decrement_spot_hype_votes();
+
+-- ── Follows (the social graph behind Home's Following tab and the Reels
+-- Follow button) ─────────────────────────────────────────────────────────
+create table if not exists follows (
+  follower_id text not null,
+  followed_id text not null,
+  created_at timestamptz not null default now(),
+  primary key (follower_id, followed_id),
+  check (follower_id <> followed_id)
+);
+alter table follows enable row level security;
+
+drop policy if exists "public read follows" on follows;
+create policy "public read follows" on follows for select using (true);
+
+drop policy if exists "manage own follows" on follows;
+create policy "manage own follows" on follows for all
+  using (auth.uid()::text = follower_id) with check (auth.uid()::text = follower_id);
 
 -- ── Saved posts (Reels bookmark) ───────────────────────────────────────
 create table if not exists saved_posts (
@@ -707,6 +736,7 @@ begin
   delete from collections where user_id = uid;
   delete from saved_spots where user_id = uid;
   delete from spot_hype_votes where user_id = uid;
+  delete from follows where follower_id = uid or followed_id = uid;
   delete from business_verifications where user_id = uid;
   delete from reports where reporter_user_id = uid;
   delete from blocked_users where blocker_user_id = uid or blocked_user_id = uid;

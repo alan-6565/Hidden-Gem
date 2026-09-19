@@ -1,13 +1,15 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import { useSearchFilters } from '../context/SearchFilterContext';
-import { Review, SpotCategory } from '../types';
+import { Post, Review, SpotCategory } from '../types';
 import FilterChip from '../components/FilterChip';
 import FeedPostCard from '../components/FeedPostCard';
-import StoryAvatarRow, { StoryUser } from '../components/StoryAvatarRow';
+import StoriesRow from '../components/StoriesRow';
+import StoryViewerModal from '../components/StoryViewerModal';
 import { CATEGORY_LABELS } from '../constants/categories';
 import { CURRENT_USER_DISPLAY } from '../constants';
 import { radius, spacing, ThemeColors } from '../theme';
@@ -49,27 +51,16 @@ export default function HomeScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { spots, posts, reviews } = useAppData();
+  const { spots, posts, stories, reviews, followingIds } = useAppData();
+  const { user } = useAuth();
   const { filters } = useSearchFilters();
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('all');
   const [feedMode, setFeedMode] = useState<FeedMode>('for_you');
+  const [viewingStories, setViewingStories] = useState<Post[] | null>(null);
   const userLocation = useUserLocation();
   const locationLabel = userLocation.isRealLocation && userLocation.placeName
     ? userLocation.placeName
     : 'San Francisco';
-
-  const storyUsers = useMemo(() => {
-    const seen = new Set<string>();
-    const result: StoryUser[] = [];
-    for (const post of posts) {
-      const authorId = post.userId ?? post.authorName;
-      if (seen.has(authorId)) continue;
-      seen.add(authorId);
-      result.push({ id: authorId, name: post.authorName, avatar: post.authorAvatar });
-      if (result.length >= 10) break;
-    }
-    return result;
-  }, [posts]);
 
   const sortedByTrending = useMemo(() => {
     if (feedMode === 'nearby') {
@@ -85,10 +76,21 @@ export default function HomeScreen({ navigation }: Props) {
     });
   }, [spots, feedMode, userLocation.coords]);
 
+  const followingSpots = useMemo(() => {
+    const followedSpotIds = new Set(
+      posts
+        .filter((p) => p.userId && followingIds.includes(p.userId) && p.spotId)
+        .map((p) => p.spotId as string),
+    );
+    return spots.filter((s) => followedSpotIds.has(s.id));
+  }, [posts, followingIds, spots]);
+
+  const baseSpots = feedMode === 'following' ? followingSpots : sortedByTrending;
+
   const trendingSpots = useMemo(() => {
-    if (activeCategory === 'all') return sortedByTrending;
-    return sortedByTrending.filter((s) => s.category === activeCategory);
-  }, [sortedByTrending, activeCategory]);
+    if (activeCategory === 'all') return baseSpots;
+    return baseSpots.filter((s) => s.category === activeCategory);
+  }, [baseSpots, activeCategory]);
 
   const reviewsBySpot = useMemo(() => {
     const map = new Map<string, Review[]>();
@@ -103,186 +105,188 @@ export default function HomeScreen({ navigation }: Props) {
   const goToSpot = (spotId: string) => navigation.navigate('SpotProfile', { spotId });
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <View>
-          <Text style={styles.logo}>Kuppio</Text>
-          <View style={styles.locationRow}>
-            <Ionicons name="location-outline" size={12} color={colors.textMuted} />
-            <Text style={styles.locationText}>{locationLabel}</Text>
-            <Ionicons name="chevron-down" size={12} color={colors.textMuted} />
-          </View>
-        </View>
-        <Ionicons name="notifications-outline" size={22} color={colors.text} />
-      </View>
-
-      <StoryAvatarRow
-        users={storyUsers}
-        yourAvatar={CURRENT_USER_DISPLAY.avatar}
-        onPressYours={() => navigation.navigate('Compose')}
-      />
-
-      <Pressable style={styles.searchBar} onPress={() => navigation.navigate('SearchFilters')}>
-        <Ionicons name="search" size={16} color={colors.textMuted} />
-        <Text style={styles.searchPlaceholder} numberOfLines={1}>
-          {filters.query.trim() || 'Search for cafes, foods, people...'}
-        </Text>
-        <Ionicons name="options-outline" size={18} color={colors.primary} />
-      </Pressable>
-
+    <View style={styles.container}>
       <FlatList
-        data={CATEGORIES}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        keyExtractor={(item) => item.key}
-        contentContainerStyle={styles.categoryRow}
+        data={trendingSpots}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.content}
+        ListHeaderComponent={
+          <>
+            <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
+              <View>
+                <Text style={styles.logo}>Kuppio</Text>
+                <View style={styles.locationRow}>
+                  <Ionicons name="location-outline" size={12} color={colors.textMuted} />
+                  <Text style={styles.locationText}>{locationLabel}</Text>
+                  <Ionicons name="chevron-down" size={12} color={colors.textMuted} />
+                </View>
+              </View>
+              <Ionicons name="notifications-outline" size={22} color={colors.text} />
+            </View>
+
+            <StoriesRow
+              stories={stories}
+              currentUserId={user?.id ?? null}
+              currentUserAvatar={CURRENT_USER_DISPLAY.avatar}
+              onAddStory={() => navigation.navigate('Compose', { isStory: true })}
+              onOpenGroup={(group) => setViewingStories(group.stories)}
+            />
+
+            <Pressable style={styles.searchBar} onPress={() => navigation.navigate('SearchFilters')}>
+              <Ionicons name="search" size={16} color={colors.textMuted} />
+              <Text style={styles.searchPlaceholder} numberOfLines={1}>
+                {filters.query.trim() || 'Search for cafes, foods, people...'}
+              </Text>
+              <Ionicons name="options-outline" size={18} color={colors.primary} />
+            </Pressable>
+
+            <FlatList
+              data={CATEGORIES}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.key}
+              contentContainerStyle={styles.categoryRow}
+              renderItem={({ item }) => (
+                <FilterChip
+                  label={item.label}
+                  active={activeCategory === item.key}
+                  onPress={() => setActiveCategory(item.key)}
+                />
+              )}
+            />
+
+            <View style={styles.feedTabs}>
+              {FEED_TABS.map((tab) => (
+                <Pressable key={tab.key} style={styles.feedTab} onPress={() => setFeedMode(tab.key)}>
+                  <Text style={[styles.feedTabText, feedMode === tab.key && styles.feedTabTextActive]}>
+                    {tab.label}
+                  </Text>
+                  <View
+                    style={[styles.feedTabUnderline, feedMode === tab.key && styles.feedTabUnderlineActive]}
+                  />
+                </Pressable>
+              ))}
+            </View>
+          </>
+        }
         renderItem={({ item }) => (
-          <FilterChip
-            label={item.label}
-            active={activeCategory === item.key}
-            onPress={() => setActiveCategory(item.key)}
+          <FeedPostCard
+            spot={item}
+            reviews={reviewsBySpot.get(item.id) ?? EMPTY_REVIEWS}
+            onPress={() => goToSpot(item.id)}
           />
         )}
+        ListEmptyComponent={
+          <Text style={[styles.emptyText, styles.feedEmptyText]}>
+            {feedMode === 'following'
+              ? 'Follow people from Reels to see their spots here.'
+              : 'Nothing in this category yet.'}
+          </Text>
+        }
       />
 
-      <View style={styles.feedTabs}>
-        {FEED_TABS.map((tab) => (
-          <Pressable key={tab.key} style={styles.feedTab} onPress={() => setFeedMode(tab.key)}>
-            <Text style={[styles.feedTabText, feedMode === tab.key && styles.feedTabTextActive]}>
-              {tab.label}
-            </Text>
-            <View style={[styles.feedTabUnderline, feedMode === tab.key && styles.feedTabUnderlineActive]} />
-          </Pressable>
-        ))}
-      </View>
-
-      {feedMode === 'following' ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="people-outline" size={32} color={colors.textMuted} />
-          <Text style={styles.emptyText}>Follow spots and creators to see their posts here.</Text>
-        </View>
-      ) : (
-        <View style={styles.feed}>
-          {trendingSpots.length === 0 ? (
-            <Text style={[styles.emptyText, styles.feedEmptyText]}>Nothing in this category yet.</Text>
-          ) : (
-            trendingSpots.map((spot) => (
-              <FeedPostCard
-                key={spot.id}
-                spot={spot}
-                reviews={reviewsBySpot.get(spot.id) ?? EMPTY_REVIEWS}
-                onPress={() => goToSpot(spot.id)}
-              />
-            ))
-          )}
-        </View>
-      )}
-    </ScrollView>
+      <StoryViewerModal
+        stories={viewingStories ?? []}
+        visible={viewingStories != null}
+        onClose={() => setViewingStories(null)}
+      />
+    </View>
   );
 }
 
 const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    paddingBottom: spacing.xl,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-  },
-  logo: {
-    fontSize: 26,
-    fontWeight: '800',
-    fontStyle: 'italic',
-    color: colors.primary,
-  },
-  feedTabs: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.xs,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  feedTab: {
-    alignItems: 'center',
-    paddingBottom: spacing.sm,
-  },
-  feedTabText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textMuted,
-  },
-  feedTabTextActive: {
-    color: colors.primary,
-  },
-  feedTabUnderline: {
-    marginTop: 6,
-    height: 2,
-    width: 20,
-    borderRadius: 1,
-    backgroundColor: 'transparent',
-  },
-  feedTabUnderlineActive: {
-    backgroundColor: colors.primary,
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.xl * 2,
-  },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    marginTop: 2,
-  },
-  locationText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textMuted,
-    marginRight: 2,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.card,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    borderWidth: 1,
-    borderColor: colors.border,
-    marginHorizontal: spacing.md,
-    marginTop: spacing.md,
-  },
-  searchPlaceholder: {
-    flex: 1,
-    color: colors.textMuted,
-    fontSize: 14,
-  },
-  categoryRow: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    gap: spacing.xs,
-  },
-  feed: {
-    marginTop: spacing.sm,
-  },
-  feedEmptyText: {
-    paddingHorizontal: spacing.md,
-  },
-  emptyText: {
-    color: colors.textMuted,
-    fontSize: 13,
-  },
-});
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    content: {
+      paddingBottom: spacing.xl,
+    },
+    header: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.sm,
+    },
+    logo: {
+      fontSize: 26,
+      fontWeight: '800',
+      fontStyle: 'italic',
+      color: colors.primary,
+    },
+    feedTabs: {
+      flexDirection: 'row',
+      gap: spacing.lg,
+      paddingHorizontal: spacing.md,
+      marginTop: spacing.xs,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    feedTab: {
+      alignItems: 'center',
+      paddingBottom: spacing.sm,
+    },
+    feedTabText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: colors.textMuted,
+    },
+    feedTabTextActive: {
+      color: colors.primary,
+    },
+    feedTabUnderline: {
+      marginTop: 6,
+      height: 2,
+      width: 20,
+      borderRadius: 1,
+      backgroundColor: 'transparent',
+    },
+    feedTabUnderlineActive: {
+      backgroundColor: colors.primary,
+    },
+    locationRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2,
+      marginTop: 2,
+    },
+    locationText: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: colors.textMuted,
+      marginRight: 2,
+    },
+    searchBar: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      backgroundColor: colors.card,
+      borderRadius: radius.pill,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.sm + 2,
+      borderWidth: 1,
+      borderColor: colors.border,
+      marginHorizontal: spacing.md,
+      marginTop: spacing.md,
+    },
+    searchPlaceholder: {
+      flex: 1,
+      color: colors.textMuted,
+      fontSize: 14,
+    },
+    categoryRow: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      gap: spacing.xs,
+    },
+    feedEmptyText: {
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.md,
+    },
+    emptyText: {
+      color: colors.textMuted,
+      fontSize: 13,
+    },
+  });

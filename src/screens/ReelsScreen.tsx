@@ -51,18 +51,31 @@ export default function ReelsScreen({ navigation, route }: Props) {
   ).current;
 
   const goToSpot = (spotId: string) => navigation.navigate('SpotProfile', { spotId });
+  const goToAddReview = (spotId: string) => navigation.navigate('AddReview', { spotId });
 
   const isDarkBackground = mode === 'for_you';
 
   return (
-    <View style={styles.container} onLayout={onContainerLayout}>
+    <View style={[styles.container, { backgroundColor: colors.dark }]} onLayout={onContainerLayout}>
+      {isDarkBackground && (
+        <View style={[styles.titleRow, { top: insets.top + spacing.xs }]}>
+          <Text style={styles.titleText}>Reels</Text>
+          <Pressable
+            style={styles.cameraButton}
+            onPress={() => navigation.navigate('Compose')}
+            hitSlop={8}
+          >
+            <Ionicons name="camera-outline" size={22} color="#fff" />
+          </Pressable>
+        </View>
+      )}
       <View
         style={[
           styles.topTabs,
-          { top: insets.top + spacing.sm },
+          { top: insets.top + spacing.sm + (isDarkBackground ? 34 : 0) },
           !isDarkBackground && [
             styles.topTabsLight,
-            { top: 0, paddingTop: insets.top + spacing.sm },
+            { top: 0, paddingTop: insets.top + spacing.sm, backgroundColor: colors.background },
           ],
         ]}
       >
@@ -75,8 +88,8 @@ export default function ReelsScreen({ navigation, route }: Props) {
           <Text
             style={[
               styles.topTabText,
-              !isDarkBackground && styles.topTabTextDark,
-              mode === 'for_you' && (isDarkBackground ? styles.topTabTextActive : styles.topTabTextActiveDark),
+              !isDarkBackground && { color: colors.textMuted },
+              mode === 'for_you' && { color: isDarkBackground ? '#fff' : colors.primary },
             ]}
           >
             For you
@@ -86,8 +99,8 @@ export default function ReelsScreen({ navigation, route }: Props) {
           <Text
             style={[
               styles.topTabText,
-              !isDarkBackground && styles.topTabTextDark,
-              mode === 'following' && (isDarkBackground ? styles.topTabTextActive : styles.topTabTextActiveDark),
+              !isDarkBackground && { color: colors.textMuted },
+              mode === 'following' && { color: isDarkBackground ? '#fff' : colors.primary },
             ]}
           >
             Following
@@ -97,8 +110,8 @@ export default function ReelsScreen({ navigation, route }: Props) {
           <Text
             style={[
               styles.topTabText,
-              !isDarkBackground && styles.topTabTextDark,
-              mode === 'explore' && (isDarkBackground ? styles.topTabTextActive : styles.topTabTextActiveDark),
+              !isDarkBackground && { color: colors.textMuted },
+              mode === 'explore' && { color: isDarkBackground ? '#fff' : colors.primary },
             ]}
           >
             Explore
@@ -114,10 +127,10 @@ export default function ReelsScreen({ navigation, route }: Props) {
           }}
         />
       ) : mode === 'following' ? (
-        <View style={styles.emptyState}>
+        <View style={[styles.emptyState, { backgroundColor: colors.background }]}>
           <Ionicons name="people-outline" size={32} color={colors.textMuted} />
-          <Text style={styles.emptyText}>
-            Follow spots and creators to see their posts here.
+          <Text style={[styles.emptyText, { color: colors.textMuted }]}>
+            Follow people from posts to see them here.
           </Text>
         </View>
       ) : containerHeight > 0 ? (
@@ -142,6 +155,7 @@ export default function ReelsScreen({ navigation, route }: Props) {
               isActive={index === activeIndex}
               userCoords={userLocation.coords}
               onOpenSpot={goToSpot}
+              onAddReview={goToAddReview}
             />
           )}
         />
@@ -154,7 +168,23 @@ const makeStyles = (colors: ThemeColors) =>
   StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.dark,
+  },
+  titleRow: {
+    position: 'absolute',
+    left: spacing.md,
+    right: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    zIndex: 11,
+  },
+  titleText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  cameraButton: {
+    padding: 4,
   },
   topTabs: {
     position: 'absolute',
@@ -171,21 +201,11 @@ const makeStyles = (colors: ThemeColors) =>
     top: 0,
     paddingTop: spacing.lg,
     paddingBottom: spacing.sm,
-    backgroundColor: colors.background,
   },
   topTabText: {
     color: 'rgba(255,255,255,0.6)',
     fontWeight: '700',
     fontSize: 14,
-  },
-  topTabTextActive: {
-    color: '#fff',
-  },
-  topTabTextDark: {
-    color: colors.textMuted,
-  },
-  topTabTextActiveDark: {
-    color: colors.primary,
   },
   emptyState: {
     flex: 1,
@@ -193,10 +213,8 @@ const makeStyles = (colors: ThemeColors) =>
     justifyContent: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.xl,
-    backgroundColor: colors.background,
   },
   emptyText: {
-    color: colors.textMuted,
     fontSize: 13,
     textAlign: 'center',
   },

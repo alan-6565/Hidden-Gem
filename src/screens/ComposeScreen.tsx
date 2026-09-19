@@ -38,12 +38,13 @@ function VideoPreview({ uri, styles }: { uri: string; styles: ReturnType<typeof 
   return <VideoView style={styles.media} player={player} contentFit="cover" nativeControls={false} />;
 }
 
-export default function ComposeScreen({ navigation }: Props) {
+export default function ComposeScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { spots, addPost } = useAppData();
   const { user } = useAuth();
+  const isStory = route.params?.isStory ?? false;
 
   const [media, setMedia] = useState<PickedMedia | null>(null);
   const [caption, setCaption] = useState('');
@@ -86,6 +87,7 @@ export default function ComposeScreen({ navigation }: Props) {
         isVideo: media.isVideo,
         caption,
         exploreTags: extractHashtags(caption),
+        isStory,
       });
       navigation.goBack();
     } catch (e: any) {
@@ -121,6 +123,12 @@ export default function ComposeScreen({ navigation }: Props) {
       </View>
 
       <View style={[styles.bottomSheet, { paddingBottom: insets.bottom + spacing.sm }]}>
+        {isStory && (
+          <View style={styles.locationPill}>
+            <Ionicons name="time-outline" size={13} color={colors.primary} />
+            <Text style={styles.locationPillText}>Story · disappears in 24h</Text>
+          </View>
+        )}
         {taggedSpot && (
           <View style={styles.locationPill}>
             <Ionicons name="location" size={13} color={colors.primary} />
