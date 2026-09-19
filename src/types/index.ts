@@ -81,6 +81,7 @@ export interface Post {
   likeCount: number;
   commentCount: number;
   shareCount: number;
+  isStory: boolean;
   createdAt: string;
 }
 

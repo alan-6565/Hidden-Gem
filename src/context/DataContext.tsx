@@ -8,6 +8,7 @@ import {
   fetchBlockedUserIds,
   fetchCollections,
   fetchComments,
+  fetchFollowingIds,
   fetchLikedPostIds,
   fetchMyVerifications,
   fetchOrders,
@@ -23,6 +24,7 @@ import {
   NewOrderInput,
   NewPostInput,
   NewReviewInput,
+  setFollowing,
   setPostLiked,
   setPostSaved,
   setSpotSaved,
@@ -33,6 +35,9 @@ import {
   updateOrderStatus as apiUpdateOrderStatus,
   updateSpot as apiUpdateSpot,
 } from '../lib/api';
+
+const STORY_LIFETIME_MS = 24 * 60 * 60 * 1000;
+import { MOCK_MODE, mockCollections, mockPosts, mockReviews, mockSpots } from '../lib/mockData';
 
 interface DataContextValue {
   spots: Spot[];
@@ -46,6 +51,8 @@ interface DataContextValue {
   savedPostIds: string[];
   myVerifications: BusinessVerification[];
   blockedUserIds: string[];
+  followingIds: string[];
+  stories: Post[];
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -55,6 +62,8 @@ interface DataContextValue {
   toggleLike: (postId: string) => Promise<void>;
   isPostSaved: (postId: string) => boolean;
   toggleSavePost: (postId: string) => Promise<void>;
+  isFollowing: (userId: string) => boolean;
+  toggleFollow: (userId: string) => Promise<void>;
   addReview: (input: NewReviewInput) => Promise<void>;
   addPost: (input: NewPostInput) => Promise<void>;
   addComment: (postId: string, text: string) => Promise<void>;
@@ -83,11 +92,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
   const [myVerifications, setMyVerifications] = useState<BusinessVerification[]>([]);
   const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
+  const [followingIds, setFollowingIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!user) return;
+    if (MOCK_MODE) {
+      setSpots(mockSpots);
+      setReviews(mockReviews);
+      setPosts(mockPosts);
+      setCollections(mockCollections);
+      setLoading(false);
+      return;
+    }
     try {
       setError(null);
       const [
@@ -102,6 +120,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         savedPostData,
         verificationsData,
         blockedData,
+        followingData,
       ] = await Promise.all([
         fetchSpots(),
         fetchReviews(),
@@ -114,6 +133,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         fetchSavedPostIds(user.id),
         fetchMyVerifications(user.id),
         fetchBlockedUserIds(user.id),
+        fetchFollowingIds(user.id),
       ]);
       setSpots(spotsData);
       setReviews(reviewsData);
@@ -126,6 +146,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setSavedPostIds(savedPostData);
       setMyVerifications(verificationsData);
       setBlockedUserIds(blockedData);
+      setFollowingIds(followingData);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load data');
     } finally {
@@ -201,6 +222,32 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     },
     [user, likedPostIds],
   );
+
+  const isFollowing = useCallback((userId: string) => followingIds.includes(userId), [followingIds]);
+
+  const toggleFollow = useCallback(
+    async (targetUserId: string) => {
+      if (!user) return;
+      const currentlyFollowing = followingIds.includes(targetUserId);
+      setFollowingIds((prev) =>
+        currentlyFollowing ? prev.filter((id) => id !== targetUserId) : [...prev, targetUserId],
+      );
+      try {
+        await setFollowing(user.id, targetUserId, !currentlyFollowing);
+      } catch (e) {
+        setFollowingIds((prev) =>
+          currentlyFollowing ? [...prev, targetUserId] : prev.filter((id) => id !== targetUserId),
+        );
+        throw e;
+      }
+    },
+    [user, followingIds],
+  );
+
+  const stories = useMemo(() => {
+    const cutoff = Date.now() - STORY_LIFETIME_MS;
+    return posts.filter((p) => p.isStory && new Date(p.createdAt).getTime() > cutoff);
+  }, [posts]);
 
   const isPostSaved = useCallback((postId: string) => savedPostIds.includes(postId), [savedPostIds]);
 
@@ -348,6 +395,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         savedPostIds,
         myVerifications,
         blockedUserIds,
+        followingIds,
+        stories,
         loading,
         error,
         refresh: load,
@@ -357,6 +406,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         toggleLike,
         isPostSaved,
         toggleSavePost,
+        isFollowing,
+        toggleFollow,
         addReview,
         addPost,
         addComment,

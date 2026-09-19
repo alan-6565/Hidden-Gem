@@ -77,6 +77,7 @@ function mapPost(row: any): Post {
     likeCount: row.like_count,
     commentCount: row.comment_count,
     shareCount: row.share_count,
+    isStory: row.is_story ?? false,
     createdAt: row.created_at,
   };
 }
@@ -222,6 +223,35 @@ export async function setPostSaved(userId: string, postId: string, saved: boolea
   }
 }
 
+export async function fetchFollowingIds(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('follows')
+    .select('followed_id')
+    .eq('follower_id', userId);
+  if (error) throw error;
+  return (data ?? []).map((row) => row.followed_id);
+}
+
+export async function setFollowing(
+  followerId: string,
+  followedId: string,
+  following: boolean,
+): Promise<void> {
+  if (following) {
+    const { error } = await supabase
+      .from('follows')
+      .upsert({ follower_id: followerId, followed_id: followedId });
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from('follows')
+      .delete()
+      .eq('follower_id', followerId)
+      .eq('followed_id', followedId);
+    if (error) throw error;
+  }
+}
+
 export interface NewReviewInput {
   spotId: string;
   ratingTaste: number;
@@ -298,6 +328,7 @@ export interface NewPostInput {
   isVideo: boolean;
   caption: string;
   exploreTags: string[];
+  isStory?: boolean;
 }
 
 export async function insertPost(
@@ -319,6 +350,7 @@ export async function insertPost(
       is_video: input.isVideo,
       caption: input.caption,
       explore_tags: input.exploreTags,
+      is_story: input.isStory ?? false,
       like_count: 0,
       comment_count: 0,
       share_count: 0,

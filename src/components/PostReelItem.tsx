@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Image, Pressable, Share, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Post } from '../types';
 import { useAppData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import CommentsSheet from './CommentsSheet';
 import ReportMenuButton from './ReportMenuButton';
 import { distanceMiles, formatDistance } from '../utils/geo';
@@ -15,6 +16,7 @@ interface Props {
   isActive: boolean;
   userCoords: { lat: number; lng: number };
   onOpenSpot: (spotId: string) => void;
+  onAddReview: (spotId: string) => void;
 }
 
 function formatCount(n: number): string {
@@ -22,12 +24,22 @@ function formatCount(n: number): string {
   return `${n}`;
 }
 
-export default function PostReelItem({ post, height, isActive, userCoords, onOpenSpot }: Props) {
-  const { spots, isPostLiked, toggleLike, isPostSaved, toggleSavePost } = useAppData();
+export default function PostReelItem({ post, height, isActive, userCoords, onOpenSpot, onAddReview }: Props) {
+  const { spots, isPostLiked, toggleLike, isPostSaved, toggleSavePost, isFollowing, toggleFollow } = useAppData();
+  const { user } = useAuth();
   const liked = isPostLiked(post.id);
   const saved = isPostSaved(post.id);
   const spot = spots.find((s) => s.id === post.spotId);
   const [showComments, setShowComments] = useState(false);
+  const following = post.userId ? isFollowing(post.userId) : false;
+  const isOwnPost = !!post.userId && post.userId === user?.id;
+  const popularMenuItem = spot?.menu.find((m) => m.isPopular) ?? spot?.menu[0];
+
+  const handlePlanVisit = () => {
+    if (!spot) return;
+    const url = `https://maps.apple.com/?daddr=${spot.lat},${spot.lng}&dirflg=d`;
+    Linking.openURL(url).catch(() => {});
+  };
 
   const handleShare = async () => {
     try {
@@ -114,6 +126,14 @@ export default function PostReelItem({ post, height, isActive, userCoords, onOpe
         <View style={styles.authorRow}>
           <Image source={{ uri: post.authorAvatar }} style={styles.avatar} />
           <Text style={styles.authorName}>{post.authorName}</Text>
+          {!isOwnPost && post.userId && (
+            <Pressable
+              style={[styles.followButton, following && styles.followButtonActive]}
+              onPress={() => toggleFollow(post.userId as string)}
+            >
+              <Text style={styles.followButtonText}>{following ? 'Following' : 'Follow'}</Text>
+            </Pressable>
+          )}
         </View>
 
         {spot && (
@@ -133,6 +153,34 @@ export default function PostReelItem({ post, height, isActive, userCoords, onOpe
           <View style={styles.soundRow}>
             <Ionicons name="musical-notes" size={12} color="#fff" />
             <Text style={styles.soundText}>{post.soundLabel}</Text>
+          </View>
+        )}
+
+        {popularMenuItem && (
+          <View style={styles.menuItemCard}>
+            <Text style={styles.menuItemText} numberOfLines={1}>
+              ☕ {popularMenuItem.name}
+            </Text>
+            <Text style={styles.menuItemPrice}>${popularMenuItem.price.toFixed(2)}</Text>
+          </View>
+        )}
+
+        {spot && (
+          <Pressable style={styles.hypeBar} onPress={() => onAddReview(spot.id)}>
+            <Text style={styles.hypeBarText}>Worth the hype?</Text>
+          </Pressable>
+        )}
+
+        {spot && (
+          <View style={styles.ctaRow}>
+            <Pressable style={styles.saveButton} onPress={() => toggleSavePost(post.id)}>
+              <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={16} color="#fff" />
+              <Text style={styles.saveButtonText}>Save</Text>
+            </Pressable>
+            <Pressable style={styles.planButton} onPress={handlePlanVisit}>
+              <Ionicons name="navigate" size={16} color="#fff" />
+              <Text style={styles.planButtonText}>Plan a visit</Text>
+            </Pressable>
           </View>
         )}
       </View>
@@ -230,6 +278,92 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 14,
+  },
+  followButton: {
+    borderWidth: 1,
+    borderColor: '#fff',
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 3,
+  },
+  followButtonActive: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  followButtonText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  menuItemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs + 2,
+    marginTop: spacing.sm,
+  },
+  menuItemText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+    marginRight: spacing.sm,
+  },
+  menuItemPrice: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  hypeBar: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.5)',
+    borderRadius: radius.pill,
+    alignItems: 'center',
+    paddingVertical: spacing.xs + 2,
+    marginTop: spacing.sm,
+  },
+  hypeBarText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  ctaRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  saveButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#fff',
+    borderRadius: radius.pill,
+    paddingVertical: spacing.xs + 2,
+  },
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  planButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    backgroundColor: colors.primary,
+    borderRadius: radius.pill,
+    paddingVertical: spacing.xs + 2,
+  },
+  planButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
   },
   locationBadge: {
     flexDirection: 'row',

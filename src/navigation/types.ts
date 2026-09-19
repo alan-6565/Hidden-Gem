@@ -6,7 +6,7 @@ export type RootStackParamList = {
   Tabs: undefined;
   SpotProfile: { spotId: string };
   AddReview: { spotId: string };
-  Compose: undefined;
+  Compose: { isStory?: boolean } | undefined;
   SearchFilters: undefined;
   BusinessEdit: { spotId: string };
   CreateBusiness: { lat: number; lng: number };
