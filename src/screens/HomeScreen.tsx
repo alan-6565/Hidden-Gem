@@ -4,20 +4,29 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppData } from '../context/DataContext';
 import { useSearchFilters } from '../context/SearchFilterContext';
-import { SpotCategory } from '../types';
-import CategoryIconButton from '../components/CategoryIconButton';
-import SpotTrendingCard from '../components/SpotTrendingCard';
-import SpotDropCard from '../components/SpotDropCard';
-import SpotHeroCard from '../components/SpotHeroCard';
-import { CATEGORY_COLORS, CATEGORY_ICONS, CATEGORY_LABELS } from '../constants/categories';
-import { colors, radius, spacing } from '../theme';
+import { Review, SpotCategory } from '../types';
+import FilterChip from '../components/FilterChip';
+import FeedPostCard from '../components/FeedPostCard';
+import StoryAvatarRow, { StoryUser } from '../components/StoryAvatarRow';
+import { CATEGORY_LABELS } from '../constants/categories';
+import { CURRENT_USER_DISPLAY } from '../constants';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { TabScreenProps } from '../navigation/types';
 import { useUserLocation } from '../utils/useUserLocation';
 import { isPromoted } from '../utils/promotion';
+import { distanceMiles } from '../utils/geo';
 
 type Props = TabScreenProps<'Home'>;
 
 type CategoryFilter = 'all' | SpotCategory;
+type FeedMode = 'for_you' | 'following' | 'nearby';
+
+const FEED_TABS: { key: FeedMode; label: string }[] = [
+  { key: 'for_you', label: 'For you' },
+  { key: 'following', label: 'Following' },
+  { key: 'nearby', label: 'Nearby' },
+];
 
 const HOME_CATEGORIES: SpotCategory[] = ['coffee', 'matcha', 'dessert', 'home_based', 'food_truck'];
 const HOME_CATEGORY_LABELS: Record<SpotCategory, string> = {
@@ -29,64 +38,89 @@ const HOME_CATEGORY_LABELS: Record<SpotCategory, string> = {
   food_truck: 'Trucks',
 };
 
-const CATEGORIES: { key: CategoryFilter; label: string; icon?: keyof typeof Ionicons.glyphMap; color: string }[] = [
-  { key: 'all', label: 'All', icon: 'grid-outline', color: colors.primary },
-  ...HOME_CATEGORIES.map((key) => ({
-    key,
-    label: HOME_CATEGORY_LABELS[key],
-    icon: CATEGORY_ICONS[key],
-    color: CATEGORY_COLORS[key],
-  })),
+const CATEGORIES: { key: CategoryFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  ...HOME_CATEGORIES.map((key) => ({ key, label: HOME_CATEGORY_LABELS[key] })),
 ];
 
+const EMPTY_REVIEWS: Review[] = [];
+
 export default function HomeScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { spots, savedSpotIds } = useAppData();
+  const { spots, posts, reviews } = useAppData();
   const { filters } = useSearchFilters();
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('all');
+  const [feedMode, setFeedMode] = useState<FeedMode>('for_you');
   const userLocation = useUserLocation();
   const locationLabel = userLocation.isRealLocation && userLocation.placeName
     ? userLocation.placeName
     : 'San Francisco';
 
+  const storyUsers = useMemo(() => {
+    const seen = new Set<string>();
+    const result: StoryUser[] = [];
+    for (const post of posts) {
+      const authorId = post.userId ?? post.authorName;
+      if (seen.has(authorId)) continue;
+      seen.add(authorId);
+      result.push({ id: authorId, name: post.authorName, avatar: post.authorAvatar });
+      if (result.length >= 10) break;
+    }
+    return result;
+  }, [posts]);
+
   const sortedByTrending = useMemo(() => {
+    if (feedMode === 'nearby') {
+      const distanceById = new Map(
+        spots.map((s) => [s.id, distanceMiles(userLocation.coords, { lat: s.lat, lng: s.lng })]),
+      );
+      return [...spots].sort((a, b) => distanceById.get(a.id)! - distanceById.get(b.id)!);
+    }
     return [...spots].sort((a, b) => {
       const promoDiff = Number(isPromoted(b)) - Number(isPromoted(a));
       if (promoDiff !== 0) return promoDiff;
       return b.teaScore - a.teaScore;
     });
-  }, [spots]);
+  }, [spots, feedMode, userLocation.coords]);
 
   const trendingSpots = useMemo(() => {
     if (activeCategory === 'all') return sortedByTrending;
     return sortedByTrending.filter((s) => s.category === activeCategory);
   }, [sortedByTrending, activeCategory]);
 
-  const happeningTodaySpots = sortedByTrending.slice(0, 8);
-
-  const hiddenGemSpot = useMemo(() => {
-    if (spots.length === 0) return null;
-    return [...spots].sort((a, b) => b.hiddenGemVotes - a.hiddenGemVotes)[0];
-  }, [spots]);
-
-  const savedSpots = spots.filter((s) => savedSpotIds.includes(s.id));
+  const reviewsBySpot = useMemo(() => {
+    const map = new Map<string, Review[]>();
+    for (const review of reviews) {
+      const bucket = map.get(review.spotId);
+      if (bucket) bucket.push(review);
+      else map.set(review.spotId, [review]);
+    }
+    return map;
+  }, [reviews]);
 
   const goToSpot = (spotId: string) => navigation.navigate('SpotProfile', { spotId });
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={[styles.header, { paddingTop: insets.top + spacing.sm }]}>
-        <Text style={styles.logo}>Kuppio</Text>
+        <View>
+          <Text style={styles.logo}>Kuppio</Text>
+          <View style={styles.locationRow}>
+            <Ionicons name="location-outline" size={12} color={colors.textMuted} />
+            <Text style={styles.locationText}>{locationLabel}</Text>
+            <Ionicons name="chevron-down" size={12} color={colors.textMuted} />
+          </View>
+        </View>
         <Ionicons name="notifications-outline" size={22} color={colors.text} />
       </View>
 
-      <View style={styles.locationRow}>
-        <Ionicons name="location-outline" size={14} color={colors.textMuted} />
-        <Text style={styles.locationText}>{locationLabel}</Text>
-        <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
-      </View>
-
-      <Text style={styles.headline}>What's good{'\n'}near you right now?</Text>
+      <StoryAvatarRow
+        users={storyUsers}
+        yourAvatar={CURRENT_USER_DISPLAY.avatar}
+        onPressYours={() => navigation.navigate('Compose')}
+      />
 
       <Pressable style={styles.searchBar} onPress={() => navigation.navigate('SearchFilters')}>
         <Ionicons name="search" size={16} color={colors.textMuted} />
@@ -103,90 +137,52 @@ export default function HomeScreen({ navigation }: Props) {
         keyExtractor={(item) => item.key}
         contentContainerStyle={styles.categoryRow}
         renderItem={({ item }) => (
-          <CategoryIconButton
+          <FilterChip
             label={item.label}
-            icon={item.icon}
-            color={item.color}
             active={activeCategory === item.key}
             onPress={() => setActiveCategory(item.key)}
           />
         )}
       />
 
-      <View style={styles.section}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>🔥 Happening Today</Text>
-          <Pressable onPress={() => navigation.navigate('Map')}>
-            <Text style={styles.seeAll}>See all</Text>
+      <View style={styles.feedTabs}>
+        {FEED_TABS.map((tab) => (
+          <Pressable key={tab.key} style={styles.feedTab} onPress={() => setFeedMode(tab.key)}>
+            <Text style={[styles.feedTabText, feedMode === tab.key && styles.feedTabTextActive]}>
+              {tab.label}
+            </Text>
+            <View style={[styles.feedTabUnderline, feedMode === tab.key && styles.feedTabUnderlineActive]} />
           </Pressable>
+        ))}
+      </View>
+
+      {feedMode === 'following' ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="people-outline" size={32} color={colors.textMuted} />
+          <Text style={styles.emptyText}>Follow spots and creators to see their posts here.</Text>
         </View>
-        {happeningTodaySpots.length === 0 ? (
-          <Text style={styles.emptyText}>Nothing happening yet.</Text>
-        ) : (
-          <FlatList
-            data={happeningTodaySpots}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <SpotDropCard
-                spot={item}
-                userCoords={userLocation.coords}
-                onPress={() => goToSpot(item.id)}
+      ) : (
+        <View style={styles.feed}>
+          {trendingSpots.length === 0 ? (
+            <Text style={[styles.emptyText, styles.feedEmptyText]}>Nothing in this category yet.</Text>
+          ) : (
+            trendingSpots.map((spot) => (
+              <FeedPostCard
+                key={spot.id}
+                spot={spot}
+                reviews={reviewsBySpot.get(spot.id) ?? EMPTY_REVIEWS}
+                onPress={() => goToSpot(spot.id)}
               />
-            )}
-          />
-        )}
-      </View>
-
-      {hiddenGemSpot && (
-        <View style={styles.section}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>💎 Hidden Gems Near You</Text>
-            <Pressable onPress={() => navigation.navigate('Map')}>
-              <Text style={styles.seeAll}>See all</Text>
-            </Pressable>
-          </View>
-          <SpotHeroCard spot={hiddenGemSpot} onPress={() => goToSpot(hiddenGemSpot.id)} />
-        </View>
-      )}
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Trending near you 🔥</Text>
-        {trendingSpots.length === 0 ? (
-          <Text style={styles.emptyText}>Nothing in this category yet.</Text>
-        ) : (
-          <FlatList
-            data={trendingSpots}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <SpotTrendingCard spot={item} onPress={() => goToSpot(item.id)} />
-            )}
-          />
-        )}
-      </View>
-
-      {savedSpots.length > 0 && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Because you saved this place</Text>
-          <FlatList
-            data={savedSpots}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <SpotTrendingCard spot={item} onPress={() => goToSpot(item.id)} />
-            )}
-          />
+            ))
+          )}
         </View>
       )}
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -207,26 +203,54 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     color: colors.primary,
   },
+  feedTabs: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  feedTab: {
+    alignItems: 'center',
+    paddingBottom: spacing.sm,
+  },
+  feedTabText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textMuted,
+  },
+  feedTabTextActive: {
+    color: colors.primary,
+  },
+  feedTabUnderline: {
+    marginTop: 6,
+    height: 2,
+    width: 20,
+    borderRadius: 1,
+    backgroundColor: 'transparent',
+  },
+  feedTabUnderlineActive: {
+    backgroundColor: colors.primary,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl * 2,
+  },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.xs,
+    marginTop: 2,
   },
   locationText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.textMuted,
     marginRight: 2,
-  },
-  headline: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.text,
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.md,
-    lineHeight: 30,
   },
   searchBar: {
     flexDirection: 'row',
@@ -251,25 +275,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     gap: spacing.xs,
   },
-  section: {
+  feed: {
     marginTop: spacing.sm,
+  },
+  feedEmptyText: {
     paddingHorizontal: spacing.md,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  seeAll: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.primary,
   },
   emptyText: {
     color: colors.textMuted,
