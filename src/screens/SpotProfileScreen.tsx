@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -25,7 +25,8 @@ import { getStatusLabel, isOpenNow } from '../utils/hours';
 import { isPromoted } from '../utils/promotion';
 import { formatDate } from '../utils/date';
 import { CATEGORY_LABELS } from '../constants/categories';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../navigation/types';
 import { distanceMiles, formatDistance } from '../utils/geo';
 import { useUserLocation } from '../utils/useUserLocation';
@@ -33,6 +34,8 @@ import { useUserLocation } from '../utils/useUserLocation';
 type Props = NativeStackScreenProps<RootStackParamList, 'SpotProfile'>;
 
 export default function SpotProfileScreen({ route, navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { spotId } = route.params;
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -350,7 +353,8 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -424,10 +428,10 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   hiddenGemBadge: {
-    backgroundColor: '#E3F2E9',
+    backgroundColor: colors.successMuted,
   },
   topRatedBadge: {
-    backgroundColor: '#FCEFD4',
+    backgroundColor: colors.goldMuted,
   },
   popularBadge: {
     backgroundColor: colors.primaryMuted,

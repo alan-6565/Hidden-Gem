@@ -17,7 +17,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
 import { CURRENT_USER_DISPLAY } from '../constants';
 import ReportMenuButton from './ReportMenuButton';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface Props {
   postId: string;
@@ -26,6 +27,8 @@ interface Props {
 }
 
 export default function CommentsSheet({ postId, visible, onClose }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { comments, addComment } = useAppData();
   const [text, setText] = useState('');
@@ -119,7 +122,8 @@ export default function CommentsSheet({ postId, visible, onClose }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   backdrop: {
     flex: 1,
     justifyContent: 'flex-end',

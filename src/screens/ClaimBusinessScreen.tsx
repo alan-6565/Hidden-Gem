@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -6,12 +6,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { pickMediaFromLibrary, uploadVerificationDoc } from '../lib/mediaUpload';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'ClaimBusiness'>;
 
 export default function ClaimBusinessScreen({ route, navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { spotId } = route.params;
   const insets = useSafeAreaInsets();
   const { spots, submitVerification } = useAppData();
@@ -190,7 +193,8 @@ export default function ClaimBusinessScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

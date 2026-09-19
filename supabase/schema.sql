@@ -69,8 +69,19 @@ create table if not exists posts (
   like_count integer not null default 0,
   comment_count integer not null default 0,
   share_count integer not null default 0,
+  is_story boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+-- Idempotent for an already-existing posts table (create table above only
+-- runs on a fresh database). A story is just a post with is_story = true —
+-- "disappearing after 24h" is enforced by the app's fetch query filtering on
+-- created_at, not by deleting rows, so likes/reports on an expired story
+-- still resolve to a real row.
+alter table posts add column if not exists is_story boolean not null default false;
+
+create index if not exists posts_stories_idx on posts (is_story, created_at desc)
+  where is_story = true;
 
 -- ── Collections ─────────────────────────────────────────────────────────
 create table if not exists collections (
@@ -112,6 +123,7 @@ create policy "public read spots" on spots for select using (true);
 -- owner, only that owner can keep editing it; owner_user_id itself can
 -- only ever be set to the caller's own id, so no takeover via update.
 drop policy if exists "own or claim spot" on spots;
+drop policy if exists "owner can update own spot" on spots;
 create policy "owner can update own spot" on spots for update
   using (auth.uid()::text = owner_user_id)
   with check (auth.uid()::text = owner_user_id);
@@ -216,6 +228,65 @@ create trigger trg_post_like_insert after insert on post_likes
 drop trigger if exists trg_post_like_delete on post_likes;
 create trigger trg_post_like_delete after delete on post_likes
   for each row execute function decrement_post_like_count();
+
+-- ── Spot hype votes (the heart on a Home feed card) ────────────────────
+-- Same pattern as post_likes: membership scoped to the owner, spots.worth_the_hype_votes
+-- kept in sync via triggers so it stays accurate under concurrent votes.
+create table if not exists spot_hype_votes (
+  user_id text not null,
+  spot_id text not null references spots(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, spot_id)
+);
+
+alter table spot_hype_votes enable row level security;
+
+drop policy if exists "public read spot_hype_votes" on spot_hype_votes;
+create policy "public read spot_hype_votes" on spot_hype_votes for select using (true);
+
+drop policy if exists "own spot_hype_votes" on spot_hype_votes;
+create policy "own spot_hype_votes" on spot_hype_votes for all
+  using (auth.uid()::text = user_id) with check (auth.uid()::text = user_id);
+
+create or replace function increment_spot_hype_votes() returns trigger as $$
+begin
+  update spots set worth_the_hype_votes = worth_the_hype_votes + 1 where id = new.spot_id;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create or replace function decrement_spot_hype_votes() returns trigger as $$
+begin
+  update spots set worth_the_hype_votes = greatest(worth_the_hype_votes - 1, 0) where id = old.spot_id;
+  return old;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists trg_spot_hype_vote_insert on spot_hype_votes;
+create trigger trg_spot_hype_vote_insert after insert on spot_hype_votes
+  for each row execute function increment_spot_hype_votes();
+
+drop trigger if exists trg_spot_hype_vote_delete on spot_hype_votes;
+create trigger trg_spot_hype_vote_delete after delete on spot_hype_votes
+  for each row execute function decrement_spot_hype_votes();
+
+-- ── Follows (the social graph behind Home's Following tab and the Reels
+-- Follow button) ─────────────────────────────────────────────────────────
+create table if not exists follows (
+  follower_id text not null,
+  followed_id text not null,
+  created_at timestamptz not null default now(),
+  primary key (follower_id, followed_id),
+  check (follower_id <> followed_id)
+);
+alter table follows enable row level security;
+
+drop policy if exists "public read follows" on follows;
+create policy "public read follows" on follows for select using (true);
+
+drop policy if exists "manage own follows" on follows;
+create policy "manage own follows" on follows for all
+  using (auth.uid()::text = follower_id) with check (auth.uid()::text = follower_id);
 
 -- ── Saved posts (Reels bookmark) ───────────────────────────────────────
 create table if not exists saved_posts (
@@ -664,6 +735,8 @@ begin
   delete from saved_posts where user_id = uid;
   delete from collections where user_id = uid;
   delete from saved_spots where user_id = uid;
+  delete from spot_hype_votes where user_id = uid;
+  delete from follows where follower_id = uid or followed_id = uid;
   delete from business_verifications where user_id = uid;
   delete from reports where reporter_user_id = uid;
   delete from blocked_users where blocker_user_id = uid or blocked_user_id = uid;

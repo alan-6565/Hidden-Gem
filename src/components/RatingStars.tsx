@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface Props {
   rating: number;
@@ -9,6 +9,7 @@ interface Props {
 }
 
 export default function RatingStars({ rating, size = 14 }: Props) {
+  const { colors } = useTheme();
   const stars = [1, 2, 3, 4, 5].map((n) => {
     if (rating >= n) return 'star';
     if (rating >= n - 0.5) return 'star-half';

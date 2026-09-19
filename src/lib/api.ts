@@ -173,6 +173,31 @@ export async function setSpotSaved(userId: string, spotId: string, saved: boolea
   }
 }
 
+export async function fetchLikedSpotIds(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('spot_hype_votes')
+    .select('spot_id')
+    .eq('user_id', userId);
+  if (error) throw error;
+  return (data ?? []).map((row) => row.spot_id);
+}
+
+export async function setSpotHyped(userId: string, spotId: string, hyped: boolean): Promise<void> {
+  if (hyped) {
+    const { error } = await supabase
+      .from('spot_hype_votes')
+      .upsert({ user_id: userId, spot_id: spotId });
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from('spot_hype_votes')
+      .delete()
+      .eq('user_id', userId)
+      .eq('spot_id', spotId);
+    if (error) throw error;
+  }
+}
+
 export async function fetchLikedPostIds(userId: string): Promise<string[]> {
   const { data, error } = await supabase
     .from('post_likes')

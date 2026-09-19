@@ -10,6 +10,7 @@ import {
   fetchComments,
   fetchFollowingIds,
   fetchLikedPostIds,
+  fetchLikedSpotIds,
   fetchMyVerifications,
   fetchOrders,
   fetchPosts,
@@ -27,6 +28,7 @@ import {
   setFollowing,
   setPostLiked,
   setPostSaved,
+  setSpotHyped,
   setSpotSaved,
   SpotEditInput,
   submitBusinessVerification,
@@ -47,6 +49,7 @@ interface DataContextValue {
   orders: Order[];
   collections: Collection[];
   savedSpotIds: string[];
+  likedSpotIds: string[];
   likedPostIds: string[];
   savedPostIds: string[];
   myVerifications: BusinessVerification[];
@@ -58,6 +61,8 @@ interface DataContextValue {
   refresh: () => Promise<void>;
   isSaved: (spotId: string) => boolean;
   toggleSaved: (spotId: string) => Promise<void>;
+  isSpotHyped: (spotId: string) => boolean;
+  toggleSpotHype: (spotId: string) => Promise<void>;
   isPostLiked: (postId: string) => boolean;
   toggleLike: (postId: string) => Promise<void>;
   isPostSaved: (postId: string) => boolean;
@@ -88,6 +93,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [savedSpotIds, setSavedSpotIds] = useState<string[]>([]);
+  const [likedSpotIds, setLikedSpotIds] = useState<string[]>([]);
   const [likedPostIds, setLikedPostIds] = useState<string[]>([]);
   const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
   const [myVerifications, setMyVerifications] = useState<BusinessVerification[]>([]);
@@ -116,6 +122,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         ordersData,
         collectionsData,
         savedData,
+        likedSpotData,
         likedData,
         savedPostData,
         verificationsData,
@@ -129,6 +136,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         fetchOrders(),
         fetchCollections(user.id),
         fetchSavedSpotIds(user.id),
+        fetchLikedSpotIds(user.id),
         fetchLikedPostIds(user.id),
         fetchSavedPostIds(user.id),
         fetchMyVerifications(user.id),
@@ -142,6 +150,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setOrders(ordersData);
       setCollections(collectionsData);
       setSavedSpotIds(savedData);
+      setLikedSpotIds(likedSpotData);
       setLikedPostIds(likedData);
       setSavedPostIds(savedPostData);
       setMyVerifications(verificationsData);
@@ -193,6 +202,38 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
     },
     [user, savedSpotIds],
+  );
+
+  const isSpotHyped = useCallback((spotId: string) => likedSpotIds.includes(spotId), [likedSpotIds]);
+
+  const toggleSpotHype = useCallback(
+    async (spotId: string) => {
+      if (!user) return;
+      const currentlyHyped = likedSpotIds.includes(spotId);
+      const delta = currentlyHyped ? -1 : 1;
+      setLikedSpotIds((prev) =>
+        currentlyHyped ? prev.filter((id) => id !== spotId) : [...prev, spotId],
+      );
+      setSpots((prev) =>
+        prev.map((s) =>
+          s.id === spotId ? { ...s, worthTheHypeVotes: Math.max(0, s.worthTheHypeVotes + delta) } : s,
+        ),
+      );
+      try {
+        await setSpotHyped(user.id, spotId, !currentlyHyped);
+      } catch (e) {
+        setLikedSpotIds((prev) =>
+          currentlyHyped ? [...prev, spotId] : prev.filter((id) => id !== spotId),
+        );
+        setSpots((prev) =>
+          prev.map((s) =>
+            s.id === spotId ? { ...s, worthTheHypeVotes: Math.max(0, s.worthTheHypeVotes - delta) } : s,
+          ),
+        );
+        throw e;
+      }
+    },
+    [user, likedSpotIds],
   );
 
   const isPostLiked = useCallback((postId: string) => likedPostIds.includes(postId), [likedPostIds]);
@@ -391,6 +432,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         orders,
         collections,
         savedSpotIds,
+        likedSpotIds,
         likedPostIds,
         savedPostIds,
         myVerifications,
@@ -402,6 +444,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         refresh: load,
         isSaved,
         toggleSaved,
+        isSpotHyped,
+        toggleSpotHype,
         isPostLiked,
         toggleLike,
         isPostSaved,

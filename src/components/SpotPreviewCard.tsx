@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Spot } from '../types';
@@ -7,7 +7,8 @@ import { getDisplayRating, getReviewCount } from '../utils/rating';
 import { getStatusLabel, isOpenNow } from '../utils/hours';
 import { isPromoted } from '../utils/promotion';
 import { CATEGORY_LABELS } from '../constants/categories';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface Props {
   spot: Spot;
@@ -15,6 +16,8 @@ interface Props {
 }
 
 export default function SpotPreviewCard({ spot, onPress }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { reviews, isSaved, toggleSaved } = useAppData();
   const saved = isSaved(spot.id);
   const rating = getDisplayRating(spot, reviews);
@@ -68,7 +71,8 @@ export default function SpotPreviewCard({ spot, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   card: {
     flexDirection: 'row',
     backgroundColor: colors.card,

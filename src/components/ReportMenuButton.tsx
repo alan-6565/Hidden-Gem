@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { ReportTargetType } from '../types';
-import { colors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 const REPORT_REASONS = ['Spam', 'Inappropriate', 'Harassment', 'Other'];
 
@@ -25,6 +25,7 @@ export default function ReportMenuButton({
   color,
   size,
 }: Props) {
+  const { colors } = useTheme();
   const { user } = useAuth();
   const { reportContent, blockUser } = useAppData();
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -17,7 +17,8 @@ import { useAuth } from '../context/AuthContext';
 import { pickMediaFromLibrary, uploadMedia } from '../lib/mediaUpload';
 import { MenuItem, OpenHours, PriceRange } from '../types';
 import { isPromoted } from '../utils/promotion';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BusinessEdit'>;
@@ -33,6 +34,8 @@ interface DayState {
 }
 
 export default function BusinessEditScreen({ route, navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { spotId } = route.params;
   const insets = useSafeAreaInsets();
   const { spots, updateSpot } = useAppData();
@@ -310,7 +313,8 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

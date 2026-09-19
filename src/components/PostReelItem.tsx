@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Linking, Pressable, Share, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -8,7 +8,8 @@ import { useAuth } from '../context/AuthContext';
 import CommentsSheet from './CommentsSheet';
 import ReportMenuButton from './ReportMenuButton';
 import { distanceMiles, formatDistance } from '../utils/geo';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface Props {
   post: Post;
@@ -25,6 +26,8 @@ function formatCount(n: number): string {
 }
 
 export default function PostReelItem({ post, height, isActive, userCoords, onOpenSpot, onAddReview }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { spots, isPostLiked, toggleLike, isPostSaved, toggleSavePost, isFollowing, toggleFollow } = useAppData();
   const { user } = useAuth();
   const liked = isPostLiked(post.id);
@@ -194,7 +197,8 @@ export default function PostReelItem({ post, height, isActive, userCoords, onOpe
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     width: '100%',
     backgroundColor: colors.dark,

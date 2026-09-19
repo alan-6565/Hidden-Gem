@@ -1,6 +1,7 @@
-import React, { useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, PanResponder, StyleSheet, Text, View } from 'react-native';
-import { colors, radius } from '../theme';
+import { radius, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface Props {
   value: number;
@@ -12,6 +13,8 @@ interface Props {
 const THUMB_SIZE = 20;
 
 export default function DistanceSlider({ value, min = 1, max = 10, onChange }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [trackWidth, setTrackWidth] = useState(0);
 
   const onLayout = (e: LayoutChangeEvent) => setTrackWidth(e.nativeEvent.layout.width);
@@ -46,7 +49,8 @@ export default function DistanceSlider({ value, min = 1, max = 10, onChange }: P
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   track: {
     height: 4,
     borderRadius: radius.pill,

@@ -5,7 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { Order, OrderStatus } from '../types';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Orders'>;
@@ -21,16 +22,19 @@ const STATUS_LABELS: Record<OrderStatus, string> = {
   cancelled: 'Cancelled',
 };
 
-const STATUS_COLORS: Record<OrderStatus, string> = {
+const getStatusColors = (colors: ThemeColors): Record<OrderStatus, string> => ({
   pending: colors.gold,
   accepted: colors.primary,
   ready: colors.success,
   completed: colors.textMuted,
   declined: colors.textMuted,
   cancelled: colors.textMuted,
-};
+});
 
 export default function OrdersScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const STATUS_COLORS = useMemo(() => getStatusColors(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { orders, spots, setOrderStatus } = useAppData();
   const { user } = useAuth();
@@ -157,7 +161,8 @@ export default function OrdersScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 export const EXPLORE_TAGS: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: 'cafes', label: 'Cafes', icon: 'cafe' },
@@ -20,6 +21,8 @@ interface Props {
 }
 
 export default function ExploreReelsGrid({ onSelectTag }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Explore Reels</Text>
@@ -36,7 +39,8 @@ export default function ExploreReelsGrid({ onSelectTag }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
