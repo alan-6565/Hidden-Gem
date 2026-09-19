@@ -19,6 +19,7 @@ import { colors, radius, spacing } from '../theme';
 import { TabScreenProps } from '../navigation/types';
 import { useUserLocation } from '../utils/useUserLocation';
 import { isPromoted } from '../utils/promotion';
+import { applySearchFilters, hasActiveFilters } from '../utils/searchFilters';
 
 type Props = TabScreenProps<'Home'>;
 
@@ -37,9 +38,9 @@ const HOME_CATEGORY_LABELS: Record<SpotCategory, string> = {
 
 export default function HomeScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
-  const { spots, posts, stories, savedSpotIds, followingIds } = useAppData();
+  const { spots, reviews, posts, stories, savedSpotIds, followingIds } = useAppData();
   const { user } = useAuth();
-  const { filters } = useSearchFilters();
+  const { filters, resetFilters } = useSearchFilters();
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('all');
   const [tab, setTab] = useState<HomeTab>('for_you');
   const [viewingStories, setViewingStories] = useState<Post[] | null>(null);
@@ -92,6 +93,20 @@ export default function HomeScreen({ navigation }: Props) {
     return spots.filter((s) => followedSpotIds.has(s.id));
   }, [posts, followingIds, spots]);
 
+  const filtersActive = hasActiveFilters(filters);
+  const searchResults = useMemo(
+    () =>
+      filtersActive
+        ? applySearchFilters(
+            spots,
+            filters,
+            reviews,
+            userLocation.isRealLocation ? userLocation.coords : null,
+          )
+        : [],
+    [filtersActive, spots, filters, reviews, userLocation.isRealLocation, userLocation.coords],
+  );
+
   const goToSpot = (spotId: string) => navigation.navigate('SpotProfile', { spotId });
 
   const renderStoryHeader = () => (
@@ -126,6 +141,71 @@ export default function HomeScreen({ navigation }: Props) {
     </>
   );
 
+  const renderNearbyIntro = () => (
+    <>
+      <View style={styles.locationRow}>
+        <Ionicons name="location-outline" size={14} color={colors.textMuted} />
+        <Text style={[styles.locationText, { color: colors.textMuted }]}>{locationLabel}</Text>
+        <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
+      </View>
+
+      <Text style={[styles.headline, { color: colors.text }]}>
+        What's good{'\n'}near you right now?
+      </Text>
+
+      <Pressable
+        style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}
+        onPress={() => navigation.navigate('SearchFilters')}
+      >
+        <Ionicons name="search" size={16} color={colors.textMuted} />
+        <Text style={[styles.searchPlaceholder, { color: colors.textMuted }]} numberOfLines={1}>
+          {filters.query.trim() || 'Search for cafes, foods, people...'}
+        </Text>
+        <Ionicons name="options-outline" size={18} color={colors.primary} />
+      </Pressable>
+    </>
+  );
+
+  if (tab === 'nearby' && filtersActive) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <FlatList
+          data={searchResults}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.content}
+          ListHeaderComponent={
+            <>
+              {renderStoryHeader()}
+              {renderNearbyIntro()}
+              <View style={styles.resultsHeaderRow}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  {searchResults.length} {searchResults.length === 1 ? 'result' : 'results'}
+                </Text>
+                <Pressable onPress={resetFilters} hitSlop={8}>
+                  <Text style={[styles.seeAll, { color: colors.primary }]}>Clear filters</Text>
+                </Pressable>
+              </View>
+            </>
+          }
+          renderItem={({ item }) => <FeedSpotCard spot={item} onPress={() => goToSpot(item.id)} />}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="search-outline" size={32} color={colors.textMuted} />
+              <Text style={[styles.emptyStateText, { color: colors.textMuted }]}>
+                No spots match those filters.
+              </Text>
+            </View>
+          }
+        />
+        <StoryViewerModal
+          stories={viewingStories ?? []}
+          visible={viewingStories != null}
+          onClose={() => setViewingStories(null)}
+        />
+      </View>
+    );
+  }
+
   if (tab === 'nearby') {
     return (
       <ScrollView
@@ -133,27 +213,7 @@ export default function HomeScreen({ navigation }: Props) {
         contentContainerStyle={styles.content}
       >
         {renderStoryHeader()}
-
-        <View style={styles.locationRow}>
-          <Ionicons name="location-outline" size={14} color={colors.textMuted} />
-          <Text style={[styles.locationText, { color: colors.textMuted }]}>{locationLabel}</Text>
-          <Ionicons name="chevron-down" size={14} color={colors.textMuted} />
-        </View>
-
-        <Text style={[styles.headline, { color: colors.text }]}>
-          What's good{'\n'}near you right now?
-        </Text>
-
-        <Pressable
-          style={[styles.searchBar, { backgroundColor: colors.card, borderColor: colors.border }]}
-          onPress={() => navigation.navigate('SearchFilters')}
-        >
-          <Ionicons name="search" size={16} color={colors.textMuted} />
-          <Text style={[styles.searchPlaceholder, { color: colors.textMuted }]} numberOfLines={1}>
-            {filters.query.trim() || 'Search for cafes, foods, people...'}
-          </Text>
-          <Ionicons name="options-outline" size={18} color={colors.primary} />
-        </Pressable>
+        {renderNearbyIntro()}
 
         <FlatList
           data={CATEGORIES}
@@ -376,6 +436,14 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 13,
+  },
+  resultsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
   },
   emptyState: {
     alignItems: 'center',

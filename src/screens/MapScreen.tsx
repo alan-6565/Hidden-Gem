@@ -14,7 +14,7 @@ import { isOpenNow } from '../utils/hours';
 import { MOCK_USER_LOCATION } from '../utils/geo';
 import { useUserLocation } from '../utils/useUserLocation';
 import { useSearchFilters } from '../context/SearchFilterContext';
-import { applySearchFilters, DEFAULT_SEARCH_FILTERS } from '../utils/searchFilters';
+import { applySearchFilters, hasActiveFilters } from '../utils/searchFilters';
 import { isPromoted } from '../utils/promotion';
 
 type Props = TabScreenProps<'Map'>;
@@ -92,15 +92,7 @@ export default function MapScreen({ navigation }: Props) {
     }
   }, [userLocation.isRealLocation, userLocation.coords]);
 
-  const hasActiveFilters =
-    filters.query.trim().length > 0 ||
-    filters.categories.length > 0 ||
-    filters.openNow ||
-    filters.outdoorSeating ||
-    filters.petFriendly ||
-    filters.goodForStudying ||
-    filters.maxDistanceMiles < DEFAULT_SEARCH_FILTERS.maxDistanceMiles ||
-    filters.sortBy !== 'top_match';
+  const filtersActive = hasActiveFilters(filters);
 
   const recenter = async () => {
     if (userLocation.permissionDenied) {
@@ -140,7 +132,7 @@ export default function MapScreen({ navigation }: Props) {
             <Text style={styles.searchPlaceholder} numberOfLines={1}>
               {filters.query.trim() || 'Search cafes, brunch spots...'}
             </Text>
-            {hasActiveFilters && <View style={styles.filterActiveDot} />}
+            {filtersActive && <View style={styles.filterActiveDot} />}
           </Pressable>
 
           <View style={styles.chipRow}>

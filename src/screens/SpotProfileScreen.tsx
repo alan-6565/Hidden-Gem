@@ -23,6 +23,7 @@ import ReportMenuButton from '../components/ReportMenuButton';
 import { getDisplayRating, getRatingDistribution, getReviewCount } from '../utils/rating';
 import { getStatusLabel, isOpenNow } from '../utils/hours';
 import { isPromoted } from '../utils/promotion';
+import { formatDate } from '../utils/date';
 import { CATEGORY_LABELS } from '../constants/categories';
 import { colors, radius, spacing } from '../theme';
 import { RootStackParamList } from '../navigation/types';
@@ -326,7 +327,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
               <Image source={{ uri: review.userAvatar }} style={styles.avatar} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.reviewUser}>{review.userName}</Text>
-                <Text style={styles.reviewDate}>{review.createdAt}</Text>
+                <Text style={styles.reviewDate}>{formatDate(review.createdAt)}</Text>
               </View>
               <ReportMenuButton
                 targetType="review"
