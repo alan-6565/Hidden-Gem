@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -6,7 +6,8 @@ import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { pickMediaFromLibrary, uploadMedia } from '../lib/mediaUpload';
 import { VibeTag } from '../types';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddReview'>;
@@ -22,10 +23,12 @@ function StarPicker({
   label,
   value,
   onChange,
+  styles,
 }: {
   label: string;
   value: number;
   onChange: (n: number) => void;
+  styles: ReturnType<typeof makeStyles>;
 }) {
   return (
     <View style={styles.starRow}>
@@ -42,6 +45,8 @@ function StarPicker({
 }
 
 export default function AddReviewScreen({ route, navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { spotId } = route.params;
   const { spots, addReview } = useAppData();
   const { user } = useAuth();
@@ -105,9 +110,9 @@ export default function AddReviewScreen({ route, navigation }: Props) {
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Review {spot?.name ?? 'this spot'}</Text>
 
-      <StarPicker label="Taste" value={taste} onChange={setTaste} />
-      <StarPicker label="Value" value={value} onChange={setValue} />
-      <StarPicker label="Vibe" value={vibeRating} onChange={setVibeRating} />
+      <StarPicker label="Taste" value={taste} onChange={setTaste} styles={styles} />
+      <StarPicker label="Value" value={value} onChange={setValue} styles={styles} />
+      <StarPicker label="Vibe" value={vibeRating} onChange={setVibeRating} styles={styles} />
 
       <Text style={styles.overallText}>Overall: {overall ? `${overall}★` : '—'}</Text>
 
@@ -168,7 +173,8 @@ export default function AddReviewScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

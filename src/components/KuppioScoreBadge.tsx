@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface Props {
   score: number;
@@ -9,6 +10,8 @@ interface Props {
 }
 
 export default function KuppioScoreBadge({ score, variant = 'dark', style }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const light = variant === 'light';
   return (
     <View style={[styles.badge, light && styles.badgeLight, style]}>
@@ -17,7 +20,8 @@ export default function KuppioScoreBadge({ score, variant = 'dark', style }: Pro
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   badge: {
     backgroundColor: colors.dark,
     borderRadius: radius.sm,
@@ -25,7 +29,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   badgeLight: {
-    backgroundColor: '#E3F2E9',
+    backgroundColor: colors.successMuted,
   },
   text: {
     color: '#fff',

@@ -13,7 +13,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
 import PostReelItem from '../components/PostReelItem';
 import ExploreReelsGrid from '../components/ExploreReelsGrid';
-import { colors, spacing } from '../theme';
+import { spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { TabScreenProps } from '../navigation/types';
 import { useUserLocation } from '../utils/useUserLocation';
 
@@ -22,6 +23,8 @@ type Props = TabScreenProps<'Reels'>;
 type Mode = 'for_you' | 'following' | 'explore';
 
 export default function ReelsScreen({ navigation, route }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { posts } = useAppData();
   const userLocation = useUserLocation();
@@ -147,7 +150,8 @@ export default function ReelsScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.dark,

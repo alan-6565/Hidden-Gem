@@ -1,22 +1,28 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAppData } from '../context/DataContext';
 import { BusinessVerification, VerificationStatus } from '../types';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'VerificationStatus'>;
 
-const STATUS_META: Record<VerificationStatus, { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> = {
-  pending: { label: 'Pending review', color: colors.gold, bg: '#FCEFD4', icon: 'time-outline' },
-  approved: { label: 'Approved', color: colors.success, bg: '#E3F2E9', icon: 'checkmark-circle' },
-  rejected: { label: 'Not approved', color: colors.primaryDark, bg: colors.primaryMuted, icon: 'close-circle' },
-};
+const getStatusMeta = (
+  colors: ThemeColors,
+): Record<VerificationStatus, { label: string; color: string; bg: string; icon: keyof typeof Ionicons.glyphMap }> => ({
+  pending: { label: 'Pending review', color: colors.gold, bg: colors.goldMuted, icon: 'time-outline' },
+  approved: { label: 'Approved', color: colors.success, bg: colors.successMuted, icon: 'checkmark-circle' },
+  rejected: { label: 'Not approved', color: colors.danger, bg: colors.dangerMuted, icon: 'close-circle' },
+});
 
 export default function VerificationStatusScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const STATUS_META = useMemo(() => getStatusMeta(colors), [colors]);
   const { myVerifications, refresh } = useAppData();
 
   // Approval/rejection happens out-of-band (the admin reviewing on their own
@@ -83,7 +89,8 @@ export default function VerificationStatusScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

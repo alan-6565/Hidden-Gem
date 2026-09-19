@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import {
   createNativeStackNavigator,
@@ -22,7 +22,8 @@ import AdminReviewScreen from '../screens/AdminReviewScreen';
 import OrderScreen from '../screens/OrderScreen';
 import OrdersScreen from '../screens/OrdersScreen';
 import { RootStackParamList, TabParamList } from './types';
-import { colors, radius } from '../theme';
+import { radius, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -39,13 +40,21 @@ function EmptyScreen() {
 }
 
 function Tabs() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarStyle: { height: 62, paddingTop: 6, paddingBottom: 8 },
+        tabBarStyle: {
+          height: 62,
+          paddingTop: 6,
+          paddingBottom: 8,
+          backgroundColor: colors.background,
+          borderTopColor: colors.border,
+        },
         tabBarIcon: ({ color, size }) => (
           <Ionicons name={TAB_ICONS[route.name]} size={size} color={color} />
         ),
@@ -80,8 +89,15 @@ function Tabs() {
 }
 
 export default function RootNavigator() {
+  const { colors } = useTheme();
   return (
-    <Stack.Navigator screenOptions={{ headerTintColor: colors.text }}>
+    <Stack.Navigator
+      screenOptions={{
+        headerTintColor: colors.text,
+        headerStyle: { backgroundColor: colors.background },
+        headerShadowVisible: false,
+      }}
+    >
       <Stack.Screen name="Tabs" component={Tabs} options={{ headerShown: false }} />
       <Stack.Screen
         name="SpotProfile"
@@ -134,19 +150,20 @@ export default function RootNavigator() {
   );
 }
 
-const styles = StyleSheet.create({
-  fab: {
-    width: 46,
-    height: 46,
-    borderRadius: radius.pill,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 4,
-  },
-});
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
+    fab: {
+      width: 46,
+      height: 46,
+      borderRadius: radius.pill,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 4,
+      shadowColor: '#000',
+      shadowOpacity: 0.25,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 4,
+    },
+  });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -17,7 +17,8 @@ import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { pickMediaFromLibrary, uploadMedia, uploadVerificationDoc } from '../lib/mediaUpload';
 import { MenuItem, OpenHours, PriceRange, SpotCategory } from '../types';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'CreateBusiness'>;
@@ -42,6 +43,8 @@ interface DayState {
 }
 
 export default function CreateBusinessScreen({ route, navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const { lat, lng } = route.params;
   const insets = useSafeAreaInsets();
   const { submitVerification } = useAppData();
@@ -466,7 +469,8 @@ export default function CreateBusinessScreen({ route, navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

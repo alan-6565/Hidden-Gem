@@ -8,7 +8,8 @@ import { SpotCategory } from '../types';
 import SpotPreviewCard from '../components/SpotPreviewCard';
 import FilterChip from '../components/FilterChip';
 import { CATEGORY_COLORS, CATEGORY_ICONS } from '../constants/categories';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { TabScreenProps } from '../navigation/types';
 import { isOpenNow } from '../utils/hours';
 import { MOCK_USER_LOCATION } from '../utils/geo';
@@ -36,6 +37,8 @@ const INITIAL_REGION: Region = {
 };
 
 export default function MapScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { spots, reviews } = useAppData();
   const { filters } = useSearchFilters();
@@ -289,7 +292,8 @@ export default function MapScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

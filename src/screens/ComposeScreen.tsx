@@ -18,7 +18,8 @@ import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { PickedMedia, uploadMedia } from '../lib/mediaUpload';
 import CameraCapture from '../components/CameraCapture';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Compose'>;
@@ -28,7 +29,7 @@ function extractHashtags(caption: string): string[] {
   return [...new Set(matches.map((tag) => tag.slice(1).toLowerCase()))];
 }
 
-function VideoPreview({ uri }: { uri: string }) {
+function VideoPreview({ uri, styles }: { uri: string; styles: ReturnType<typeof makeStyles> }) {
   const player = useVideoPlayer(uri, (p) => {
     p.loop = true;
     p.muted = true;
@@ -38,6 +39,8 @@ function VideoPreview({ uri }: { uri: string }) {
 }
 
 export default function ComposeScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { spots, addPost } = useAppData();
   const { user } = useAuth();
@@ -102,7 +105,7 @@ export default function ComposeScreen({ navigation }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.mediaWrapper}>
-        {media.isVideo ? <VideoPreview uri={media.uri} /> : <Image source={{ uri: media.uri }} style={styles.media} />}
+        {media.isVideo ? <VideoPreview uri={media.uri} styles={styles} /> : <Image source={{ uri: media.uri }} style={styles.media} />}
         <View style={[styles.topBar, { paddingTop: insets.top + spacing.xs }]}>
           <Pressable style={styles.topBarButton} onPress={() => setMedia(null)}>
             <Ionicons name="chevron-back" size={24} color="#fff" />
@@ -157,7 +160,8 @@ export default function ComposeScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   editContainer: {
     flex: 1,
     backgroundColor: colors.dark,

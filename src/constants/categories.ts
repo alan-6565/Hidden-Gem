@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme';
 import { SpotCategory } from '../types';
 
 export const CATEGORY_ICONS: Record<SpotCategory, keyof typeof Ionicons.glyphMap> = {
@@ -25,9 +24,9 @@ export const CATEGORY_LABELS: Record<SpotCategory, string> = {
 // Map-pin-only palette — distinct from the brand theme, just needs to be
 // visually distinguishable per category at a glance on the map.
 export const CATEGORY_COLORS: Record<SpotCategory, string> = {
-  coffee: colors.primary,
-  matcha: colors.matcha,
-  dessert: colors.gold,
+  coffee: '#EE4C6A',
+  matcha: '#8CAA7B',
+  dessert: '#F5A623',
   brunch: '#E0954B',
   home_based: '#8B6FD1',
   pop_up: '#5B8DEF',

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,7 +18,8 @@ import {
   reviewVerification,
 } from '../lib/api';
 import { BusinessVerification } from '../types';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 interface RowPhotos {
   idPhotoUrl: string | null;
@@ -26,6 +27,8 @@ interface RowPhotos {
 }
 
 export default function AdminReviewScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const [items, setItems] = useState<BusinessVerification[]>([]);
   const [photos, setPhotos] = useState<Record<string, RowPhotos>>({});
   const [loading, setLoading] = useState(true);
@@ -199,7 +202,8 @@ export default function AdminReviewScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -297,10 +301,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm + 2,
   },
   rejectButton: {
-    backgroundColor: colors.primaryMuted,
+    backgroundColor: colors.dangerMuted,
   },
   rejectButtonText: {
-    color: colors.primaryDark,
+    color: colors.danger,
     fontWeight: '700',
     fontSize: 13,
   },

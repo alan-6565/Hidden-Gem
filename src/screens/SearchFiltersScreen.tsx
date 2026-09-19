@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -7,7 +7,8 @@ import { useAppData } from '../context/DataContext';
 import { useSearchFilters } from '../context/SearchFilterContext';
 import { SpotCategory } from '../types';
 import DistanceSlider from '../components/DistanceSlider';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../navigation/types';
 import {
   applySearchFilters,
@@ -26,6 +27,8 @@ const CATEGORY_OPTIONS: { key: SpotCategory; label: string; icon: keyof typeof I
 ];
 
 export default function SearchFiltersScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { spots, reviews } = useAppData();
   const { filters: appliedFilters, setFilters: setAppliedFilters } = useSearchFilters();
@@ -185,7 +188,8 @@ export default function SearchFiltersScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,

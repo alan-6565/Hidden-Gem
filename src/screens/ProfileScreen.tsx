@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +8,8 @@ import { checkIsAdmin } from '../lib/api';
 import { CURRENT_USER_DISPLAY } from '../constants';
 import { SpotCategory } from '../types';
 import FilterChip from '../components/FilterChip';
-import { colors, radius, spacing } from '../theme';
+import { radius, spacing, ThemeColors } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { TabScreenProps } from '../navigation/types';
 
 type Props = TabScreenProps<'Profile'>;
@@ -32,6 +33,8 @@ const CATEGORY_LABELS: Record<SpotCategory, string> = {
 };
 
 export default function ProfileScreen({ navigation }: Props) {
+  const { colors, preference, setPreference } = useTheme();
+  const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { spots, collections, savedSpotIds, toggleSaved, deleteAccount } = useAppData();
   const { user, signOut } = useAuth();
@@ -114,6 +117,26 @@ export default function ProfileScreen({ navigation }: Props) {
         </Pressable>
       )}
 
+      <Text style={styles.sectionTitle}>Appearance</Text>
+      <View style={styles.appearanceRow}>
+        {(['system', 'light', 'dark'] as const).map((option) => (
+          <Pressable
+            key={option}
+            style={[styles.appearancePill, preference === option && styles.appearancePillActive]}
+            onPress={() => setPreference(option)}
+          >
+            <Text
+              style={[
+                styles.appearancePillText,
+                preference === option && styles.appearancePillTextActive,
+              ]}
+            >
+              {option === 'system' ? 'System' : option === 'light' ? 'Light' : 'Dark'}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
       <Text style={styles.sectionTitle}>Your Collections</Text>
       {collections.map((col) => (
         <View key={col.id} style={styles.collectionCard}>
@@ -165,7 +188,8 @@ export default function ProfileScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors: ThemeColors) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
@@ -237,6 +261,31 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: spacing.sm,
     marginTop: spacing.md,
+  },
+  appearanceRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  appearancePill: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.sm + 2,
+    borderRadius: radius.pill,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  appearancePillActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  appearancePillText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  appearancePillTextActive: {
+    color: '#fff',
   },
   collectionCard: {
     backgroundColor: colors.card,
