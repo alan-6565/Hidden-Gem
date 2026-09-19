@@ -26,7 +26,7 @@ export default function ReelsScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { posts } = useAppData();
+  const { posts, followingIds } = useAppData();
   const userLocation = useUserLocation();
   const [containerHeight, setContainerHeight] = useState(0);
   const [mode, setMode] = useState<Mode>('for_you');
@@ -37,10 +37,18 @@ export default function ReelsScreen({ navigation, route }: Props) {
     setContainerHeight(e.nativeEvent.layout.height);
   };
 
+  // Stories share the posts table but expire after 24h — they belong in the
+  // Stories row, not the permanent Reels feed.
   const feedPosts = useMemo(() => {
-    if (!exploreTag) return posts;
-    return posts.filter((p) => p.exploreTags.includes(exploreTag));
-  }, [posts, exploreTag]);
+    let result = posts.filter((p) => !p.isStory);
+    if (mode === 'following') {
+      result = result.filter((p) => p.userId && followingIds.includes(p.userId));
+    }
+    if (exploreTag) {
+      result = result.filter((p) => p.exploreTags.includes(exploreTag));
+    }
+    return result;
+  }, [posts, mode, followingIds, exploreTag]);
 
   const onViewableItemsChanged = React.useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
@@ -53,7 +61,9 @@ export default function ReelsScreen({ navigation, route }: Props) {
   const goToSpot = (spotId: string) => navigation.navigate('SpotProfile', { spotId });
   const goToAddReview = (spotId: string) => navigation.navigate('AddReview', { spotId });
 
-  const isDarkBackground = mode === 'for_you';
+  // Dark chrome only while a video/photo feed is actually on screen; the
+  // Explore grid and empty states are light, so they need the light tab bar.
+  const isDarkBackground = mode !== 'explore' && feedPosts.length > 0;
 
   return (
     <View style={[styles.container, { backgroundColor: colors.dark }]} onLayout={onContainerLayout}>
@@ -126,15 +136,18 @@ export default function ReelsScreen({ navigation, route }: Props) {
             setMode('for_you');
           }}
         />
-      ) : mode === 'following' ? (
+      ) : feedPosts.length === 0 ? (
         <View style={[styles.emptyState, { backgroundColor: colors.background }]}>
           <Ionicons name="people-outline" size={32} color={colors.textMuted} />
           <Text style={[styles.emptyText, { color: colors.textMuted }]}>
-            Follow people from posts to see them here.
+            {mode === 'following'
+              ? 'Follow people from posts to see them here.'
+              : 'No reels here yet.'}
           </Text>
         </View>
       ) : containerHeight > 0 ? (
         <FlatList
+          key={`${mode}:${exploreTag ?? ''}`}
           data={feedPosts}
           keyExtractor={(item) => item.id}
           pagingEnabled
