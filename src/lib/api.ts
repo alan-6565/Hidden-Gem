@@ -312,7 +312,10 @@ export async function insertReview(
     })
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    if (error.code === '23505') throw new Error("You've already reviewed this spot.");
+    throw error;
+  }
   return mapReview(data);
 }
 
