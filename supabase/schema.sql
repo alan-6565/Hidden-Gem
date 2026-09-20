@@ -135,12 +135,41 @@ drop policy if exists "insert own spot" on spots;
 create unique index if not exists spots_name_unique_idx on spots (lower(name));
 
 -- reviews stay publicly readable (that's the point of a review), but you can
--- only post a review as yourself, matching the authenticated user's id.
+-- only post a review as yourself, matching the authenticated user's id, and
+-- never for a spot you own — a business rating its own listing isn't a real
+-- review. One review per user per spot is enforced by the unique index below.
 drop policy if exists "public read reviews" on reviews;
 create policy "public read reviews" on reviews for select using (true);
 drop policy if exists "public write reviews" on reviews;
 drop policy if exists "insert own reviews" on reviews;
-create policy "insert own reviews" on reviews for insert with check (auth.uid()::text = user_id);
+create policy "insert own reviews" on reviews for insert
+  with check (
+    auth.uid()::text = user_id
+    and not exists (select 1 from spots where spots.id = reviews.spot_id and spots.owner_user_id = auth.uid()::text)
+  );
+
+create unique index if not exists reviews_user_spot_unique_idx on reviews (user_id, spot_id);
+
+-- You can edit your own review in place (rather than being blocked outright
+-- by the unique index above once you already have one for this spot), but
+-- never reassign it to a different spot or user.
+drop policy if exists "update own reviews" on reviews;
+create policy "update own reviews" on reviews for update
+  using (auth.uid()::text = user_id)
+  with check (auth.uid()::text = user_id);
+
+create or replace function protect_review_identity_fields() returns trigger as $$
+begin
+  if new.spot_id is distinct from old.spot_id or new.user_id is distinct from old.user_id then
+    raise exception 'spot_id and user_id cannot be changed on a review';
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_review_protect_identity on reviews;
+create trigger trg_review_protect_identity before update on reviews
+  for each row execute function protect_review_identity_fields();
 
 drop policy if exists "public read posts" on posts;
 create policy "public read posts" on posts for select using (true);
@@ -148,9 +177,14 @@ drop policy if exists "public write posts" on posts;
 drop policy if exists "insert own posts" on posts;
 create policy "insert own posts" on posts for insert with check (auth.uid()::text = user_id);
 
--- Never trust the client's author_type — derive it server-side from
--- whether the posting user owns the tagged spot.
-create or replace function set_post_author_type() returns trigger as $$
+-- Never trust the client for these: author_type is derived from whether the
+-- posting user owns the tagged spot; author_name is derived from their real
+-- account rather than whatever string the client sends (stops posting under
+-- a spoofed display name); the engagement counters always start at zero
+-- regardless of what the insert payload claims (like_count/comment_count
+-- move via the post_likes/post_comments triggers below; share_count has no
+-- increment path yet and stays at its seeded/zero value either way).
+create or replace function set_post_trusted_fields() returns trigger as $$
 begin
   if new.spot_id is not null and new.user_id is not null and exists (
     select 1 from spots where id = new.spot_id and owner_user_id = new.user_id
@@ -159,13 +193,24 @@ begin
   else
     new.author_type := 'customer';
   end if;
+
+  if new.user_id is not null then
+    select split_part(email, '@', 1) into new.author_name
+    from auth.users where id = new.user_id::uuid;
+  end if;
+
+  new.like_count := 0;
+  new.comment_count := 0;
+  new.share_count := 0;
+
   return new;
 end;
 $$ language plpgsql security definer;
 
 drop trigger if exists trg_set_post_author_type on posts;
-create trigger trg_set_post_author_type before insert on posts
-  for each row execute function set_post_author_type();
+drop trigger if exists trg_set_post_trusted_fields on posts;
+create trigger trg_set_post_trusted_fields before insert on posts
+  for each row execute function set_post_trusted_fields();
 
 -- collections, their spot links, and saved spots are private to the owner.
 drop policy if exists "public read collections" on collections;
@@ -352,15 +397,25 @@ create table if not exists orders (
 
 alter table orders enable row level security;
 
--- Customers can see/manage their own orders; owners can see/manage
--- orders placed against spots they own. Kept as broad "for all" policies
--- (rather than granular per-action) since there's no real money at stake
--- yet — worst case is someone edits their own order's status, which they
--- could just as easily simulate by not showing up to pick it up.
+-- Customers can see their own orders, place new ones, and cancel them —
+-- but never rewrite items/total/status-of-their-choosing once placed (the
+-- app's own UI only ever lets a customer set status='cancelled'; every
+-- other transition is the business owner's call). Owners can see/manage
+-- orders placed against spots they own, including any status transition.
 drop policy if exists "customer manage own order" on orders;
-create policy "customer manage own order" on orders for all
-  using (auth.uid()::text = customer_user_id)
+
+drop policy if exists "customer insert own order" on orders;
+create policy "customer insert own order" on orders for insert
   with check (auth.uid()::text = customer_user_id);
+
+drop policy if exists "customer read own order" on orders;
+create policy "customer read own order" on orders for select
+  using (auth.uid()::text = customer_user_id);
+
+drop policy if exists "customer cancel own order" on orders;
+create policy "customer cancel own order" on orders for update
+  using (auth.uid()::text = customer_user_id)
+  with check (auth.uid()::text = customer_user_id and status = 'cancelled');
 
 drop policy if exists "owner manage orders for their spots" on orders;
 create policy "owner manage orders for their spots" on orders for all
@@ -377,6 +432,27 @@ $$ language plpgsql;
 drop trigger if exists trg_order_updated_at on orders;
 create trigger trg_order_updated_at before update on orders
   for each row execute function set_order_updated_at();
+
+-- items/total/spot_id/customer_user_id are set once at insert and never
+-- change again — neither role's UI ever edits them after the order is
+-- placed, only status (and note/pickup_time), so lock that in server-side
+-- too rather than relying on the client to behave.
+create or replace function protect_order_immutable_fields() returns trigger as $$
+begin
+  if new.items is distinct from old.items
+    or new.total is distinct from old.total
+    or new.spot_id is distinct from old.spot_id
+    or new.customer_user_id is distinct from old.customer_user_id
+  then
+    raise exception 'items, total, spot_id, and customer_user_id cannot be changed after an order is placed';
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_order_protect_immutable on orders;
+create trigger trg_order_protect_immutable before update on orders
+  for each row execute function protect_order_immutable_fields();
 
 -- ── Seed data ───────────────────────────────────────────────────────────
 insert into spots (id, name, category, tags, is_home_based, lat, lng, address, service_area, price_range, description, photos, hours, menu, tea_score, worth_the_hype_votes, hidden_gem_votes) values

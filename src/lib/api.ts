@@ -312,6 +312,29 @@ export async function insertReview(
     })
     .select()
     .single();
+  if (error) {
+    if (error.code === '23505') throw new Error("You've already reviewed this spot.");
+    throw error;
+  }
+  return mapReview(data);
+}
+
+export async function updateReview(reviewId: string, input: NewReviewInput): Promise<Review> {
+  const ratingOverall = Math.round((input.ratingTaste + input.ratingValue + input.ratingVibe) / 3);
+  const { data, error } = await supabase
+    .from('reviews')
+    .update({
+      rating_overall: ratingOverall,
+      rating_taste: input.ratingTaste,
+      rating_value: input.ratingValue,
+      rating_vibe: input.ratingVibe,
+      vibe_tag: input.vibeTag,
+      body: input.text,
+      photo: input.photo ?? null,
+    })
+    .eq('id', reviewId)
+    .select()
+    .single();
   if (error) throw error;
   return mapReview(data);
 }

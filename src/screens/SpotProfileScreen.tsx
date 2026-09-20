@@ -304,12 +304,16 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
           </View>
         </View>
 
-        <Pressable
-          style={styles.writeReviewButton}
-          onPress={() => navigation.navigate('AddReview', { spotId: spot.id })}
-        >
-          <Text style={styles.writeReviewText}>Write a review</Text>
-        </Pressable>
+        {spot.ownerUserId !== user?.id && (
+          <Pressable
+            style={styles.writeReviewButton}
+            onPress={() => navigation.navigate('AddReview', { spotId: spot.id })}
+          >
+            <Text style={styles.writeReviewText}>
+              {allSpotReviews.some((r) => r.userId === user?.id) ? 'Edit your review' : 'Write a review'}
+            </Text>
+          </Pressable>
+        )}
 
         <View style={styles.sortRow}>
           {(['helpful', 'recent', 'highest'] as const).map((key) => (
