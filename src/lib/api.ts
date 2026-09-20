@@ -607,6 +607,7 @@ export interface SpotEditInput {
   menu?: MenuItem[];
   photos?: string[];
   promotedUntil?: string | null;
+  tags?: string[];
 }
 
 export async function updateSpot(spotId: string, input: SpotEditInput): Promise<Spot> {
@@ -617,6 +618,7 @@ export async function updateSpot(spotId: string, input: SpotEditInput): Promise<
   if (input.menu !== undefined) payload.menu = input.menu;
   if (input.photos !== undefined) payload.photos = input.photos;
   if (input.promotedUntil !== undefined) payload.promoted_until = input.promotedUntil;
+  if (input.tags !== undefined) payload.tags = input.tags;
 
   const { data, error } = await supabase
     .from('spots')

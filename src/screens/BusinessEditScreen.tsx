@@ -27,6 +27,12 @@ const DAYS: OpenHours['day'][] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun
 const PRICE_OPTIONS: PriceRange[] = ['$', '$$', '$$$'];
 const BOOST_DAYS = 7;
 
+const AMENITY_OPTIONS: { tag: string; label: string }[] = [
+  { tag: 'outdoor seating', label: 'Outdoor seating' },
+  { tag: 'pet friendly', label: 'Pet friendly' },
+  { tag: 'study-friendly', label: 'Good for studying' },
+];
+
 interface DayState {
   enabled: boolean;
   open: string;
@@ -46,6 +52,7 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
   const [priceRange, setPriceRange] = useState<PriceRange>(spot?.priceRange ?? '$');
   const [photos, setPhotos] = useState<string[]>(spot?.photos ?? []);
   const [menu, setMenu] = useState<MenuItem[]>(spot?.menu ?? []);
+  const [tags, setTags] = useState<string[]>(spot?.tags ?? []);
   const [hoursByDay, setHoursByDay] = useState<Record<string, DayState>>(() => {
     const initial: Record<string, DayState> = {};
     for (const day of DAYS) {
@@ -126,6 +133,10 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
     setMenu((prev) => prev.filter((item) => item.id !== id));
   };
 
+  const toggleAmenity = (tag: string) => {
+    setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
+  };
+
   const handleAddPhoto = async () => {
     if (!user) return;
     setAddingPhoto(true);
@@ -160,6 +171,7 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
         hours,
         menu: cleanedMenu,
         photos,
+        tags,
       });
       navigation.goBack();
     } catch (e: any) {
@@ -236,6 +248,22 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
             </Text>
           </Pressable>
         ))}
+      </View>
+
+      <Text style={styles.sectionLabel}>Amenities</Text>
+      <View style={styles.pillRow}>
+        {AMENITY_OPTIONS.map((option) => {
+          const active = tags.includes(option.tag);
+          return (
+            <Pressable
+              key={option.tag}
+              style={[styles.pill, active && styles.pillActive]}
+              onPress={() => toggleAmenity(option.tag)}
+            >
+              <Text style={[styles.pillText, active && styles.pillTextActive]}>{option.label}</Text>
+            </Pressable>
+          );
+        })}
       </View>
 
       <Text style={styles.sectionLabel}>Hours</Text>
@@ -432,6 +460,7 @@ const makeStyles = (colors: ThemeColors) =>
   },
   pillRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
   },
   pill: {

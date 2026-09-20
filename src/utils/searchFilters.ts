@@ -55,7 +55,11 @@ export function applySearchFilters(
     if (query) {
       const matchesName = spot.name.toLowerCase().includes(query);
       const matchesTag = spot.tags.some((t) => t.toLowerCase().includes(query));
-      if (!matchesName && !matchesTag) return false;
+      const matchesDrink = spot.menu.some((item) => item.name.toLowerCase().includes(query));
+      const matchesReviewer = reviews.some(
+        (r) => r.spotId === spot.id && r.userName.toLowerCase().includes(query),
+      );
+      if (!matchesName && !matchesTag && !matchesDrink && !matchesReviewer) return false;
     }
     if (filters.categories.length > 0 && !filters.categories.includes(spot.category)) return false;
     if (filters.openNow && !isOpenNow(spot.hours)) return false;
