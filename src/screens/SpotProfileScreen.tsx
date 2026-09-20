@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import RatingStars from '../components/RatingStars';
+import Avatar from '../components/Avatar';
 import KuppioScoreBadge from '../components/KuppioScoreBadge';
 import ReportMenuButton from '../components/ReportMenuButton';
 import { getDisplayRating, getRatingDistribution, getReviewCount } from '../utils/rating';
@@ -189,7 +190,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         <View style={styles.ratingRow}>
           <RatingStars rating={rating} size={15} />
           <Text style={styles.ratingText}>
-            {rating.toFixed(1)} ({reviewCount} reviews) · {CATEGORY_LABELS[spot.category]}
+            {reviewCount === 0 ? 'No reviews yet' : `${rating.toFixed(1)} (${reviewCount} reviews)`} · {CATEGORY_LABELS[spot.category]}
           </Text>
         </View>
         <View style={styles.addressRow}>
@@ -316,7 +317,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
 
         <View style={styles.reviewsSummaryRow}>
           <View style={styles.reviewsSummaryLeft}>
-            <Text style={styles.bigRating}>{rating.toFixed(1)}</Text>
+            <Text style={styles.bigRating}>{reviewCount === 0 ? '–' : rating.toFixed(1)}</Text>
             <RatingStars rating={rating} size={16} />
             <Text style={styles.reviewCountText}>{reviewCount} reviews</Text>
           </View>
@@ -364,7 +365,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         {spotReviews.map((review) => (
           <View key={review.id} style={styles.reviewCard}>
             <View style={styles.reviewHeader}>
-              <Image source={{ uri: review.userAvatar }} style={styles.avatar} />
+              <Avatar uri={review.userAvatar} name={review.userName} size={32} style={styles.avatar} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.reviewUser}>{review.userName}</Text>
                 <Text style={styles.reviewDate}>{formatDate(review.createdAt)}</Text>

@@ -15,7 +15,9 @@ export default function KuppioScoreBadge({ score, variant = 'dark', style }: Pro
   const light = variant === 'light';
   return (
     <View style={[styles.badge, light && styles.badgeLight, style]}>
-      <Text style={[styles.text, light && styles.textLight]}>{Math.round(score)}</Text>
+      <Text style={[styles.text, light && styles.textLight]}>
+        {score > 0 ? Math.round(score) : 'New'}
+      </Text>
     </View>
   );
 }

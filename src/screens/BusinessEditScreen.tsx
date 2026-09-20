@@ -25,7 +25,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'BusinessEdit'>;
 
 const DAYS: OpenHours['day'][] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const PRICE_OPTIONS: PriceRange[] = ['$', '$$', '$$$'];
-const BOOST_DAYS = 7;
 
 const AMENITY_OPTIONS: { tag: string; label: string }[] = [
   { tag: 'outdoor seating', label: 'Outdoor seating' },
@@ -65,7 +64,6 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
   });
   const [saving, setSaving] = useState(false);
   const [addingPhoto, setAddingPhoto] = useState(false);
-  const [boosting, setBoosting] = useState(false);
 
   if (!spot) {
     return (
@@ -84,31 +82,6 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
   }
 
   const promoted = isPromoted(spot);
-
-  const handleBoost = () => {
-    Alert.alert(
-      'Boost this business?',
-      `Promoted spots get priority placement in Home and Map for ${BOOST_DAYS} days. Payments aren't wired up yet, so this won't actually charge you — it just marks the business as promoted so you can see how it looks.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Boost it',
-          onPress: async () => {
-            setBoosting(true);
-            try {
-              const until = new Date();
-              until.setDate(until.getDate() + BOOST_DAYS);
-              await updateSpot(spotId, { promotedUntil: until.toISOString() });
-            } catch (e: any) {
-              Alert.alert("Couldn't boost this business", e?.message ?? 'Please try again.');
-            } finally {
-              setBoosting(false);
-            }
-          },
-        },
-      ],
-    );
-  };
 
   const toggleDay = (day: string) => {
     setHoursByDay((prev) => ({
@@ -194,19 +167,14 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.promoTitle}>
-            {promoted ? 'Currently promoted' : 'Get more visibility'}
+            {promoted ? 'Currently promoted' : 'Featured placement — coming soon'}
           </Text>
           <Text style={styles.promoSubtitle}>
             {promoted && spot.promotedUntil
-              ? `Boosted until ${new Date(spot.promotedUntil).toLocaleDateString()}`
-              : `Priority placement in Home and Map for ${BOOST_DAYS} days`}
+              ? `Promoted until ${new Date(spot.promotedUntil).toLocaleDateString()}`
+              : 'Paid, limited spots at the top of Home and Map will open up here.'}
           </Text>
         </View>
-        {!promoted && (
-          <Pressable style={styles.promoButton} onPress={handleBoost} disabled={boosting}>
-            <Text style={styles.promoButtonText}>{boosting ? '…' : 'Boost'}</Text>
-          </Pressable>
-        )}
       </View>
 
       <Text style={styles.sectionLabel}>Photos</Text>
@@ -388,17 +356,6 @@ const makeStyles = (colors: ThemeColors) =>
     fontSize: 11,
     color: colors.textMuted,
     marginTop: 2,
-  },
-  promoButton: {
-    backgroundColor: colors.primary,
-    borderRadius: radius.pill,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-  },
-  promoButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 13,
   },
   sectionLabel: {
     fontSize: 14,

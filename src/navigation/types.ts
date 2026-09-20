@@ -15,6 +15,7 @@ export type RootStackParamList = {
   AdminReview: undefined;
   Order: { spotId: string };
   Orders: undefined;
+  EditProfile: undefined;
 };
 
 export type TabParamList = {

@@ -11,6 +11,27 @@ export interface PickedMedia {
   fileExtension: string;
 }
 
+// The storage buckets only accept real image/video MIME types (see the
+// storage limits in supabase/schema.sql), so map file extensions to those
+// instead of building `image/${ext}` — e.g. "jpg" -> image/jpeg, "mov" ->
+// video/quicktime (iOS camera videos).
+const CONTENT_TYPES: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  heic: 'image/heic',
+  heif: 'image/heif',
+  gif: 'image/gif',
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  mov: 'video/quicktime',
+};
+
+function contentTypeFor(extension: string, isVideo: boolean): string {
+  return CONTENT_TYPES[extension.toLowerCase()] ?? (isVideo ? 'video/mp4' : 'image/jpeg');
+}
+
 export async function pickMediaFromLibrary(
   options: { allowVideos?: boolean } = {},
 ): Promise<PickedMedia | null> {
@@ -40,7 +61,7 @@ export async function uploadMedia(userId: string, media: PickedMedia): Promise<s
   });
 
   const path = `${userId}/${Date.now()}.${media.fileExtension}`;
-  const contentType = media.isVideo ? `video/${media.fileExtension}` : `image/${media.fileExtension}`;
+  const contentType = contentTypeFor(media.fileExtension, media.isVideo);
 
   const { error } = await supabase.storage
     .from('media')
@@ -61,7 +82,7 @@ export async function uploadVerificationDoc(userId: string, media: PickedMedia):
   });
 
   const path = `${userId}/${Date.now()}.${media.fileExtension}`;
-  const contentType = `image/${media.fileExtension}`;
+  const contentType = contentTypeFor(media.fileExtension, false);
 
   const { error } = await supabase.storage
     .from('verification-docs')

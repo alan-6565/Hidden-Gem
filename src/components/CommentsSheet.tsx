@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -16,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { CURRENT_USER_DISPLAY } from '../constants';
+import Avatar from './Avatar';
 import ReportMenuButton from './ReportMenuButton';
 import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
@@ -31,7 +30,7 @@ export default function CommentsSheet({ postId, visible, onClose }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { comments, addComment, deleteComment } = useAppData();
+  const { comments, addComment, deleteComment, profile } = useAppData();
   const { user } = useAuth();
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -81,7 +80,7 @@ export default function CommentsSheet({ postId, visible, onClose }: Props) {
             }
             renderItem={({ item }) => (
               <View style={styles.commentRow}>
-                <Image source={{ uri: item.userAvatar }} style={styles.avatar} />
+                <Avatar uri={item.userAvatar} name={item.userName} size={32} style={styles.avatar} />
                 <View style={styles.commentBody}>
                   <Text style={styles.commentAuthor}>{item.userName}</Text>
                   <Text style={styles.commentText}>{item.text}</Text>
@@ -98,7 +97,7 @@ export default function CommentsSheet({ postId, visible, onClose }: Props) {
           />
 
           <View style={[styles.inputRow, { paddingBottom: insets.bottom + spacing.sm }]}>
-            <Image source={{ uri: CURRENT_USER_DISPLAY.avatar }} style={styles.inputAvatar} />
+            <Avatar uri={profile?.avatarUrl} name={profile?.username} size={28} style={styles.inputAvatar} />
             <TextInput
               style={styles.input}
               placeholder="Add a comment..."
