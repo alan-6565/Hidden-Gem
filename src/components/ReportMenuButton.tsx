@@ -15,6 +15,7 @@ interface Props {
   authorName?: string;
   color?: string;
   size?: number;
+  onDelete?: () => Promise<void>;
 }
 
 export default function ReportMenuButton({
@@ -24,13 +25,14 @@ export default function ReportMenuButton({
   authorName,
   color,
   size,
+  onDelete,
 }: Props) {
   const { colors } = useTheme();
   const { user } = useAuth();
   const { reportContent, blockUser } = useAppData();
 
   const isOwnContent = !!authorUserId && !!user && authorUserId === user.id;
-  if (isOwnContent) return null;
+  if (isOwnContent && !onDelete) return null;
 
   const doReport = async (reason: string) => {
     try {
@@ -74,14 +76,39 @@ export default function ReportMenuButton({
     );
   };
 
-  const openMenu = () => {
-    const buttons: any[] = [{ text: 'Report', onPress: presentReasonPicker }];
-    if (authorUserId) {
-      buttons.push({
-        text: `Block ${authorName ?? 'user'}`,
+  const handleDelete = () => {
+    if (!onDelete) return;
+    Alert.alert('Delete this?', 'This action cannot be undone.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
         style: 'destructive',
-        onPress: handleBlock,
-      });
+        onPress: async () => {
+          try {
+            await onDelete();
+          } catch (e: any) {
+            Alert.alert("Couldn't delete", e?.message ?? 'Please try again.');
+          }
+        },
+      },
+    ]);
+  };
+
+  const openMenu = () => {
+    const buttons: any[] = [];
+    if (isOwnContent) {
+      if (onDelete) {
+        buttons.push({ text: 'Delete', style: 'destructive', onPress: handleDelete });
+      }
+    } else {
+      buttons.push({ text: 'Report', onPress: presentReasonPicker });
+      if (authorUserId) {
+        buttons.push({
+          text: `Block ${authorName ?? 'user'}`,
+          style: 'destructive',
+          onPress: handleBlock,
+        });
+      }
     }
     buttons.push({ text: 'Cancel', style: 'cancel' });
     Alert.alert('More options', undefined, buttons);

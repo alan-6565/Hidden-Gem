@@ -9,6 +9,7 @@ import {
   Share,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -39,12 +40,44 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
   const { spotId } = route.params;
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const { spots, reviews, isSaved, toggleSaved, myVerifications } = useAppData();
+  const {
+    spots,
+    reviews,
+    isSaved,
+    toggleSaved,
+    myVerifications,
+    isReviewLiked,
+    toggleReviewLike,
+    deleteReview,
+    replyToReview,
+  } = useAppData();
   const { user } = useAuth();
   const userLocation = useUserLocation();
   const spot = spots.find((s) => s.id === spotId);
   const saved = isSaved(spotId);
+  const isSpotOwner = !!spot && !!user && spot.ownerUserId === user.id;
   const [sortBy, setSortBy] = useState<'helpful' | 'recent' | 'highest'>('helpful');
+  const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  const [replyDraft, setReplyDraft] = useState('');
+  const [submittingReply, setSubmittingReply] = useState(false);
+
+  const startReply = (reviewId: string, existingReply: string | null | undefined) => {
+    setReplyingToId(reviewId);
+    setReplyDraft(existingReply ?? '');
+  };
+
+  const handleSubmitReply = async (reviewId: string) => {
+    setSubmittingReply(true);
+    try {
+      await replyToReview(reviewId, replyDraft);
+      setReplyingToId(null);
+      setReplyDraft('');
+    } catch (e: any) {
+      Alert.alert("Couldn't save reply", e?.message ?? 'Please try again.');
+    } finally {
+      setSubmittingReply(false);
+    }
+  };
   const pendingVerification = myVerifications.find(
     (v) => v.status === 'pending' && v.existingSpotId === spotId,
   );
@@ -341,15 +374,72 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
                 targetId={review.id}
                 authorUserId={review.userId}
                 authorName={review.userName}
+                onDelete={review.userId === user?.id ? () => deleteReview(review.id) : undefined}
               />
             </View>
             <RatingStars rating={review.ratingOverall} size={13} />
             <Text style={styles.reviewText}>{review.text}</Text>
             <View style={styles.reviewFooter}>
-              <Ionicons name="heart-outline" size={14} color={colors.textMuted} />
-              <Text style={styles.reviewFooterText}>{review.likeCount}</Text>
-              <Text style={styles.reviewFooterText}>Reply</Text>
+              <Pressable
+                style={styles.reviewFooterLike}
+                hitSlop={8}
+                onPress={() => toggleReviewLike(review.id)}
+              >
+                <Ionicons
+                  name={isReviewLiked(review.id) ? 'heart' : 'heart-outline'}
+                  size={14}
+                  color={isReviewLiked(review.id) ? colors.danger : colors.textMuted}
+                />
+                <Text style={styles.reviewFooterText}>{review.likeCount}</Text>
+              </Pressable>
+              {isSpotOwner && (
+                <Pressable hitSlop={8} onPress={() => startReply(review.id, review.replyText)}>
+                  <Text style={styles.reviewFooterText}>
+                    {review.replyText ? 'Edit reply' : 'Reply'}
+                  </Text>
+                </Pressable>
+              )}
             </View>
+
+            {review.replyText && replyingToId !== review.id && (
+              <View style={styles.ownerReplyBlock}>
+                <Text style={styles.ownerReplyLabel}>Reply from the owner</Text>
+                <Text style={styles.ownerReplyText}>{review.replyText}</Text>
+              </View>
+            )}
+
+            {replyingToId === review.id && (
+              <View style={styles.replyEditor}>
+                <TextInput
+                  style={styles.replyInput}
+                  placeholder="Write a reply..."
+                  placeholderTextColor={colors.textMuted}
+                  value={replyDraft}
+                  onChangeText={setReplyDraft}
+                  multiline
+                />
+                <View style={styles.replyEditorActions}>
+                  <Pressable
+                    hitSlop={8}
+                    onPress={() => {
+                      setReplyingToId(null);
+                      setReplyDraft('');
+                    }}
+                  >
+                    <Text style={styles.replyEditorCancel}>Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    hitSlop={8}
+                    disabled={submittingReply}
+                    onPress={() => handleSubmitReply(review.id)}
+                  >
+                    <Text style={styles.replyEditorSave}>
+                      {submittingReply ? 'Saving...' : 'Save'}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
           </View>
         ))}
       </View>
@@ -709,10 +799,63 @@ const makeStyles = (colors: ThemeColors) =>
     gap: 4,
     marginTop: spacing.sm,
   },
+  reviewFooterLike: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
   reviewFooterText: {
     fontSize: 11,
     color: colors.textMuted,
     fontWeight: '600',
     marginRight: spacing.md,
+  },
+  ownerReplyBlock: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: radius.sm,
+    padding: spacing.sm,
+    borderLeftWidth: 2,
+    borderLeftColor: colors.primary,
+  },
+  ownerReplyLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+    marginBottom: 2,
+  },
+  ownerReplyText: {
+    fontSize: 12,
+    color: colors.text,
+  },
+  replyEditor: {
+    marginTop: spacing.sm,
+    gap: spacing.xs,
+  },
+  replyInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    fontSize: 12,
+    color: colors.text,
+    minHeight: 60,
+    textAlignVertical: 'top',
+  },
+  replyEditorActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.md,
+  },
+  replyEditorCancel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  replyEditorSave: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
   },
 });

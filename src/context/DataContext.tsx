@@ -4,12 +4,16 @@ import { useAuth } from './AuthContext';
 import { CURRENT_USER_DISPLAY, getDisplayNameFromEmail } from '../constants';
 import {
   blockUser as apiBlockUser,
+  deleteComment as apiDeleteComment,
   deleteOwnAccount,
+  deletePost as apiDeletePost,
+  deleteReview as apiDeleteReview,
   fetchBlockedUserIds,
   fetchCollections,
   fetchComments,
   fetchFollowingIds,
   fetchLikedPostIds,
+  fetchLikedReviewIds,
   fetchLikedSpotIds,
   fetchMyVerifications,
   fetchOrders,
@@ -19,15 +23,18 @@ import {
   fetchSavedSpotIds,
   fetchSpots,
   insertComment,
+  insertCollection,
   insertOrder,
   insertPost,
   insertReview,
   NewOrderInput,
   NewPostInput,
   NewReviewInput,
+  replyToReview as apiReplyToReview,
   setFollowing,
   setPostLiked,
   setPostSaved,
+  setReviewLiked,
   setSpotHyped,
   setSpotSaved,
   SpotEditInput,
@@ -64,6 +71,8 @@ interface DataContextValue {
   toggleSaved: (spotId: string) => Promise<void>;
   isSpotHyped: (spotId: string) => boolean;
   toggleSpotHype: (spotId: string) => Promise<void>;
+  isReviewLiked: (reviewId: string) => boolean;
+  toggleReviewLike: (reviewId: string) => Promise<void>;
   isPostLiked: (postId: string) => boolean;
   toggleLike: (postId: string) => Promise<void>;
   isPostSaved: (postId: string) => boolean;
@@ -72,8 +81,13 @@ interface DataContextValue {
   toggleFollow: (userId: string) => Promise<void>;
   addReview: (input: NewReviewInput) => Promise<void>;
   editReview: (reviewId: string, input: NewReviewInput) => Promise<void>;
+  deleteReview: (reviewId: string) => Promise<void>;
+  replyToReview: (reviewId: string, replyText: string) => Promise<void>;
   addPost: (input: NewPostInput) => Promise<void>;
+  deletePost: (postId: string) => Promise<void>;
   addComment: (postId: string, text: string) => Promise<void>;
+  deleteComment: (postId: string, commentId: string) => Promise<void>;
+  addCollection: (name: string, description: string) => Promise<void>;
   updateSpot: (spotId: string, input: SpotEditInput) => Promise<void>;
   submitVerification: (input: NewBusinessVerificationInput) => Promise<BusinessVerification>;
   placeOrder: (input: NewOrderInput) => Promise<Order>;
@@ -96,6 +110,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [collections, setCollections] = useState<Collection[]>([]);
   const [savedSpotIds, setSavedSpotIds] = useState<string[]>([]);
   const [likedSpotIds, setLikedSpotIds] = useState<string[]>([]);
+  const [likedReviewIds, setLikedReviewIds] = useState<string[]>([]);
   const [likedPostIds, setLikedPostIds] = useState<string[]>([]);
   const [savedPostIds, setSavedPostIds] = useState<string[]>([]);
   const [myVerifications, setMyVerifications] = useState<BusinessVerification[]>([]);
@@ -125,6 +140,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         collectionsData,
         savedData,
         likedSpotData,
+        likedReviewData,
         likedData,
         savedPostData,
         verificationsData,
@@ -139,6 +155,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         fetchCollections(user.id),
         fetchSavedSpotIds(user.id),
         fetchLikedSpotIds(user.id),
+        fetchLikedReviewIds(user.id),
         fetchLikedPostIds(user.id),
         fetchSavedPostIds(user.id),
         fetchMyVerifications(user.id),
@@ -153,6 +170,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setCollections(collectionsData);
       setSavedSpotIds(savedData);
       setLikedSpotIds(likedSpotData);
+      setLikedReviewIds(likedReviewData);
       setLikedPostIds(likedData);
       setSavedPostIds(savedPostData);
       setMyVerifications(verificationsData);
@@ -236,6 +254,37 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
     },
     [user, likedSpotIds],
+  );
+
+  const isReviewLiked = useCallback(
+    (reviewId: string) => likedReviewIds.includes(reviewId),
+    [likedReviewIds],
+  );
+
+  const toggleReviewLike = useCallback(
+    async (reviewId: string) => {
+      if (!user) return;
+      const currentlyLiked = likedReviewIds.includes(reviewId);
+      const delta = currentlyLiked ? -1 : 1;
+      setLikedReviewIds((prev) =>
+        currentlyLiked ? prev.filter((id) => id !== reviewId) : [...prev, reviewId],
+      );
+      setReviews((prev) =>
+        prev.map((r) => (r.id === reviewId ? { ...r, likeCount: Math.max(0, r.likeCount + delta) } : r)),
+      );
+      try {
+        await setReviewLiked(user.id, reviewId, !currentlyLiked);
+      } catch (e) {
+        setLikedReviewIds((prev) =>
+          currentlyLiked ? [...prev, reviewId] : prev.filter((id) => id !== reviewId),
+        );
+        setReviews((prev) =>
+          prev.map((r) => (r.id === reviewId ? { ...r, likeCount: Math.max(0, r.likeCount - delta) } : r)),
+        );
+        throw e;
+      }
+    },
+    [user, likedReviewIds],
   );
 
   const isPostLiked = useCallback((postId: string) => likedPostIds.includes(postId), [likedPostIds]);
@@ -328,6 +377,16 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setReviews((prev) => prev.map((r) => (r.id === reviewId ? updated : r)));
   }, []);
 
+  const deleteReview = useCallback(async (reviewId: string) => {
+    await apiDeleteReview(reviewId);
+    setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+  }, []);
+
+  const replyToReview = useCallback(async (reviewId: string, replyText: string) => {
+    const updated = await apiReplyToReview(reviewId, replyText);
+    setReviews((prev) => prev.map((r) => (r.id === reviewId ? updated : r)));
+  }, []);
+
   const addPost = useCallback(
     async (input: NewPostInput) => {
       if (!user) return;
@@ -338,6 +397,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [user],
   );
 
+  const deletePost = useCallback(async (postId: string) => {
+    await apiDeletePost(postId);
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+  }, []);
+
   const addComment = useCallback(
     async (postId: string, text: string) => {
       if (!user) return;
@@ -347,6 +411,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setPosts((prev) =>
         prev.map((p) => (p.id === postId ? { ...p, commentCount: p.commentCount + 1 } : p)),
       );
+    },
+    [user],
+  );
+
+  const deleteComment = useCallback(async (postId: string, commentId: string) => {
+    await apiDeleteComment(commentId);
+    setComments((prev) => prev.filter((c) => c.id !== commentId));
+    setPosts((prev) =>
+      prev.map((p) => (p.id === postId ? { ...p, commentCount: Math.max(0, p.commentCount - 1) } : p)),
+    );
+  }, []);
+
+  const addCollection = useCallback(
+    async (name: string, description: string) => {
+      if (!user) return;
+      const created = await insertCollection(user.id, name, description);
+      setCollections((prev) => [...prev, created]);
     },
     [user],
   );
@@ -453,6 +534,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         toggleSaved,
         isSpotHyped,
         toggleSpotHype,
+        isReviewLiked,
+        toggleReviewLike,
         isPostLiked,
         toggleLike,
         isPostSaved,
@@ -461,8 +544,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         toggleFollow,
         addReview,
         editReview,
+        deleteReview,
+        replyToReview,
         addPost,
+        deletePost,
         addComment,
+        deleteComment,
+        addCollection,
         updateSpot,
         submitVerification,
         placeOrder,
