@@ -62,6 +62,8 @@ export interface Review {
   photo?: string;
   likeCount: number;
   createdAt: string;
+  replyText?: string | null;
+  repliedAt?: string | null;
 }
 
 export type PostAuthorType = 'customer' | 'owner';

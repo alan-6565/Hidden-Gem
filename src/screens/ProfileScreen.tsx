@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppData } from '../context/DataContext';
@@ -36,11 +36,31 @@ export default function ProfileScreen({ navigation }: Props) {
   const { colors, preference, setPreference } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { spots, collections, savedSpotIds, toggleSaved, deleteAccount } = useAppData();
+  const { spots, collections, savedSpotIds, toggleSaved, deleteAccount, addCollection } = useAppData();
   const { user, signOut } = useAuth();
   const [filter, setFilter] = useState<SpotCategory | 'all'>('all');
   const [isAdmin, setIsAdmin] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showNewCollection, setShowNewCollection] = useState(false);
+  const [newCollectionName, setNewCollectionName] = useState('');
+  const [newCollectionDesc, setNewCollectionDesc] = useState('');
+  const [creatingCollection, setCreatingCollection] = useState(false);
+
+  const handleCreateCollection = async () => {
+    const name = newCollectionName.trim();
+    if (!name) return;
+    setCreatingCollection(true);
+    try {
+      await addCollection(name, newCollectionDesc.trim());
+      setNewCollectionName('');
+      setNewCollectionDesc('');
+      setShowNewCollection(false);
+    } catch (e: any) {
+      Alert.alert("Couldn't create collection", e?.message ?? 'Please try again.');
+    } finally {
+      setCreatingCollection(false);
+    }
+  };
   const displayName = user?.email?.split('@')[0] ?? CURRENT_USER_DISPLAY.name;
 
   useEffect(() => {
@@ -137,7 +157,48 @@ export default function ProfileScreen({ navigation }: Props) {
         ))}
       </View>
 
-      <Text style={styles.sectionTitle}>Your Collections</Text>
+      <View style={styles.sectionHeaderRow}>
+        <Text style={[styles.sectionTitle, styles.sectionTitleInline]}>Your Collections</Text>
+        <Pressable hitSlop={8} onPress={() => setShowNewCollection((v) => !v)}>
+          <Ionicons
+            name={showNewCollection ? 'close' : 'add-circle-outline'}
+            size={22}
+            color={colors.primary}
+          />
+        </Pressable>
+      </View>
+
+      {showNewCollection && (
+        <View style={styles.newCollectionForm}>
+          <TextInput
+            style={styles.newCollectionInput}
+            placeholder="Collection name"
+            placeholderTextColor={colors.textMuted}
+            value={newCollectionName}
+            onChangeText={setNewCollectionName}
+          />
+          <TextInput
+            style={styles.newCollectionInput}
+            placeholder="Description (optional)"
+            placeholderTextColor={colors.textMuted}
+            value={newCollectionDesc}
+            onChangeText={setNewCollectionDesc}
+          />
+          <Pressable
+            style={[styles.createCollectionButton, !newCollectionName.trim() && styles.buttonDisabled]}
+            onPress={handleCreateCollection}
+            disabled={creatingCollection || !newCollectionName.trim()}
+          >
+            <Text style={styles.createCollectionButtonText}>
+              {creatingCollection ? 'Creating...' : 'Create'}
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
+      {collections.length === 0 && !showNewCollection && (
+        <Text style={styles.textMuted}>No collections yet — tap + to create one.</Text>
+      )}
       {collections.map((col) => (
         <View key={col.id} style={styles.collectionCard}>
           <Text style={styles.collectionName}>{col.name}</Text>
@@ -286,6 +347,48 @@ const makeStyles = (colors: ThemeColors) =>
   },
   appearancePillTextActive: {
     color: '#fff',
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
+  },
+  sectionTitleInline: {
+    marginTop: 0,
+    marginBottom: 0,
+  },
+  newCollectionForm: {
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    gap: spacing.sm,
+  },
+  newCollectionInput: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    fontSize: 13,
+    color: colors.text,
+  },
+  createCollectionButton: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.sm,
+    paddingVertical: spacing.sm,
+    alignItems: 'center',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
+  },
+  createCollectionButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 13,
   },
   collectionCard: {
     backgroundColor: colors.card,

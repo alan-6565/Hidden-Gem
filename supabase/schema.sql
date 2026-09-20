@@ -171,11 +171,63 @@ drop trigger if exists trg_review_protect_identity on reviews;
 create trigger trg_review_protect_identity before update on reviews
   for each row execute function protect_review_identity_fields();
 
+drop policy if exists "delete own reviews" on reviews;
+create policy "delete own reviews" on reviews for delete
+  using (auth.uid()::text = user_id);
+
+-- A business owner can reply to reviews left on their own spot. This is a
+-- separate update policy from "update own reviews" above (which lets the
+-- review's author edit their own review) — the trigger below restricts each
+-- actor to the columns they're allowed to touch, so a reply can't rewrite
+-- the review itself and an edit can't fabricate a reply.
+alter table reviews add column if not exists reply_text text;
+alter table reviews add column if not exists replied_at timestamptz;
+
+drop policy if exists "owner reply to review" on reviews;
+create policy "owner reply to review" on reviews for update
+  using (exists (select 1 from spots where spots.id = reviews.spot_id and spots.owner_user_id = auth.uid()::text))
+  with check (exists (select 1 from spots where spots.id = reviews.spot_id and spots.owner_user_id = auth.uid()::text));
+
+create or replace function protect_review_reply_fields() returns trigger as $$
+begin
+  if auth.uid()::text = old.user_id then
+    -- the review's author: can edit their own review content, but not fabricate a reply
+    new.reply_text := old.reply_text;
+    new.replied_at := old.replied_at;
+  else
+    -- anyone else touching this row only got here via the owner-reply policy
+    -- above: lock every review-content column and only allow the reply
+    -- fields to move.
+    new.rating_overall := old.rating_overall;
+    new.rating_taste := old.rating_taste;
+    new.rating_value := old.rating_value;
+    new.rating_vibe := old.rating_vibe;
+    new.vibe_tag := old.vibe_tag;
+    new.body := old.body;
+    new.photo := old.photo;
+    new.like_count := old.like_count;
+
+    if new.reply_text is distinct from old.reply_text then
+      new.replied_at := case when coalesce(new.reply_text, '') = '' then null else now() end;
+    end if;
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_review_protect_reply_fields on reviews;
+create trigger trg_review_protect_reply_fields before update on reviews
+  for each row execute function protect_review_reply_fields();
+
 drop policy if exists "public read posts" on posts;
 create policy "public read posts" on posts for select using (true);
 drop policy if exists "public write posts" on posts;
 drop policy if exists "insert own posts" on posts;
 create policy "insert own posts" on posts for insert with check (auth.uid()::text = user_id);
+
+drop policy if exists "delete own posts" on posts;
+create policy "delete own posts" on posts for delete
+  using (auth.uid()::text = user_id);
 
 -- Never trust the client for these: author_type is derived from whether the
 -- posting user owns the tagged spot; author_name is derived from their real
@@ -315,6 +367,45 @@ drop trigger if exists trg_spot_hype_vote_delete on spot_hype_votes;
 create trigger trg_spot_hype_vote_delete after delete on spot_hype_votes
   for each row execute function decrement_spot_hype_votes();
 
+-- ── Review likes (the heart on a review card) ───────────────────────────
+create table if not exists review_likes (
+  user_id text not null,
+  review_id text not null references reviews(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, review_id)
+);
+
+alter table review_likes enable row level security;
+
+drop policy if exists "public read review_likes" on review_likes;
+create policy "public read review_likes" on review_likes for select using (true);
+
+drop policy if exists "own review_likes" on review_likes;
+create policy "own review_likes" on review_likes for all
+  using (auth.uid()::text = user_id) with check (auth.uid()::text = user_id);
+
+create or replace function increment_review_like_count() returns trigger as $$
+begin
+  update reviews set like_count = like_count + 1 where id = new.review_id;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create or replace function decrement_review_like_count() returns trigger as $$
+begin
+  update reviews set like_count = greatest(like_count - 1, 0) where id = old.review_id;
+  return old;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists trg_review_like_insert on review_likes;
+create trigger trg_review_like_insert after insert on review_likes
+  for each row execute function increment_review_like_count();
+
+drop trigger if exists trg_review_like_delete on review_likes;
+create trigger trg_review_like_delete after delete on review_likes
+  for each row execute function decrement_review_like_count();
+
 -- ── Follows (the social graph behind Home's Following tab and the Reels
 -- Follow button) ─────────────────────────────────────────────────────────
 create table if not exists follows (
@@ -367,6 +458,10 @@ create policy "public read post_comments" on post_comments for select using (tru
 drop policy if exists "insert own post_comments" on post_comments;
 create policy "insert own post_comments" on post_comments for insert with check (auth.uid()::text = user_id);
 
+drop policy if exists "delete own post_comments" on post_comments;
+create policy "delete own post_comments" on post_comments for delete
+  using (auth.uid()::text = user_id);
+
 create or replace function increment_post_comment_count() returns trigger as $$
 begin
   update posts set comment_count = comment_count + 1 where id = new.post_id;
@@ -377,6 +472,17 @@ $$ language plpgsql security definer;
 drop trigger if exists trg_post_comment_insert on post_comments;
 create trigger trg_post_comment_insert after insert on post_comments
   for each row execute function increment_post_comment_count();
+
+create or replace function decrement_post_comment_count() returns trigger as $$
+begin
+  update posts set comment_count = greatest(comment_count - 1, 0) where id = old.post_id;
+  return old;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists trg_post_comment_delete on post_comments;
+create trigger trg_post_comment_delete after delete on post_comments
+  for each row execute function decrement_post_comment_count();
 
 -- ── Orders (preorder / pay-at-pickup) ──────────────────────────────────
 -- No real payment processor is wired up yet (that needs Stripe Connect,
@@ -812,6 +918,7 @@ begin
   delete from collections where user_id = uid;
   delete from saved_spots where user_id = uid;
   delete from spot_hype_votes where user_id = uid;
+  delete from review_likes where user_id = uid;
   delete from follows where follower_id = uid or followed_id = uid;
   delete from business_verifications where user_id = uid;
   delete from reports where reporter_user_id = uid;

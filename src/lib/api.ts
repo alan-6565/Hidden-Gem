@@ -58,6 +58,8 @@ function mapReview(row: any): Review {
     photo: row.photo ?? undefined,
     likeCount: row.like_count,
     createdAt: row.created_at,
+    replyText: row.reply_text ?? null,
+    repliedAt: row.replied_at ?? null,
   };
 }
 
@@ -148,6 +150,20 @@ export async function fetchCollections(userId: string): Promise<Collection[]> {
   }));
 }
 
+export async function insertCollection(
+  userId: string,
+  name: string,
+  description: string,
+): Promise<Collection> {
+  const { data, error } = await supabase
+    .from('collections')
+    .insert({ user_id: userId, name, description: description || null })
+    .select()
+    .single();
+  if (error) throw error;
+  return { id: data.id, name: data.name, description: data.description ?? '', spotIds: [] };
+}
+
 export async function fetchSavedSpotIds(userId: string): Promise<string[]> {
   const { data, error } = await supabase
     .from('saved_spots')
@@ -196,6 +212,46 @@ export async function setSpotHyped(userId: string, spotId: string, hyped: boolea
       .eq('spot_id', spotId);
     if (error) throw error;
   }
+}
+
+export async function fetchLikedReviewIds(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('review_likes')
+    .select('review_id')
+    .eq('user_id', userId);
+  if (error) throw error;
+  return (data ?? []).map((row) => row.review_id);
+}
+
+export async function setReviewLiked(userId: string, reviewId: string, liked: boolean): Promise<void> {
+  if (liked) {
+    const { error } = await supabase
+      .from('review_likes')
+      .upsert({ user_id: userId, review_id: reviewId });
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from('review_likes')
+      .delete()
+      .eq('user_id', userId)
+      .eq('review_id', reviewId);
+    if (error) throw error;
+  }
+}
+
+export async function deleteReview(reviewId: string): Promise<void> {
+  const { error } = await supabase.from('reviews').delete().eq('id', reviewId);
+  if (error) throw error;
+}
+
+export async function deletePost(postId: string): Promise<void> {
+  const { error } = await supabase.from('posts').delete().eq('id', postId);
+  if (error) throw error;
+}
+
+export async function deleteComment(commentId: string): Promise<void> {
+  const { error } = await supabase.from('post_comments').delete().eq('id', commentId);
+  if (error) throw error;
 }
 
 export async function fetchLikedPostIds(userId: string): Promise<string[]> {
@@ -332,6 +388,17 @@ export async function updateReview(reviewId: string, input: NewReviewInput): Pro
       body: input.text,
       photo: input.photo ?? null,
     })
+    .eq('id', reviewId)
+    .select()
+    .single();
+  if (error) throw error;
+  return mapReview(data);
+}
+
+export async function replyToReview(reviewId: string, replyText: string): Promise<Review> {
+  const { data, error } = await supabase
+    .from('reviews')
+    .update({ reply_text: replyText.trim() || null })
     .eq('id', reviewId)
     .select()
     .single();

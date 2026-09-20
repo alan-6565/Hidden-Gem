@@ -28,7 +28,8 @@ function formatCount(n: number): string {
 export default function PostReelItem({ post, height, isActive, userCoords, onOpenSpot, onAddReview }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { spots, isPostLiked, toggleLike, isPostSaved, toggleSavePost, isFollowing, toggleFollow } = useAppData();
+  const { spots, isPostLiked, toggleLike, isPostSaved, toggleSavePost, isFollowing, toggleFollow, deletePost } =
+    useAppData();
   const { user } = useAuth();
   const liked = isPostLiked(post.id);
   const saved = isPostSaved(post.id);
@@ -122,6 +123,7 @@ export default function PostReelItem({ post, height, isActive, userCoords, onOpe
           authorName={post.authorName}
           color="#fff"
           size={22}
+          onDelete={isOwnPost ? () => deletePost(post.id) : undefined}
         />
       </View>
 

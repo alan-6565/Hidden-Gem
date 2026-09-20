@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
+import { useAuth } from '../context/AuthContext';
 import { CURRENT_USER_DISPLAY } from '../constants';
 import ReportMenuButton from './ReportMenuButton';
 import { radius, spacing, ThemeColors } from '../theme';
@@ -30,7 +31,8 @@ export default function CommentsSheet({ postId, visible, onClose }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { comments, addComment } = useAppData();
+  const { comments, addComment, deleteComment } = useAppData();
+  const { user } = useAuth();
   const [text, setText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -89,6 +91,7 @@ export default function CommentsSheet({ postId, visible, onClose }: Props) {
                   targetId={item.id}
                   authorUserId={item.userId}
                   authorName={item.userName}
+                  onDelete={item.userId === user?.id ? () => deleteComment(postId, item.id) : undefined}
                 />
               </View>
             )}
