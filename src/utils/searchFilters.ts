@@ -30,6 +30,19 @@ export const DEFAULT_SEARCH_FILTERS: SearchFilterState = {
   sortBy: 'top_match',
 };
 
+export function hasActiveFilters(filters: SearchFilterState): boolean {
+  return (
+    filters.query.trim().length > 0 ||
+    filters.categories.length > 0 ||
+    filters.openNow ||
+    filters.outdoorSeating ||
+    filters.petFriendly ||
+    filters.goodForStudying ||
+    filters.maxDistanceMiles < DEFAULT_SEARCH_FILTERS.maxDistanceMiles ||
+    filters.sortBy !== DEFAULT_SEARCH_FILTERS.sortBy
+  );
+}
+
 export function applySearchFilters(
   spots: Spot[],
   filters: SearchFilterState,
