@@ -66,6 +66,12 @@ export interface Review {
   repliedAt?: string | null;
 }
 
+export interface Profile {
+  userId: string;
+  username: string;
+  avatarUrl: string | null;
+}
+
 export type PostAuthorType = 'customer' | 'owner';
 
 export interface Post {

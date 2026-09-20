@@ -3,7 +3,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Spot } from '../types';
 import { useAppData } from '../context/DataContext';
-import { getDisplayRating, getReviewCount } from '../utils/rating';
+import { formatRating, getDisplayRating, getReviewCount } from '../utils/rating';
 import { getStatusLabel, isOpenNow } from '../utils/hours';
 import { isPromoted } from '../utils/promotion';
 import { CATEGORY_LABELS } from '../constants/categories';
@@ -43,7 +43,7 @@ export default function SpotPreviewCard({ spot, onPress }: Props) {
         <View style={styles.ratingRow}>
           <Ionicons name="star" size={12} color={colors.gold} />
           <Text style={styles.ratingText}>
-            {rating.toFixed(1)} ({count}) · {CATEGORY_LABELS[spot.category]}
+            {formatRating(rating, count)} · {CATEGORY_LABELS[spot.category]}
           </Text>
         </View>
         <Text style={styles.location} numberOfLines={1}>

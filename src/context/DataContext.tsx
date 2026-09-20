@@ -1,7 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { BusinessVerification, Collection, Comment, NewBusinessVerificationInput, Order, OrderStatus, Post, ReportTargetType, Review, Spot } from '../types';
+import { BusinessVerification, Collection, Comment, NewBusinessVerificationInput, Order, OrderStatus, Post, Profile, ReportTargetType, Review, Spot } from '../types';
 import { useAuth } from './AuthContext';
-import { CURRENT_USER_DISPLAY, getDisplayNameFromEmail } from '../constants';
 import {
   blockUser as apiBlockUser,
   deleteComment as apiDeleteComment,
@@ -15,12 +14,14 @@ import {
   fetchLikedPostIds,
   fetchLikedReviewIds,
   fetchLikedSpotIds,
+  fetchMyProfile,
   fetchMyVerifications,
   fetchOrders,
   fetchPosts,
   fetchReviews,
   fetchSavedPostIds,
   fetchSavedSpotIds,
+  fetchSpot,
   fetchSpots,
   insertComment,
   insertCollection,
@@ -43,6 +44,7 @@ import {
   unblockUser as apiUnblockUser,
   updateOrderStatus as apiUpdateOrderStatus,
   updateReview as apiUpdateReview,
+  updateMyProfile as apiUpdateMyProfile,
   updateSpot as apiUpdateSpot,
 } from '../lib/api';
 
@@ -64,6 +66,7 @@ interface DataContextValue {
   blockedUserIds: string[];
   followingIds: string[];
   stories: Post[];
+  profile: Profile | null;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -89,6 +92,7 @@ interface DataContextValue {
   deleteComment: (postId: string, commentId: string) => Promise<void>;
   addCollection: (name: string, description: string) => Promise<void>;
   updateSpot: (spotId: string, input: SpotEditInput) => Promise<void>;
+  updateProfile: (input: { username?: string; avatarUrl?: string | null }) => Promise<void>;
   submitVerification: (input: NewBusinessVerificationInput) => Promise<BusinessVerification>;
   placeOrder: (input: NewOrderInput) => Promise<Order>;
   setOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
@@ -116,6 +120,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [myVerifications, setMyVerifications] = useState<BusinessVerification[]>([]);
   const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
   const [followingIds, setFollowingIds] = useState<string[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -126,6 +131,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setReviews(mockReviews);
       setPosts(mockPosts);
       setCollections(mockCollections);
+      setProfile({ userId: user.id, username: 'you', avatarUrl: null });
       setLoading(false);
       return;
     }
@@ -146,6 +152,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         verificationsData,
         blockedData,
         followingData,
+        profileData,
       ] = await Promise.all([
         fetchSpots(),
         fetchReviews(),
@@ -161,6 +168,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         fetchMyVerifications(user.id),
         fetchBlockedUserIds(user.id),
         fetchFollowingIds(user.id),
+        fetchMyProfile(),
       ]);
       setSpots(spotsData);
       setReviews(reviewsData);
@@ -176,6 +184,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setMyVerifications(verificationsData);
       setBlockedUserIds(blockedData);
       setFollowingIds(followingData);
+      setProfile(profileData);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load data');
     } finally {
@@ -362,25 +371,50 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [user, savedPostIds],
   );
 
+  // A review changing (add / edit / delete) makes the database recompute the
+  // spot's Kuppio Score and Hidden Gem count — pull the fresh row so the badge
+  // updates immediately instead of waiting for the next full refresh.
+  const refreshSpot = useCallback(async (spotId: string) => {
+    try {
+      const fresh = await fetchSpot(spotId);
+      if (fresh) setSpots((prev) => prev.map((s) => (s.id === spotId ? fresh : s)));
+    } catch {
+      // Non-critical: the score just stays stale until the next refresh.
+    }
+  }, []);
+
+  // The name/avatar passed here are placeholders — the database always writes
+  // the real ones from the caller's profile.
+  const authorName = profile?.username ?? 'Kuppio user';
+
   const addReview = useCallback(
     async (input: NewReviewInput) => {
       if (!user) return;
-      const displayName = getDisplayNameFromEmail(user.email);
-      const created = await insertReview(user.id, displayName, CURRENT_USER_DISPLAY.avatar, input);
+      const created = await insertReview(user.id, authorName, profile?.avatarUrl ?? null, input);
       setReviews((prev) => [created, ...prev]);
+      refreshSpot(input.spotId);
     },
-    [user],
+    [user, authorName, profile, refreshSpot],
   );
 
-  const editReview = useCallback(async (reviewId: string, input: NewReviewInput) => {
-    const updated = await apiUpdateReview(reviewId, input);
-    setReviews((prev) => prev.map((r) => (r.id === reviewId ? updated : r)));
-  }, []);
+  const editReview = useCallback(
+    async (reviewId: string, input: NewReviewInput) => {
+      const updated = await apiUpdateReview(reviewId, input);
+      setReviews((prev) => prev.map((r) => (r.id === reviewId ? updated : r)));
+      refreshSpot(updated.spotId);
+    },
+    [refreshSpot],
+  );
 
-  const deleteReview = useCallback(async (reviewId: string) => {
-    await apiDeleteReview(reviewId);
-    setReviews((prev) => prev.filter((r) => r.id !== reviewId));
-  }, []);
+  const deleteReview = useCallback(
+    async (reviewId: string) => {
+      const spotId = rawReviews.find((r) => r.id === reviewId)?.spotId;
+      await apiDeleteReview(reviewId);
+      setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+      if (spotId) refreshSpot(spotId);
+    },
+    [rawReviews, refreshSpot],
+  );
 
   const replyToReview = useCallback(async (reviewId: string, replyText: string) => {
     const updated = await apiReplyToReview(reviewId, replyText);
@@ -390,11 +424,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addPost = useCallback(
     async (input: NewPostInput) => {
       if (!user) return;
-      const displayName = getDisplayNameFromEmail(user.email);
-      const created = await insertPost(user.id, displayName, CURRENT_USER_DISPLAY.avatar, input);
+      const created = await insertPost(user.id, authorName, profile?.avatarUrl ?? null, input);
       setPosts((prev) => [created, ...prev]);
     },
-    [user],
+    [user, authorName, profile],
   );
 
   const deletePost = useCallback(async (postId: string) => {
@@ -405,14 +438,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const addComment = useCallback(
     async (postId: string, text: string) => {
       if (!user) return;
-      const displayName = getDisplayNameFromEmail(user.email);
-      const created = await insertComment(user.id, displayName, CURRENT_USER_DISPLAY.avatar, postId, text);
+      const created = await insertComment(user.id, authorName, profile?.avatarUrl ?? null, postId, text);
       setComments((prev) => [...prev, created]);
       setPosts((prev) =>
         prev.map((p) => (p.id === postId ? { ...p, commentCount: p.commentCount + 1 } : p)),
       );
     },
-    [user],
+    [user, authorName, profile],
   );
 
   const deleteComment = useCallback(async (postId: string, commentId: string) => {
@@ -436,6 +468,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const updated = await apiUpdateSpot(spotId, input);
     setSpots((prev) => prev.map((s) => (s.id === spotId ? updated : s)));
   }, []);
+
+  // The database rewrites the name/avatar on everything this user already
+  // posted (see propagate_profile_changes), so mirror that locally.
+  const updateProfile = useCallback(
+    async (input: { username?: string; avatarUrl?: string | null }) => {
+      if (!user) throw new Error('You must be signed in.');
+      const updated = await apiUpdateMyProfile(user.id, input);
+      setProfile(updated);
+      const avatar = updated.avatarUrl ?? '';
+      setReviews((prev) =>
+        prev.map((r) => (r.userId === user.id ? { ...r, userName: updated.username, userAvatar: avatar } : r)),
+      );
+      setPosts((prev) =>
+        prev.map((p) => (p.userId === user.id ? { ...p, authorName: updated.username, authorAvatar: avatar } : p)),
+      );
+      setComments((prev) =>
+        prev.map((c) => (c.userId === user.id ? { ...c, userName: updated.username, userAvatar: avatar } : c)),
+      );
+    },
+    [user],
+  );
 
   const submitVerification = useCallback(
     async (input: NewBusinessVerificationInput) => {
@@ -527,6 +580,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         blockedUserIds,
         followingIds,
         stories,
+        profile,
         loading,
         error,
         refresh: load,
@@ -552,6 +606,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         deleteComment,
         addCollection,
         updateSpot,
+        updateProfile,
         submitVerification,
         placeOrder,
         setOrderStatus,

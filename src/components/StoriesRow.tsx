@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
-import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Post } from '../types';
+import Avatar from './Avatar';
 import { spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 
@@ -15,12 +16,13 @@ interface StoryGroup {
 interface Props {
   stories: Post[];
   currentUserId: string | null;
-  currentUserAvatar: string;
+  currentUserAvatar: string | null;
+  currentUserName?: string | null;
   onAddStory: () => void;
   onOpenGroup: (group: StoryGroup) => void;
 }
 
-export default function StoriesRow({ stories, currentUserId, currentUserAvatar, onAddStory, onOpenGroup }: Props) {
+export default function StoriesRow({ stories, currentUserId, currentUserAvatar, currentUserName, onAddStory, onOpenGroup }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
 
@@ -53,7 +55,7 @@ export default function StoriesRow({ stories, currentUserId, currentUserAvatar, 
       ListHeaderComponent={
         <Pressable style={styles.item} onPress={onAddStory}>
           <View style={styles.ring}>
-            <Image source={{ uri: currentUserAvatar }} style={styles.avatar} />
+            <Avatar uri={currentUserAvatar} name={currentUserName} size={AVATAR_SIZE} style={styles.avatar} />
             <View style={styles.addBadge}>
               <Ionicons name="add" size={12} color="#fff" />
             </View>
@@ -66,7 +68,7 @@ export default function StoriesRow({ stories, currentUserId, currentUserAvatar, 
       renderItem={({ item }) => (
         <Pressable style={styles.item} onPress={() => onOpenGroup(item)}>
           <View style={[styles.ring, styles.ringActive]}>
-            <Image source={{ uri: item.authorAvatar }} style={styles.avatar} />
+            <Avatar uri={item.authorAvatar} name={item.authorName} size={AVATAR_SIZE} style={styles.avatar} />
           </View>
           <Text style={[styles.label, styles.labelActive]} numberOfLines={1}>
             {item.authorName}

@@ -3,6 +3,7 @@ import { Image, Linking, Pressable, Share, StyleSheet, Text, View } from 'react-
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Post } from '../types';
+import Avatar from './Avatar';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import CommentsSheet from './CommentsSheet';
@@ -129,7 +130,7 @@ export default function PostReelItem({ post, height, isActive, userCoords, onOpe
 
       <View style={styles.bottomContent}>
         <View style={styles.authorRow}>
-          <Image source={{ uri: post.authorAvatar }} style={styles.avatar} />
+          <Avatar uri={post.authorAvatar} name={post.authorName} size={32} style={styles.avatar} />
           <Text style={styles.authorName}>{post.authorName}</Text>
           {!isOwnPost && post.userId && (
             <Pressable

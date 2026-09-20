@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { Post } from '../types';
+import Avatar from './Avatar';
 import { spacing } from '../theme';
 
 const STORY_DURATION_MS = 5000;
@@ -91,7 +92,7 @@ export default function StoryViewerModal({ stories, visible, onClose }: Props) {
         </View>
 
         <View style={[styles.header, { top: insets.top + spacing.md }]}>
-          <Image source={{ uri: story.authorAvatar }} style={styles.avatar} />
+          <Avatar uri={story.authorAvatar} name={story.authorName} size={28} style={styles.avatar} />
           <Text style={styles.authorName}>{story.authorName}</Text>
           <Pressable hitSlop={12} style={styles.closeButton} onPress={onClose}>
             <Ionicons name="close" size={26} color="#fff" />

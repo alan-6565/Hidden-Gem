@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { checkIsAdmin } from '../lib/api';
-import { CURRENT_USER_DISPLAY } from '../constants';
+import Avatar from '../components/Avatar';
 import { SpotCategory } from '../types';
 import FilterChip from '../components/FilterChip';
 import { radius, spacing, ThemeColors } from '../theme';
@@ -36,7 +36,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const { colors, preference, setPreference } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { spots, collections, savedSpotIds, toggleSaved, deleteAccount, addCollection } = useAppData();
+  const { spots, collections, savedSpotIds, toggleSaved, deleteAccount, addCollection, profile } = useAppData();
   const { user, signOut } = useAuth();
   const [filter, setFilter] = useState<SpotCategory | 'all'>('all');
   const [isAdmin, setIsAdmin] = useState(false);
@@ -61,7 +61,8 @@ export default function ProfileScreen({ navigation }: Props) {
       setCreatingCollection(false);
     }
   };
-  const displayName = user?.email?.split('@')[0] ?? CURRENT_USER_DISPLAY.name;
+  // Never the email prefix — that used to be shown publicly on everything this user posted.
+  const displayName = profile?.username ?? 'You';
 
   useEffect(() => {
     if (!user) return;
@@ -104,9 +105,12 @@ export default function ProfileScreen({ navigation }: Props) {
       contentContainerStyle={[styles.content, { paddingTop: insets.top + spacing.sm }]}
     >
       <View style={styles.profileHeader}>
-        <Image source={{ uri: CURRENT_USER_DISPLAY.avatar }} style={styles.avatar} />
-        <Text style={styles.name}>{displayName}</Text>
+        <Avatar uri={profile?.avatarUrl} name={displayName} size={72} style={styles.avatar} />
+        <Text style={styles.name}>@{displayName}</Text>
         <Text style={styles.email}>{user?.email}</Text>
+        <Pressable style={styles.signOutButton} onPress={() => navigation.navigate('EditProfile')}>
+          <Text style={styles.signOutText}>Edit profile</Text>
+        </Pressable>
         <Pressable style={styles.signOutButton} onPress={() => signOut()}>
           <Text style={styles.signOutText}>Sign out</Text>
         </Pressable>

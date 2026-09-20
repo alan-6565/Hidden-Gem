@@ -15,7 +15,6 @@ import SpotTrendingCard from '../components/SpotTrendingCard';
 import StoriesRow from '../components/StoriesRow';
 import StoryViewerModal from '../components/StoryViewerModal';
 import { CATEGORY_COLORS, CATEGORY_ICONS, CATEGORY_LABELS } from '../constants/categories';
-import { CURRENT_USER_DISPLAY } from '../constants';
 import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { TabScreenProps } from '../navigation/types';
@@ -56,7 +55,7 @@ export default function HomeScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { spots, posts, stories, reviews, savedSpotIds, followingIds } = useAppData();
+  const { spots, posts, stories, reviews, savedSpotIds, followingIds, profile } = useAppData();
   const { user } = useAuth();
   const { filters, resetFilters } = useSearchFilters();
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('all');
@@ -187,7 +186,8 @@ export default function HomeScreen({ navigation }: Props) {
             <StoriesRow
               stories={stories}
               currentUserId={user?.id ?? null}
-              currentUserAvatar={CURRENT_USER_DISPLAY.avatar}
+              currentUserAvatar={profile?.avatarUrl ?? null}
+              currentUserName={profile?.username}
               onAddStory={() => navigation.navigate('Compose', { isStory: true })}
               onOpenGroup={(group) => setViewingStories(group.stories)}
             />

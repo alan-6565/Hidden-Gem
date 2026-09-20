@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Spot } from '../types';
 import { useAppData } from '../context/DataContext';
-import { getDisplayRating, getReviewCount } from '../utils/rating';
+import { formatRating, getDisplayRating, getReviewCount } from '../utils/rating';
 import KuppioScoreBadge from './KuppioScoreBadge';
 import RatingStars from './RatingStars';
 import { radius, spacing, ThemeColors } from '../theme';
@@ -33,7 +33,7 @@ export default function SpotHeroCard({ spot, onPress }: Props) {
         <View style={styles.ratingRow}>
           <RatingStars rating={rating} size={13} />
           <Text style={styles.ratingText}>
-            {rating.toFixed(1)} ({count})
+            {formatRating(rating, count)}
           </Text>
         </View>
         <Text style={styles.tagLine}>{tagLine}</Text>

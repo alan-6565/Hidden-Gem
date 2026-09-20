@@ -11,6 +11,7 @@ import {
   OrderStatus,
   Post,
   PriceRange,
+  Profile,
   ReportTargetType,
   Review,
   Spot,
@@ -343,10 +344,14 @@ export interface NewReviewInput {
   photo?: string;
 }
 
+// user_name / user_avatar are required columns but the database overwrites
+// them from the caller's profile (and resets like_count, the reply, the
+// timestamp and the overall rating) — see supabase/schema.sql. The values sent
+// here are placeholders, never trusted.
 export async function insertReview(
   userId: string,
   userName: string,
-  userAvatar: string,
+  userAvatar: string | null,
   input: NewReviewInput,
 ): Promise<Review> {
   const ratingOverall = Math.round((input.ratingTaste + input.ratingValue + input.ratingVibe) / 3);
@@ -364,12 +369,12 @@ export async function insertReview(
       vibe_tag: input.vibeTag,
       body: input.text,
       photo: input.photo ?? null,
-      like_count: 0,
     })
     .select()
     .single();
   if (error) {
     if (error.code === '23505') throw new Error("You've already reviewed this spot.");
+    if (error.code === '42501') throw new Error("You can't review your own business.");
     throw error;
   }
   return mapReview(data);
@@ -418,7 +423,7 @@ export async function fetchComments(): Promise<Comment[]> {
 export async function insertComment(
   userId: string,
   userName: string,
-  userAvatar: string,
+  userAvatar: string | null,
   postId: string,
   text: string,
 ): Promise<Comment> {
@@ -449,7 +454,7 @@ export interface NewPostInput {
 export async function insertPost(
   userId: string,
   authorName: string,
-  authorAvatar: string,
+  authorAvatar: string | null,
   input: NewPostInput,
 ): Promise<Post> {
   const { data, error } = await supabase
@@ -606,7 +611,6 @@ export interface SpotEditInput {
   hours?: OpenHours[];
   menu?: MenuItem[];
   photos?: string[];
-  promotedUntil?: string | null;
   tags?: string[];
 }
 
@@ -617,7 +621,6 @@ export async function updateSpot(spotId: string, input: SpotEditInput): Promise<
   if (input.hours !== undefined) payload.hours = input.hours;
   if (input.menu !== undefined) payload.menu = input.menu;
   if (input.photos !== undefined) payload.photos = input.photos;
-  if (input.promotedUntil !== undefined) payload.promoted_until = input.promotedUntil;
   if (input.tags !== undefined) payload.tags = input.tags;
 
   const { data, error } = await supabase
@@ -726,4 +729,58 @@ export async function unblockUser(blockerUserId: string, blockedUserId: string):
 export async function deleteOwnAccount(): Promise<void> {
   const { error } = await supabase.rpc('delete_own_account');
   if (error) throw error;
+}
+
+// ── Profiles ──────────────────────────────────────────────────────────────
+// Public identity (username + avatar) shown on reviews, posts and comments.
+// The database creates one at signup; ensure_my_profile() also covers accounts
+// that predate profiles. Returns null (rather than throwing) if the profiles
+// migration hasn't been applied yet, so the rest of the app still loads.
+
+export const USERNAME_PATTERN = /^[a-z0-9_.]{3,20}$/;
+
+function mapProfile(row: any): Profile {
+  return { userId: row.user_id, username: row.username, avatarUrl: row.avatar_url ?? null };
+}
+
+export async function fetchMyProfile(): Promise<Profile | null> {
+  const { data, error } = await supabase.rpc('ensure_my_profile');
+  if (error) {
+    console.warn('Could not load profile:', error.message);
+    return null;
+  }
+  const row = Array.isArray(data) ? data[0] : data;
+  return row ? mapProfile(row) : null;
+}
+
+export async function updateMyProfile(
+  userId: string,
+  input: { username?: string; avatarUrl?: string | null },
+): Promise<Profile> {
+  const payload: Record<string, unknown> = {};
+  if (input.username !== undefined) payload.username = input.username.trim().toLowerCase();
+  if (input.avatarUrl !== undefined) payload.avatar_url = input.avatarUrl;
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .update(payload)
+    .eq('user_id', userId)
+    .select()
+    .single();
+  if (error) {
+    if (error.code === '23505') throw new Error('That username is already taken.');
+    if (error.code === '23514') {
+      throw new Error('Usernames are 3–20 characters: lowercase letters, numbers, "." and "_".');
+    }
+    throw error;
+  }
+  return mapProfile(data);
+}
+
+// Re-read one spot — its Kuppio Score is recomputed by the database whenever a
+// review is added, edited or deleted, so the app refetches it afterwards.
+export async function fetchSpot(spotId: string): Promise<Spot | null> {
+  const { data, error } = await supabase.from('spots').select('*').eq('id', spotId).maybeSingle();
+  if (error) throw error;
+  return data ? mapSpot(data) : null;
 }
