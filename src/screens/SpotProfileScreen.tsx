@@ -309,7 +309,9 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             style={styles.writeReviewButton}
             onPress={() => navigation.navigate('AddReview', { spotId: spot.id })}
           >
-            <Text style={styles.writeReviewText}>Write a review</Text>
+            <Text style={styles.writeReviewText}>
+              {allSpotReviews.some((r) => r.userId === user?.id) ? 'Edit your review' : 'Write a review'}
+            </Text>
           </Pressable>
         )}
 

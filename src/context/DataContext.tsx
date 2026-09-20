@@ -35,6 +35,7 @@ import {
   submitReport,
   unblockUser as apiUnblockUser,
   updateOrderStatus as apiUpdateOrderStatus,
+  updateReview as apiUpdateReview,
   updateSpot as apiUpdateSpot,
 } from '../lib/api';
 
@@ -70,6 +71,7 @@ interface DataContextValue {
   isFollowing: (userId: string) => boolean;
   toggleFollow: (userId: string) => Promise<void>;
   addReview: (input: NewReviewInput) => Promise<void>;
+  editReview: (reviewId: string, input: NewReviewInput) => Promise<void>;
   addPost: (input: NewPostInput) => Promise<void>;
   addComment: (postId: string, text: string) => Promise<void>;
   updateSpot: (spotId: string, input: SpotEditInput) => Promise<void>;
@@ -321,6 +323,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [user],
   );
 
+  const editReview = useCallback(async (reviewId: string, input: NewReviewInput) => {
+    const updated = await apiUpdateReview(reviewId, input);
+    setReviews((prev) => prev.map((r) => (r.id === reviewId ? updated : r)));
+  }, []);
+
   const addPost = useCallback(
     async (input: NewPostInput) => {
       if (!user) return;
@@ -453,6 +460,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         isFollowing,
         toggleFollow,
         addReview,
+        editReview,
         addPost,
         addComment,
         updateSpot,

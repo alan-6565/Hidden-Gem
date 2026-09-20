@@ -48,16 +48,18 @@ export default function AddReviewScreen({ route, navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { spotId } = route.params;
-  const { spots, addReview } = useAppData();
+  const { spots, reviews, addReview, editReview } = useAppData();
   const { user } = useAuth();
   const spot = spots.find((s) => s.id === spotId);
+  const existingReview = reviews.find((r) => r.spotId === spotId && r.userId === user?.id);
+  const isEditing = !!existingReview;
 
-  const [taste, setTaste] = useState(0);
-  const [value, setValue] = useState(0);
-  const [vibeRating, setVibeRating] = useState(0);
-  const [vibeTag, setVibeTag] = useState<VibeTag | null>(null);
-  const [text, setText] = useState('');
-  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [taste, setTaste] = useState(existingReview?.ratingTaste ?? 0);
+  const [value, setValue] = useState(existingReview?.ratingValue ?? 0);
+  const [vibeRating, setVibeRating] = useState(existingReview?.ratingVibe ?? 0);
+  const [vibeTag, setVibeTag] = useState<VibeTag | null>(existingReview?.vibeTag ?? null);
+  const [text, setText] = useState(existingReview?.text ?? '');
+  const [photoUri, setPhotoUri] = useState<string | null>(existingReview?.photo ?? null);
   const [submitting, setSubmitting] = useState(false);
 
   const overall = Math.round((taste + value + vibeRating) / 3) || 0;
@@ -79,15 +81,17 @@ export default function AddReviewScreen({ route, navigation }: Props) {
     if (!user) return;
     setSubmitting(true);
     try {
-      let photoUrl: string | undefined;
-      if (photoUri) {
-        photoUrl = await uploadMedia(user.id, {
-          uri: photoUri,
-          isVideo: false,
-          fileExtension: photoUri.split('.').pop()?.toLowerCase() ?? 'jpg',
-        });
-      }
-      await addReview({
+      // Only re-upload if a new photo was picked — if photoUri still points at
+      // the existing review's already-hosted URL, reuse it as-is.
+      const isNewPhoto = !!photoUri && photoUri !== existingReview?.photo;
+      const photoUrl = isNewPhoto
+        ? await uploadMedia(user.id, {
+            uri: photoUri as string,
+            isVideo: false,
+            fileExtension: photoUri!.split('.').pop()?.toLowerCase() ?? 'jpg',
+          })
+        : photoUri ?? undefined;
+      const input = {
         spotId,
         ratingTaste: taste,
         ratingValue: value,
@@ -95,12 +99,20 @@ export default function AddReviewScreen({ route, navigation }: Props) {
         vibeTag,
         text,
         photo: photoUrl,
-      });
-      Alert.alert('Posted!', 'Your review has been added.', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      };
+      if (existingReview) {
+        await editReview(existingReview.id, input);
+        Alert.alert('Saved!', 'Your review has been updated.', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      } else {
+        await addReview(input);
+        Alert.alert('Posted!', 'Your review has been added.', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      }
     } catch (e: any) {
-      Alert.alert('Something went wrong', e?.message ?? 'Could not post your review.');
+      Alert.alert('Something went wrong', e?.message ?? 'Could not save your review.');
     } finally {
       setSubmitting(false);
     }
@@ -108,7 +120,9 @@ export default function AddReviewScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Review {spot?.name ?? 'this spot'}</Text>
+      <Text style={styles.title}>
+        {isEditing ? 'Edit your review of' : 'Review'} {spot?.name ?? 'this spot'}
+      </Text>
 
       <StarPicker label="Taste" value={taste} onChange={setTaste} styles={styles} />
       <StarPicker label="Value" value={value} onChange={setValue} styles={styles} />
@@ -167,7 +181,9 @@ export default function AddReviewScreen({ route, navigation }: Props) {
         onPress={handleSubmit}
         disabled={submitting}
       >
-        <Text style={styles.submitButtonText}>{submitting ? 'Posting...' : 'Post Review'}</Text>
+        <Text style={styles.submitButtonText}>
+          {submitting ? 'Saving...' : isEditing ? 'Save Changes' : 'Post Review'}
+        </Text>
       </Pressable>
     </ScrollView>
   );

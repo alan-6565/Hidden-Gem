@@ -150,6 +150,27 @@ create policy "insert own reviews" on reviews for insert
 
 create unique index if not exists reviews_user_spot_unique_idx on reviews (user_id, spot_id);
 
+-- You can edit your own review in place (rather than being blocked outright
+-- by the unique index above once you already have one for this spot), but
+-- never reassign it to a different spot or user.
+drop policy if exists "update own reviews" on reviews;
+create policy "update own reviews" on reviews for update
+  using (auth.uid()::text = user_id)
+  with check (auth.uid()::text = user_id);
+
+create or replace function protect_review_identity_fields() returns trigger as $$
+begin
+  if new.spot_id is distinct from old.spot_id or new.user_id is distinct from old.user_id then
+    raise exception 'spot_id and user_id cannot be changed on a review';
+  end if;
+  return new;
+end;
+$$ language plpgsql;
+
+drop trigger if exists trg_review_protect_identity on reviews;
+create trigger trg_review_protect_identity before update on reviews
+  for each row execute function protect_review_identity_fields();
+
 drop policy if exists "public read posts" on posts;
 create policy "public read posts" on posts for select using (true);
 drop policy if exists "public write posts" on posts;
