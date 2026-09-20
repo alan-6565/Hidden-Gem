@@ -326,6 +326,65 @@ drop trigger if exists trg_post_like_delete on post_likes;
 create trigger trg_post_like_delete after delete on post_likes
   for each row execute function decrement_post_like_count();
 
+-- ── Kuppio Score (spots.tea_score) ──────────────────────────────────────
+-- A Bayesian-weighted blend of a spot's own average rating and the
+-- platform-wide average rating, weighted by review count (same idea as
+-- IMDb's weighted rating) — a brand-new spot with zero reviews lands at the
+-- platform average instead of a stark 0, and each real review pulls the
+-- score toward that spot's own average, dominating it after ~5 reviews.
+-- Hype votes add a small capped bonus so they nudge but never dominate.
+-- Recomputed via triggers below (reviews + hype votes changing) instead of
+-- being a static seeded number that never updates.
+create or replace function recompute_tea_score(spot_id_param text) returns void as $$
+declare
+  review_count integer;
+  spot_avg numeric;
+  platform_avg numeric;
+  hype_votes integer;
+  confidence constant numeric := 5;
+  weighted_rating numeric;
+begin
+  select count(*), avg(rating_overall) into review_count, spot_avg
+    from reviews where spot_id = spot_id_param;
+
+  select coalesce(avg(rating_overall), 4.0) into platform_avg from reviews;
+
+  select coalesce(worth_the_hype_votes, 0) into hype_votes from spots where id = spot_id_param;
+
+  weighted_rating :=
+    (coalesce(review_count, 0)::numeric / (coalesce(review_count, 0) + confidence)) * coalesce(spot_avg, platform_avg)
+    + (confidence / (coalesce(review_count, 0) + confidence)) * platform_avg;
+
+  update spots
+    set tea_score = round(least(100, weighted_rating * 20 + least(hype_votes, 10) * 0.5))
+    where id = spot_id_param;
+end;
+$$ language plpgsql security definer;
+
+create or replace function trg_recompute_tea_score_from_review() returns trigger as $$
+begin
+  perform recompute_tea_score(coalesce(new.spot_id, old.spot_id));
+  return null;
+end;
+$$ language plpgsql security definer;
+
+drop trigger if exists trg_review_recompute_tea_score on reviews;
+create trigger trg_review_recompute_tea_score after insert or update or delete on reviews
+  for each row execute function trg_recompute_tea_score_from_review();
+
+-- One-time backfill so existing spots (seed data, and anything approved
+-- before this trigger existed) get a live score immediately, rather than
+-- waiting on their next review or hype vote. Safe to re-run — it just
+-- recomputes to the same values.
+do $$
+declare
+  spot_row record;
+begin
+  for spot_row in select id from spots loop
+    perform recompute_tea_score(spot_row.id);
+  end loop;
+end $$;
+
 -- ── Spot hype votes (the heart on a Home feed card) ────────────────────
 -- Same pattern as post_likes: membership scoped to the owner, spots.worth_the_hype_votes
 -- kept in sync via triggers so it stays accurate under concurrent votes.
@@ -348,6 +407,7 @@ create policy "own spot_hype_votes" on spot_hype_votes for all
 create or replace function increment_spot_hype_votes() returns trigger as $$
 begin
   update spots set worth_the_hype_votes = worth_the_hype_votes + 1 where id = new.spot_id;
+  perform recompute_tea_score(new.spot_id);
   return new;
 end;
 $$ language plpgsql security definer;
@@ -355,6 +415,7 @@ $$ language plpgsql security definer;
 create or replace function decrement_spot_hype_votes() returns trigger as $$
 begin
   update spots set worth_the_hype_votes = greatest(worth_the_hype_votes - 1, 0) where id = old.spot_id;
+  perform recompute_tea_score(old.spot_id);
   return old;
 end;
 $$ language plpgsql security definer;
@@ -787,6 +848,7 @@ begin
     -- Doesn't change status, so the trigger's when-clause below correctly
     -- does not refire on this second update (no infinite loop).
     update business_verifications set existing_spot_id = new_id where id = new.id;
+    perform recompute_tea_score(new_id);
   end if;
   return new;
 end;
