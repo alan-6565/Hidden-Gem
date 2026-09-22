@@ -1022,6 +1022,76 @@ $$ language plpgsql security definer set search_path = public;
 -- function always sees its owner as current_user). This is also why the
 -- like-count trigger (definer) is allowed to touch fields a client can't.
 
+-- ── 6a. Convert a profiles table that already exists ───────────────────
+-- The live project already had a `profiles` table from earlier experimenting:
+-- user_id (uuid, foreign key to auth.users), display_name, avatar_url. Creating
+-- the table below with `if not exists` would silently skip it and then fail on
+-- the missing `username` column, so convert it in place first. Its rows are
+-- kept (display_name becomes username). No-op on a fresh database or on a
+-- second run.
+do $$
+declare
+  rec record;
+begin
+  if to_regclass('public.profiles') is null then
+    return;
+  end if;
+
+  -- Policies can block the column changes below, and the ones defined further
+  -- down are meant to be the only ones — start clean.
+  for rec in select policyname from pg_policies where schemaname = 'public' and tablename = 'profiles' loop
+    execute format('drop policy %I on public.profiles', rec.policyname);
+  end loop;
+
+  -- A foreign key to auth.users(id) (uuid) would stop user_id becoming text like
+  -- every other table here. delete_own_account() removes the profile explicitly.
+  for rec in select conname from pg_constraint where conrelid = 'public.profiles'::regclass and contype = 'f' loop
+    execute format('alter table public.profiles drop constraint %I', rec.conname);
+  end loop;
+
+  if (select data_type from information_schema.columns
+        where table_schema = 'public' and table_name = 'profiles' and column_name = 'user_id') <> 'text' then
+    alter table public.profiles alter column user_id type text using user_id::text;
+  end if;
+
+  if exists (select 1 from information_schema.columns
+               where table_schema = 'public' and table_name = 'profiles' and column_name = 'display_name')
+     and not exists (select 1 from information_schema.columns
+               where table_schema = 'public' and table_name = 'profiles' and column_name = 'username') then
+    alter table public.profiles rename column display_name to username;
+  end if;
+
+  alter table public.profiles add column if not exists username text;
+  alter table public.profiles add column if not exists avatar_url text;
+  alter table public.profiles add column if not exists created_at timestamptz not null default now();
+
+  -- Make existing rows satisfy the rules the constraints below enforce.
+  update public.profiles set username = lower(username) where username <> lower(username);
+  update public.profiles set username = 'kuppio_' || substr(md5(user_id), 1, 6)
+    where username is null or username !~ '^[a-z0-9_.]{3,20}$';
+  update public.profiles p set username = 'kuppio_' || substr(md5(p.user_id), 1, 6)
+    where p.user_id in (
+      select user_id from (
+        select user_id, row_number() over (partition by username order by created_at, user_id) as rn
+        from public.profiles
+      ) d where d.rn > 1
+    );
+  update public.profiles set avatar_url = null where avatar_url is not null and avatar_url !~ '^https://';
+  alter table public.profiles alter column username set not null;
+
+  -- Any other trigger on auth.users that writes to profiles would now insert
+  -- into columns that no longer exist and break every signup. Ours is
+  -- (re)created below, so drop the others.
+  for rec in
+    select tg.tgname
+    from pg_trigger tg join pg_proc pr on pr.oid = tg.tgfoid
+    where tg.tgrelid = 'auth.users'::regclass and not tg.tgisinternal
+      and tg.tgname <> 'on_auth_user_created' and pr.prosrc ilike '%profiles%'
+  loop
+    execute format('drop trigger %I on auth.users', rec.tgname);
+  end loop;
+end $$;
+
 -- ── 6. Profiles ─────────────────────────────────────────────────────────
 create table if not exists profiles (
   user_id text primary key,
@@ -1031,6 +1101,11 @@ create table if not exists profiles (
   constraint profiles_username_format check (username ~ '^[a-z0-9_.]{3,20}$'),
   constraint profiles_avatar_https check (avatar_url is null or avatar_url ~ '^https://')
 );
+alter table profiles drop constraint if exists profiles_username_format;
+alter table profiles add constraint profiles_username_format check (username ~ '^[a-z0-9_.]{3,20}$');
+alter table profiles drop constraint if exists profiles_avatar_https;
+alter table profiles add constraint profiles_avatar_https check (avatar_url is null or avatar_url ~ '^https://');
+create unique index if not exists profiles_user_id_unique_idx on profiles (user_id);
 create unique index if not exists profiles_username_unique_idx on profiles (username);
 alter table profiles enable row level security;
 
