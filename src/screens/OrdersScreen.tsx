@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
@@ -36,9 +37,17 @@ export default function OrdersScreen({ navigation }: Props) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const STATUS_COLORS = useMemo(() => getStatusColors(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { orders, spots, setOrderStatus } = useAppData();
+  const { orders, spots, setOrderStatus, refresh } = useAppData();
   const { user } = useAuth();
   const [mode, setMode] = useState<Mode>('mine');
+
+  // Orders are only loaded once at app launch otherwise — a business would
+  // only see a new order after restarting the app.
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh]),
+  );
 
   const ownedSpotIds = useMemo(
     () => spots.filter((s) => s.ownerUserId === user?.id).map((s) => s.id),
