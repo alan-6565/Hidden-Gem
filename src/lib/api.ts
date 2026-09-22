@@ -35,6 +35,10 @@ function mapSpot(row: any): Spot {
     photos: row.photos ?? [],
     hours: (row.hours ?? []) as OpenHours[],
     menu: (row.menu ?? []) as MenuItem[],
+    phone: row.phone ?? undefined,
+    instagramUrl: row.instagram_url ?? undefined,
+    tiktokUrl: row.tiktok_url ?? undefined,
+    acceptingOrders: row.accepting_orders ?? true,
     teaScore: row.tea_score,
     worthTheHypeVotes: row.worth_the_hype_votes,
     hiddenGemVotes: row.hidden_gem_votes,
@@ -606,22 +610,40 @@ export async function getVerificationDocUrl(path: string): Promise<string> {
 }
 
 export interface SpotEditInput {
+  name?: string;
+  category?: SpotCategory;
+  isHomeBased?: boolean;
+  address?: string | null;
+  serviceArea?: string | null;
   description?: string;
   priceRange?: string;
   hours?: OpenHours[];
   menu?: MenuItem[];
   photos?: string[];
   tags?: string[];
+  phone?: string | null;
+  instagramUrl?: string | null;
+  tiktokUrl?: string | null;
+  acceptingOrders?: boolean;
 }
 
 export async function updateSpot(spotId: string, input: SpotEditInput): Promise<Spot> {
   const payload: Record<string, unknown> = {};
+  if (input.name !== undefined) payload.name = input.name;
+  if (input.category !== undefined) payload.category = input.category;
+  if (input.isHomeBased !== undefined) payload.is_home_based = input.isHomeBased;
+  if (input.address !== undefined) payload.address = input.address;
+  if (input.serviceArea !== undefined) payload.service_area = input.serviceArea;
   if (input.description !== undefined) payload.description = input.description;
   if (input.priceRange !== undefined) payload.price_range = input.priceRange;
   if (input.hours !== undefined) payload.hours = input.hours;
   if (input.menu !== undefined) payload.menu = input.menu;
   if (input.photos !== undefined) payload.photos = input.photos;
   if (input.tags !== undefined) payload.tags = input.tags;
+  if (input.phone !== undefined) payload.phone = input.phone;
+  if (input.instagramUrl !== undefined) payload.instagram_url = input.instagramUrl;
+  if (input.tiktokUrl !== undefined) payload.tiktok_url = input.tiktokUrl;
+  if (input.acceptingOrders !== undefined) payload.accepting_orders = input.acceptingOrders;
 
   const { data, error } = await supabase
     .from('spots')
@@ -629,7 +651,10 @@ export async function updateSpot(spotId: string, input: SpotEditInput): Promise<
     .eq('id', spotId)
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    if (error.code === '23505') throw new Error('A business with that name already exists.');
+    throw error;
+  }
   return mapSpot(data);
 }
 

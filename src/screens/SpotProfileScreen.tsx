@@ -128,6 +128,16 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
     );
   };
 
+  const handleCall = () => {
+    if (!spot.phone) {
+      Alert.alert('No phone number', 'This business hasn\'t added a phone number yet.');
+      return;
+    }
+    Linking.openURL(`tel:${spot.phone}`).catch(() =>
+      Alert.alert("Couldn't start the call", 'Please try again.'),
+    );
+  };
+
   const handleShare = async () => {
     try {
       await Share.share({
@@ -253,9 +263,15 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         )}
 
         <View style={styles.actionRow}>
-          <Pressable style={styles.actionItem}>
-            <Ionicons name="call-outline" size={20} color={colors.text} />
-            <Text style={styles.actionLabel}>Call</Text>
+          <Pressable style={styles.actionItem} onPress={handleCall}>
+            <Ionicons
+              name="call-outline"
+              size={20}
+              color={spot.phone ? colors.text : colors.textMuted}
+            />
+            <Text style={[styles.actionLabel, !spot.phone && { color: colors.textMuted }]}>
+              Call
+            </Text>
           </Pressable>
           <Pressable style={styles.actionItem} onPress={handleDirections}>
             <Ionicons name="navigate-outline" size={20} color={colors.text} />
@@ -276,6 +292,37 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         </View>
 
         {spot.description && <Text style={styles.description}>{spot.description}</Text>}
+
+        {(spot.instagramUrl || spot.tiktokUrl) && (
+          <View style={styles.socialRow}>
+            {spot.instagramUrl && (
+              <Pressable
+                style={styles.socialButton}
+                onPress={() =>
+                  Linking.openURL(spot.instagramUrl!).catch(() =>
+                    Alert.alert("Couldn't open Instagram", 'Please try again.'),
+                  )
+                }
+              >
+                <Ionicons name="logo-instagram" size={16} color={colors.text} />
+                <Text style={styles.socialButtonText}>Instagram</Text>
+              </Pressable>
+            )}
+            {spot.tiktokUrl && (
+              <Pressable
+                style={styles.socialButton}
+                onPress={() =>
+                  Linking.openURL(spot.tiktokUrl!).catch(() =>
+                    Alert.alert("Couldn't open TikTok", 'Please try again.'),
+                  )
+                }
+              >
+                <Ionicons name="logo-tiktok" size={16} color={colors.text} />
+                <Text style={styles.socialButtonText}>TikTok</Text>
+              </Pressable>
+            )}
+          </View>
+        )}
       </View>
 
       <View style={styles.section}>
@@ -287,22 +334,38 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <View style={styles.menuItem}>
-              {item.photo && <Image source={{ uri: item.photo }} style={styles.menuPhoto} />}
+              {item.photo && (
+                <View>
+                  <Image source={{ uri: item.photo }} style={styles.menuPhoto} />
+                  {item.soldOut && (
+                    <View style={styles.soldOutBadge}>
+                      <Text style={styles.soldOutBadgeText}>Sold out</Text>
+                    </View>
+                  )}
+                </View>
+              )}
               <Text style={styles.menuName} numberOfLines={1}>
                 {item.name}
+                {!item.photo && item.soldOut ? ' (Sold out)' : ''}
               </Text>
               <Text style={styles.menuPrice}>${item.price.toFixed(2)}</Text>
             </View>
           )}
         />
         {spot.menu.length > 0 && (
-          <Pressable
-            style={styles.orderButton}
-            onPress={() => navigation.navigate('Order', { spotId })}
-          >
-            <Ionicons name="bag-handle-outline" size={16} color="#fff" />
-            <Text style={styles.orderButtonText}>Order ahead</Text>
-          </Pressable>
+          spot.acceptingOrders ? (
+            <Pressable
+              style={styles.orderButton}
+              onPress={() => navigation.navigate('Order', { spotId })}
+            >
+              <Ionicons name="bag-handle-outline" size={16} color="#fff" />
+              <Text style={styles.orderButtonText}>Order ahead</Text>
+            </Pressable>
+          ) : (
+            <View style={styles.orderButtonDisabled}>
+              <Text style={styles.orderButtonDisabledText}>Not accepting orders right now</Text>
+            </View>
+          )
         )}
       </View>
 
@@ -647,6 +710,26 @@ const makeStyles = (colors: ThemeColors) =>
     fontSize: 14,
     lineHeight: 20,
   },
+  socialRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  socialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  socialButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text,
+  },
   sectionTitle: {
     fontSize: 17,
     fontWeight: '700',
@@ -688,6 +771,36 @@ const makeStyles = (colors: ThemeColors) =>
     color: '#fff',
     fontWeight: '700',
     fontSize: 14,
+  },
+  orderButtonDisabled: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm + 2,
+    marginTop: spacing.md,
+  },
+  orderButtonDisabledText: {
+    color: colors.textMuted,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  soldOutBadge: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    right: 4,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: radius.sm,
+    paddingVertical: 2,
+    alignItems: 'center',
+  },
+  soldOutBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700',
   },
   reviewsSummaryRow: {
     flexDirection: 'row',

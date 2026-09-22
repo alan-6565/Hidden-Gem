@@ -22,6 +22,7 @@ export interface MenuItem {
   name: string;
   price: number;
   isPopular?: boolean;
+  soldOut?: boolean;
   photo?: string;
 }
 
@@ -40,6 +41,10 @@ export interface Spot {
   photos: string[];
   hours: OpenHours[];
   menu: MenuItem[];
+  phone?: string;
+  instagramUrl?: string;
+  tiktokUrl?: string;
+  acceptingOrders: boolean;
   teaScore: number;
   worthTheHypeVotes: number;
   hiddenGemVotes: number;
