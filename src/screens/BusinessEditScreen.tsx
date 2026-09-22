@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -15,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { pickMediaFromLibrary, uploadMedia } from '../lib/mediaUpload';
-import { MenuItem, OpenHours, PriceRange } from '../types';
+import { MenuItem, OpenHours, PriceRange, SpotCategory } from '../types';
 import { isPromoted } from '../utils/promotion';
 import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
@@ -25,6 +26,16 @@ type Props = NativeStackScreenProps<RootStackParamList, 'BusinessEdit'>;
 
 const DAYS: OpenHours['day'][] = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const PRICE_OPTIONS: PriceRange[] = ['$', '$$', '$$$'];
+
+const CATEGORY_OPTIONS: { key: SpotCategory; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: 'coffee', label: 'Cafe', icon: 'cafe' },
+  { key: 'matcha', label: 'Matcha & Tea', icon: 'leaf' },
+  { key: 'dessert', label: 'Dessert', icon: 'ice-cream' },
+  { key: 'brunch', label: 'Brunch', icon: 'egg' },
+  { key: 'home_based', label: 'Home-Based', icon: 'home' },
+  { key: 'pop_up', label: 'Pop-Up', icon: 'flash' },
+  { key: 'food_truck', label: 'Food Truck', icon: 'car' },
+];
 
 const AMENITY_OPTIONS: { tag: string; label: string }[] = [
   { tag: 'outdoor seating', label: 'Outdoor seating' },
@@ -47,11 +58,21 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
   const { user } = useAuth();
   const spot = spots.find((s) => s.id === spotId);
 
+  const [name, setName] = useState(spot?.name ?? '');
+  const [category, setCategory] = useState<SpotCategory>(spot?.category ?? 'coffee');
+  const [isHomeBased, setIsHomeBased] = useState(spot?.isHomeBased ?? false);
+  const [address, setAddress] = useState(spot?.address ?? '');
+  const [serviceArea, setServiceArea] = useState(spot?.serviceArea ?? '');
+  const [phone, setPhone] = useState(spot?.phone ?? '');
+  const [instagramUrl, setInstagramUrl] = useState(spot?.instagramUrl ?? '');
+  const [tiktokUrl, setTiktokUrl] = useState(spot?.tiktokUrl ?? '');
+  const [acceptingOrders, setAcceptingOrders] = useState(spot?.acceptingOrders ?? true);
   const [description, setDescription] = useState(spot?.description ?? '');
   const [priceRange, setPriceRange] = useState<PriceRange>(spot?.priceRange ?? '$');
   const [photos, setPhotos] = useState<string[]>(spot?.photos ?? []);
   const [menu, setMenu] = useState<MenuItem[]>(spot?.menu ?? []);
   const [tags, setTags] = useState<string[]>(spot?.tags ?? []);
+  const [uploadingItemPhotoId, setUploadingItemPhotoId] = useState<string | null>(null);
   const [hoursByDay, setHoursByDay] = useState<Record<string, DayState>>(() => {
     const initial: Record<string, DayState> = {};
     for (const day of DAYS) {
@@ -106,6 +127,21 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
     setMenu((prev) => prev.filter((item) => item.id !== id));
   };
 
+  const handleAddItemPhoto = async (id: string) => {
+    if (!user) return;
+    setUploadingItemPhotoId(id);
+    try {
+      const picked = await pickMediaFromLibrary({ allowVideos: false });
+      if (!picked) return;
+      const url = await uploadMedia(user.id, picked);
+      updateMenuItem(id, { photo: url });
+    } catch (e: any) {
+      Alert.alert("Couldn't add photo", e?.message ?? 'Please try again.');
+    } finally {
+      setUploadingItemPhotoId(null);
+    }
+  };
+
   const toggleAmenity = (tag: string) => {
     setTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]));
   };
@@ -130,6 +166,10 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
   };
 
   const handleSave = async () => {
+    if (!name.trim()) {
+      Alert.alert('Business name required', 'Enter a name before saving.');
+      return;
+    }
     setSaving(true);
     try {
       const hours: OpenHours[] = DAYS.filter((day) => hoursByDay[day].enabled).map((day) => ({
@@ -139,6 +179,15 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
       }));
       const cleanedMenu = menu.filter((item) => item.name.trim().length > 0);
       await updateSpot(spotId, {
+        name: name.trim(),
+        category,
+        isHomeBased,
+        address: isHomeBased ? null : address.trim() || null,
+        serviceArea: isHomeBased ? serviceArea.trim() || null : null,
+        phone: phone.trim() || null,
+        instagramUrl: instagramUrl.trim() || null,
+        tiktokUrl: tiktokUrl.trim() || null,
+        acceptingOrders,
         description,
         priceRange,
         hours,
@@ -160,6 +209,95 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
       contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]}
     >
       <Text style={styles.title}>Manage {spot.name}</Text>
+
+      <Text style={styles.sectionLabel}>Business name</Text>
+      <TextInput
+        style={styles.input}
+        value={name}
+        onChangeText={setName}
+        placeholder="Business name"
+        placeholderTextColor={colors.textMuted}
+      />
+
+      <Text style={styles.sectionLabel}>Category</Text>
+      <View style={styles.categoryGrid}>
+        {CATEGORY_OPTIONS.map((opt) => {
+          const active = category === opt.key;
+          return (
+            <Pressable
+              key={opt.key}
+              style={[styles.categoryTile, active && styles.categoryTileActive]}
+              onPress={() => setCategory(opt.key)}
+            >
+              <Ionicons name={opt.icon} size={18} color={active ? '#fff' : colors.text} />
+              <Text style={[styles.categoryLabel, active && styles.categoryLabelActive]}>
+                {opt.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View style={styles.homeBasedRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.sectionLabel}>Home-based</Text>
+          <Text style={styles.homeBasedHint}>
+            Hides your exact address — shows a general service area instead.
+          </Text>
+        </View>
+        <Switch value={isHomeBased} onValueChange={setIsHomeBased} />
+      </View>
+      {isHomeBased ? (
+        <TextInput
+          style={styles.input}
+          value={serviceArea}
+          onChangeText={setServiceArea}
+          placeholder="Service area (e.g. Oakland, Fruitvale area)"
+          placeholderTextColor={colors.textMuted}
+        />
+      ) : (
+        <TextInput
+          style={styles.input}
+          value={address}
+          onChangeText={setAddress}
+          placeholder="Street address"
+          placeholderTextColor={colors.textMuted}
+        />
+      )}
+
+      <Text style={styles.sectionLabel}>Phone</Text>
+      <TextInput
+        style={styles.input}
+        value={phone}
+        onChangeText={setPhone}
+        placeholder="For the Call button on your spot page"
+        placeholderTextColor={colors.textMuted}
+        keyboardType="phone-pad"
+      />
+
+      <Text style={styles.sectionLabel}>Instagram</Text>
+      <TextInput
+        style={styles.input}
+        value={instagramUrl}
+        onChangeText={setInstagramUrl}
+        placeholder="https://instagram.com/yourbusiness"
+        placeholderTextColor={colors.textMuted}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="url"
+      />
+
+      <Text style={styles.sectionLabel}>TikTok</Text>
+      <TextInput
+        style={styles.input}
+        value={tiktokUrl}
+        onChangeText={setTiktokUrl}
+        placeholder="https://tiktok.com/@yourbusiness"
+        placeholderTextColor={colors.textMuted}
+        autoCapitalize="none"
+        autoCorrect={false}
+        keyboardType="url"
+      />
 
       <View style={styles.promoCard}>
         <View style={styles.promoIconWrap}>
@@ -269,6 +407,16 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
         </View>
       ))}
 
+      <View style={styles.homeBasedRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.sectionLabel}>Accepting orders</Text>
+          <Text style={styles.homeBasedHint}>
+            Turn off to pause new "Order ahead" requests without hiding your menu.
+          </Text>
+        </View>
+        <Switch value={acceptingOrders} onValueChange={setAcceptingOrders} />
+      </View>
+
       <View style={styles.menuHeaderRow}>
         <Text style={styles.sectionLabel}>Menu</Text>
         <Pressable onPress={addMenuItem}>
@@ -276,25 +424,61 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
         </Pressable>
       </View>
       {menu.map((item) => (
-        <View key={item.id} style={styles.menuRow}>
-          <TextInput
-            style={styles.menuNameInput}
-            value={item.name}
-            onChangeText={(v) => updateMenuItem(item.id, { name: v })}
-            placeholder="Item name"
-            placeholderTextColor={colors.textMuted}
-          />
-          <TextInput
-            style={styles.menuPriceInput}
-            value={item.price ? String(item.price) : ''}
-            onChangeText={(v) => updateMenuItem(item.id, { price: Number(v) || 0 })}
-            placeholder="0.00"
-            placeholderTextColor={colors.textMuted}
-            keyboardType="decimal-pad"
-          />
-          <Pressable hitSlop={8} onPress={() => removeMenuItem(item.id)}>
-            <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
-          </Pressable>
+        <View key={item.id} style={styles.menuCard}>
+          <View style={styles.menuRow}>
+            <Pressable
+              onPress={() => handleAddItemPhoto(item.id)}
+              disabled={uploadingItemPhotoId === item.id}
+            >
+              {item.photo ? (
+                <Image source={{ uri: item.photo }} style={styles.menuItemPhoto} />
+              ) : (
+                <View style={styles.menuItemPhotoPlaceholder}>
+                  <Ionicons
+                    name={uploadingItemPhotoId === item.id ? 'hourglass-outline' : 'camera-outline'}
+                    size={16}
+                    color={colors.textMuted}
+                  />
+                </View>
+              )}
+            </Pressable>
+            <TextInput
+              style={styles.menuNameInput}
+              value={item.name}
+              onChangeText={(v) => updateMenuItem(item.id, { name: v })}
+              placeholder="Item name"
+              placeholderTextColor={colors.textMuted}
+            />
+            <TextInput
+              style={styles.menuPriceInput}
+              value={item.price ? String(item.price) : ''}
+              onChangeText={(v) => updateMenuItem(item.id, { price: Number(v) || 0 })}
+              placeholder="0.00"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="decimal-pad"
+            />
+            <Pressable hitSlop={8} onPress={() => removeMenuItem(item.id)}>
+              <Ionicons name="trash-outline" size={18} color={colors.textMuted} />
+            </Pressable>
+          </View>
+          <View style={styles.menuTogglesRow}>
+            <Pressable
+              style={[styles.miniPill, item.isPopular && styles.miniPillActive]}
+              onPress={() => updateMenuItem(item.id, { isPopular: !item.isPopular })}
+            >
+              <Text style={[styles.miniPillText, item.isPopular && styles.miniPillTextActive]}>
+                Popular
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.miniPill, item.soldOut && styles.miniPillActive]}
+              onPress={() => updateMenuItem(item.id, { soldOut: !item.soldOut })}
+            >
+              <Text style={[styles.miniPillText, item.soldOut && styles.miniPillTextActive]}>
+                Sold out
+              </Text>
+            </Pressable>
+          </View>
         </View>
       ))}
 
@@ -415,6 +599,58 @@ const makeStyles = (colors: ThemeColors) =>
     color: colors.text,
     fontSize: 14,
   },
+  input: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + 2,
+    color: colors.text,
+    fontSize: 14,
+    marginBottom: spacing.sm,
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  categoryTile: {
+    width: 84,
+    height: 68,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  categoryTileActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  categoryLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.text,
+    textAlign: 'center',
+  },
+  categoryLabelActive: {
+    color: '#fff',
+  },
+  homeBasedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  homeBasedHint: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
   pillRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -492,11 +728,59 @@ const makeStyles = (colors: ThemeColors) =>
     fontWeight: '700',
     color: colors.primary,
   },
+  menuCard: {
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
+  },
   menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.sm,
+  },
+  menuItemPhoto: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.sm,
+    backgroundColor: colors.cream,
+  },
+  menuItemPhotoPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuTogglesRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginTop: spacing.xs,
+  },
+  miniPill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  miniPillActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  miniPillText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textMuted,
+  },
+  miniPillTextActive: {
+    color: '#fff',
   },
   menuNameInput: {
     flex: 1,
