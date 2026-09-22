@@ -45,6 +45,7 @@ export interface Spot {
   instagramUrl?: string;
   tiktokUrl?: string;
   acceptingOrders: boolean;
+  prepTime?: string;
   teaScore: number;
   worthTheHypeVotes: number;
   hiddenGemVotes: number;
