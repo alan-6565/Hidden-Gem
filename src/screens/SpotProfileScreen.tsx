@@ -354,13 +354,18 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         />
         {spot.menu.length > 0 && (
           spot.acceptingOrders ? (
-            <Pressable
-              style={styles.orderButton}
-              onPress={() => navigation.navigate('Order', { spotId })}
-            >
-              <Ionicons name="bag-handle-outline" size={16} color="#fff" />
-              <Text style={styles.orderButtonText}>Order ahead</Text>
-            </Pressable>
+            <>
+              <Pressable
+                style={styles.orderButton}
+                onPress={() => navigation.navigate('Order', { spotId })}
+              >
+                <Ionicons name="bag-handle-outline" size={16} color="#fff" />
+                <Text style={styles.orderButtonText}>Order ahead</Text>
+              </Pressable>
+              {spot.prepTime && (
+                <Text style={styles.prepTimeHint}>Ready in {spot.prepTime}</Text>
+              )}
+            </>
           ) : (
             <View style={styles.orderButtonDisabled}>
               <Text style={styles.orderButtonDisabledText}>Not accepting orders right now</Text>
@@ -771,6 +776,12 @@ const makeStyles = (colors: ThemeColors) =>
     color: '#fff',
     fontWeight: '700',
     fontSize: 14,
+  },
+  prepTimeHint: {
+    textAlign: 'center',
+    color: colors.textMuted,
+    fontSize: 12,
+    marginTop: spacing.xs,
   },
   orderButtonDisabled: {
     alignItems: 'center',

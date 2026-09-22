@@ -39,6 +39,7 @@ function mapSpot(row: any): Spot {
     instagramUrl: row.instagram_url ?? undefined,
     tiktokUrl: row.tiktok_url ?? undefined,
     acceptingOrders: row.accepting_orders ?? true,
+    prepTime: row.prep_time ?? undefined,
     teaScore: row.tea_score,
     worthTheHypeVotes: row.worth_the_hype_votes,
     hiddenGemVotes: row.hidden_gem_votes,
@@ -625,6 +626,7 @@ export interface SpotEditInput {
   instagramUrl?: string | null;
   tiktokUrl?: string | null;
   acceptingOrders?: boolean;
+  prepTime?: string | null;
 }
 
 export async function updateSpot(spotId: string, input: SpotEditInput): Promise<Spot> {
@@ -644,6 +646,7 @@ export async function updateSpot(spotId: string, input: SpotEditInput): Promise<
   if (input.instagramUrl !== undefined) payload.instagram_url = input.instagramUrl;
   if (input.tiktokUrl !== undefined) payload.tiktok_url = input.tiktokUrl;
   if (input.acceptingOrders !== undefined) payload.accepting_orders = input.acceptingOrders;
+  if (input.prepTime !== undefined) payload.prep_time = input.prepTime;
 
   const { data, error } = await supabase
     .from('spots')

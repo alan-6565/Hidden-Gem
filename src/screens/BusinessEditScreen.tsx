@@ -67,6 +67,7 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
   const [instagramUrl, setInstagramUrl] = useState(spot?.instagramUrl ?? '');
   const [tiktokUrl, setTiktokUrl] = useState(spot?.tiktokUrl ?? '');
   const [acceptingOrders, setAcceptingOrders] = useState(spot?.acceptingOrders ?? true);
+  const [prepTime, setPrepTime] = useState(spot?.prepTime ?? '');
   const [description, setDescription] = useState(spot?.description ?? '');
   const [priceRange, setPriceRange] = useState<PriceRange>(spot?.priceRange ?? '$');
   const [photos, setPhotos] = useState<string[]>(spot?.photos ?? []);
@@ -188,6 +189,7 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
         instagramUrl: instagramUrl.trim() || null,
         tiktokUrl: tiktokUrl.trim() || null,
         acceptingOrders,
+        prepTime: prepTime.trim() || null,
         description,
         priceRange,
         hours,
@@ -416,6 +418,15 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
         </View>
         <Switch value={acceptingOrders} onValueChange={setAcceptingOrders} />
       </View>
+
+      <Text style={styles.sectionLabel}>Prep time</Text>
+      <TextInput
+        style={styles.input}
+        value={prepTime}
+        onChangeText={setPrepTime}
+        placeholder="e.g. 15-20 min"
+        placeholderTextColor={colors.textMuted}
+      />
 
       <View style={styles.menuHeaderRow}>
         <Text style={styles.sectionLabel}>Menu</Text>
