@@ -127,6 +127,15 @@ export default function ProfileScreen({ navigation }: Props) {
         <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
       </Pressable>
 
+      <Pressable
+        style={styles.ordersRow}
+        onPress={() => navigation.navigate('Map', { startAddingBusiness: true })}
+      >
+        <Ionicons name="storefront-outline" size={20} color={colors.text} />
+        <Text style={styles.ordersRowText}>Add a business</Text>
+        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+      </Pressable>
+
       <Pressable style={styles.ordersRow} onPress={() => navigation.navigate('VerificationStatus')}>
         <Ionicons name="document-text-outline" size={20} color={colors.text} />
         <Text style={styles.ordersRowText}>My business applications</Text>

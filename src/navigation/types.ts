@@ -20,7 +20,7 @@ export type RootStackParamList = {
 
 export type TabParamList = {
   Home: undefined;
-  Map: undefined;
+  Map: { startAddingBusiness?: boolean } | undefined;
   Post: undefined;
   Reels: { exploreTag?: string } | undefined;
   Profile: undefined;

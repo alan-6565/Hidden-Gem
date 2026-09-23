@@ -36,7 +36,7 @@ const INITIAL_REGION: Region = {
   ...REGION_DELTA,
 };
 
-export default function MapScreen({ navigation }: Props) {
+export default function MapScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
@@ -114,6 +114,15 @@ export default function MapScreen({ navigation }: Props) {
     setSelectedSpotId(null);
     setAddingBusiness(true);
   };
+
+  // Lets other screens (e.g. Profile's "Add a business" row) jump straight
+  // into pin-drop mode instead of making people find the small map icon.
+  useEffect(() => {
+    if (route.params?.startAddingBusiness) {
+      startAddingBusiness();
+      navigation.setParams({ startAddingBusiness: undefined });
+    }
+  }, [route.params?.startAddingBusiness]);
 
   const confirmBusinessLocation = () => {
     setAddingBusiness(false);
