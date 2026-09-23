@@ -586,7 +586,7 @@ export async function reviewVerification(
     .eq('id', id);
   if (error) {
     if (error.code === '23505') {
-      throw new Error('A business with that name already exists.');
+      throw new Error('A business with that name already exists at this location.');
     }
     throw error;
   }
@@ -655,7 +655,7 @@ export async function updateSpot(spotId: string, input: SpotEditInput): Promise<
     .select()
     .single();
   if (error) {
-    if (error.code === '23505') throw new Error('A business with that name already exists.');
+    if (error.code === '23505') throw new Error('A business with that name already exists at this location.');
     throw error;
   }
   return mapSpot(data);
