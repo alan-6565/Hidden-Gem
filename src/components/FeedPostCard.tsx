@@ -1,5 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Animated,
+  Dimensions,
+  FlatList,
+  Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Review, Spot } from '../types';
 import Avatar from './Avatar';
@@ -15,6 +26,7 @@ interface Props {
 }
 
 const DOUBLE_TAP_DELAY = 280;
+const CARD_WIDTH = Dimensions.get('window').width - spacing.md * 2;
 
 function getAreaLabel(spot: Spot): string {
   if (spot.isHomeBased && spot.serviceArea) {
@@ -42,6 +54,12 @@ export default function FeedPostCard({ spot, reviews, onPress }: Props) {
   const pendingTapRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showBurst, setShowBurst] = useState(false);
   const burstAnim = useRef(new Animated.Value(0)).current;
+  const [photoIndex, setPhotoIndex] = useState(0);
+
+  const handlePhotoScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const index = Math.round(e.nativeEvent.contentOffset.x / CARD_WIDTH);
+    setPhotoIndex(index);
+  };
 
   useEffect(() => {
     return () => {
@@ -79,7 +97,28 @@ export default function FeedPostCard({ spot, reviews, onPress }: Props) {
 
   return (
     <Pressable style={styles.card} onPress={handleCardPress}>
-      <Image source={{ uri: spot.photos[0] }} style={styles.image} />
+      {spot.photos.length > 1 ? (
+        <FlatList
+          data={spot.photos}
+          keyExtractor={(uri, i) => `${i}-${uri}`}
+          renderItem={({ item }) => <Image source={{ uri: item }} style={styles.carouselImage} />}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onScroll={handlePhotoScroll}
+          scrollEventThrottle={32}
+        />
+      ) : (
+        <Image source={{ uri: spot.photos[0] }} style={styles.image} />
+      )}
+
+      {spot.photos.length > 1 && (
+        <View style={styles.dotsRow} pointerEvents="none">
+          {spot.photos.map((_, i) => (
+            <View key={i} style={[styles.dot, i === photoIndex && styles.dotActive]} />
+          ))}
+        </View>
+      )}
 
       {areaLabel ? (
         <View style={styles.areaPill}>
@@ -175,6 +214,29 @@ const makeStyles = (colors: ThemeColors) =>
       width: '100%',
       height: 320,
       backgroundColor: colors.cream,
+    },
+    carouselImage: {
+      width: CARD_WIDTH,
+      height: 320,
+      backgroundColor: colors.cream,
+    },
+    dotsRow: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 120,
+      flexDirection: 'row',
+      justifyContent: 'center',
+      gap: 4,
+    },
+    dot: {
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: 'rgba(255,255,255,0.5)',
+    },
+    dotActive: {
+      backgroundColor: '#fff',
     },
     areaPill: {
       position: 'absolute',
