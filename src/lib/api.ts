@@ -210,6 +210,49 @@ export async function setSpotSaved(userId: string, spotId: string, saved: boolea
   }
 }
 
+export async function fetchFollowedSpotIds(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('business_follows')
+    .select('spot_id')
+    .eq('user_id', userId);
+  if (error) throw error;
+  return (data ?? []).map((row) => row.spot_id);
+}
+
+export async function setSpotFollowed(userId: string, spotId: string, followed: boolean): Promise<void> {
+  if (followed) {
+    const { error } = await supabase
+      .from('business_follows')
+      .upsert({ user_id: userId, spot_id: spotId });
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from('business_follows')
+      .delete()
+      .eq('user_id', userId)
+      .eq('spot_id', spotId);
+    if (error) throw error;
+  }
+}
+
+export async function fetchSpotFollowerCount(spotId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('business_follows')
+    .select('*', { count: 'exact', head: true })
+    .eq('spot_id', spotId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function fetchSpotSaveCount(spotId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('saved_spots')
+    .select('*', { count: 'exact', head: true })
+    .eq('spot_id', spotId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export async function fetchLikedSpotIds(userId: string): Promise<string[]> {
   const { data, error } = await supabase
     .from('spot_hype_votes')

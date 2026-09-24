@@ -15,6 +15,7 @@ import AddReviewScreen from '../screens/AddReviewScreen';
 import ComposeScreen from '../screens/ComposeScreen';
 import SearchFiltersScreen from '../screens/SearchFiltersScreen';
 import BusinessEditScreen from '../screens/BusinessEditScreen';
+import BusinessHubScreen from '../screens/BusinessHubScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import CreateBusinessScreen from '../screens/CreateBusinessScreen';
 import ClaimBusinessScreen from '../screens/ClaimBusinessScreen';
@@ -128,6 +129,11 @@ export default function RootNavigator() {
         name="BusinessEdit"
         component={BusinessEditScreen}
         options={{ title: 'Manage Business' }}
+      />
+      <Stack.Screen
+        name="BusinessHub"
+        component={BusinessHubScreen}
+        options={{ title: 'Business Hub' }}
       />
       <Stack.Screen
         name="EditProfile"

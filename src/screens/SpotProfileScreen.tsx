@@ -15,9 +15,11 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
+import { fetchSpotFollowerCount } from '../lib/api';
 import RatingStars from '../components/RatingStars';
 import Avatar from '../components/Avatar';
 import KuppioScoreBadge from '../components/KuppioScoreBadge';
@@ -34,6 +36,9 @@ import { distanceMiles, formatDistance } from '../utils/geo';
 import { useUserLocation } from '../utils/useUserLocation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SpotProfile'>;
+type SpotTab = 'home' | 'reels' | 'menu' | 'reviews';
+
+const GRID_GAP = 2;
 
 export default function SpotProfileScreen({ route, navigation }: Props) {
   const { colors } = useTheme();
@@ -44,8 +49,11 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
   const {
     spots,
     reviews,
+    posts,
     isSaved,
     toggleSaved,
+    isFollowingSpot,
+    toggleFollowSpot,
     myVerifications,
     isReviewLiked,
     toggleReviewLike,
@@ -56,11 +64,20 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
   const userLocation = useUserLocation();
   const spot = spots.find((s) => s.id === spotId);
   const saved = isSaved(spotId);
+  const following = isFollowingSpot(spotId);
   const isSpotOwner = !!spot && !!user && spot.ownerUserId === user.id;
+  const [tab, setTab] = useState<SpotTab>('home');
   const [sortBy, setSortBy] = useState<'helpful' | 'recent' | 'highest'>('helpful');
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
   const [replyDraft, setReplyDraft] = useState('');
   const [submittingReply, setSubmittingReply] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchSpotFollowerCount(spotId).then(setFollowerCount).catch(() => {});
+    }, [spotId]),
+  );
 
   const startReply = (reviewId: string, existingReply: string | null | undefined) => {
     setReplyingToId(reviewId);
@@ -108,6 +125,9 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         )
       : null;
 
+  const spotReels = posts.filter((p) => p.spotId === spot.id && p.authorType === 'owner' && p.isVideo);
+  const popularMenuItems = spot.menu.filter((item) => item.isPopular);
+
   const isHiddenGem = spot.hiddenGemVotes > spot.worthTheHypeVotes;
   const isTopRated = rating >= 4.5;
   const isPopularSpot = isPromoted(spot) || spot.worthTheHypeVotes > 50;
@@ -150,6 +170,13 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
     }
   };
 
+  const TABS: { key: SpotTab; icon: keyof typeof Ionicons.glyphMap }[] = [
+    { key: 'home', icon: 'home-outline' },
+    { key: 'reels', icon: 'play-circle-outline' },
+    { key: 'menu', icon: 'restaurant-outline' },
+    { key: 'reviews', icon: 'star-outline' },
+  ];
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.photoWrapper}>
@@ -170,13 +197,6 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
           <View style={styles.photoOverlayRight}>
             <Pressable style={styles.photoOverlayButton} onPress={handleShare}>
               <Ionicons name="share-social-outline" size={18} color="#fff" />
-            </Pressable>
-            <Pressable style={styles.photoOverlayButton} onPress={() => toggleSaved(spotId)}>
-              <Ionicons
-                name={saved ? 'heart' : 'heart-outline'}
-                size={18}
-                color={saved ? colors.primary : '#fff'}
-              />
             </Pressable>
           </View>
         </View>
@@ -208,7 +228,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
           <Text style={styles.distanceText}>{distance}</Text>
         </View>
         <Text style={[styles.status, { color: open ? colors.success : colors.textMuted }]}>
-          {getStatusLabel(spot.hours)}
+          {getStatusLabel(spot.hours)} · {followerCount} {followerCount === 1 ? 'follower' : 'followers'}
         </Text>
 
         {(isHiddenGem || isTopRated || isPopularSpot) && (
@@ -251,18 +271,38 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
           </View>
         )}
 
-        {user && spot.ownerUserId === user.id && (
+        {isSpotOwner && (
           <Pressable
             style={styles.manageBanner}
-            onPress={() => navigation.navigate('BusinessEdit', { spotId })}
+            onPress={() => navigation.navigate('BusinessHub', { spotId })}
           >
             <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
             <Text style={styles.manageBannerText}>You manage this business</Text>
-            <Text style={styles.manageBannerAction}>Edit</Text>
+            <Text style={styles.manageBannerAction}>Manage</Text>
           </Pressable>
         )}
 
         <View style={styles.actionRow}>
+          <Pressable
+            style={styles.actionItem}
+            onPress={() => toggleFollowSpot(spotId)}
+            disabled={isSpotOwner}
+          >
+            <Ionicons
+              name={following ? 'checkmark-circle' : 'add-circle-outline'}
+              size={20}
+              color={isSpotOwner ? colors.textMuted : following ? colors.primary : colors.text}
+            />
+            <Text
+              style={[
+                styles.actionLabel,
+                following && { color: colors.primary },
+                isSpotOwner && { color: colors.textMuted },
+              ]}
+            >
+              {following ? 'Following' : 'Follow'}
+            </Text>
+          </Pressable>
           <Pressable style={styles.actionItem} onPress={handleCall}>
             <Ionicons
               name="call-outline"
@@ -285,233 +325,313 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             />
             <Text style={styles.actionLabel}>Save</Text>
           </Pressable>
-          <Pressable style={styles.actionItem} onPress={handleShare}>
-            <Ionicons name="share-social-outline" size={20} color={colors.text} />
-            <Text style={styles.actionLabel}>Share</Text>
-          </Pressable>
         </View>
 
-        {spot.description && <Text style={styles.description}>{spot.description}</Text>}
-
-        {(spot.instagramUrl || spot.tiktokUrl) && (
-          <View style={styles.socialRow}>
-            {spot.instagramUrl && (
-              <Pressable
-                style={styles.socialButton}
-                onPress={() =>
-                  Linking.openURL(spot.instagramUrl!).catch(() =>
-                    Alert.alert("Couldn't open Instagram", 'Please try again.'),
-                  )
-                }
-              >
-                <Ionicons name="logo-instagram" size={16} color={colors.text} />
-                <Text style={styles.socialButtonText}>Instagram</Text>
-              </Pressable>
-            )}
-            {spot.tiktokUrl && (
-              <Pressable
-                style={styles.socialButton}
-                onPress={() =>
-                  Linking.openURL(spot.tiktokUrl!).catch(() =>
-                    Alert.alert("Couldn't open TikTok", 'Please try again.'),
-                  )
-                }
-              >
-                <Ionicons name="logo-tiktok" size={16} color={colors.text} />
-                <Text style={styles.socialButtonText}>TikTok</Text>
-              </Pressable>
-            )}
-          </View>
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Popular</Text>
-        <FlatList
-          data={spot.menu}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <View style={styles.menuItem}>
-              {item.photo && (
-                <View>
-                  <Image source={{ uri: item.photo }} style={styles.menuPhoto} />
-                  {item.soldOut && (
-                    <View style={styles.soldOutBadge}>
-                      <Text style={styles.soldOutBadgeText}>Sold out</Text>
-                    </View>
-                  )}
-                </View>
-              )}
-              <Text style={styles.menuName} numberOfLines={1}>
-                {item.name}
-                {!item.photo && item.soldOut ? ' (Sold out)' : ''}
-              </Text>
-              <Text style={styles.menuPrice}>${item.price.toFixed(2)}</Text>
-            </View>
-          )}
-        />
-        {spot.menu.length > 0 && !isSpotOwner && (
-          spot.acceptingOrders ? (
-            <>
-              <Pressable
-                style={styles.orderButton}
-                onPress={() => navigation.navigate('Order', { spotId })}
-              >
-                <Ionicons name="bag-handle-outline" size={16} color="#fff" />
-                <Text style={styles.orderButtonText}>Order ahead</Text>
-              </Pressable>
-              {spot.prepTime && (
-                <Text style={styles.prepTimeHint}>Ready in {spot.prepTime}</Text>
-              )}
-            </>
-          ) : (
-            <View style={styles.orderButtonDisabled}>
-              <Text style={styles.orderButtonDisabledText}>Not accepting orders right now</Text>
-            </View>
-          )
-        )}
-      </View>
-
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>What people say</Text>
-        {recommendPercent !== null && (
-          <View style={styles.recommendRow}>
-            <Ionicons name="thumbs-up" size={14} color={colors.success} />
-            <Text style={styles.recommendText}>{recommendPercent}% recommend</Text>
-          </View>
-        )}
-
-        <View style={styles.reviewsSummaryRow}>
-          <View style={styles.reviewsSummaryLeft}>
-            <Text style={styles.bigRating}>{reviewCount === 0 ? '–' : rating.toFixed(1)}</Text>
-            <RatingStars rating={rating} size={16} />
-            <Text style={styles.reviewCountText}>{reviewCount} reviews</Text>
-          </View>
-          <View style={styles.distributionBars}>
-            {distribution.map((count, i) => (
-              <View key={i} style={styles.barRow}>
-                <Text style={styles.barLabel}>{5 - i}</Text>
-                <View style={styles.barTrack}>
-                  <View
-                    style={[
-                      styles.barFill,
-                      { width: `${(count / maxDistribution) * 100}%` },
-                    ]}
-                  />
-                </View>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {spot.ownerUserId !== user?.id && (
-          <Pressable
-            style={styles.writeReviewButton}
-            onPress={() => navigation.navigate('AddReview', { spotId: spot.id })}
-          >
-            <Text style={styles.writeReviewText}>
-              {allSpotReviews.some((r) => r.userId === user?.id) ? 'Edit your review' : 'Write a review'}
-            </Text>
-          </Pressable>
-        )}
-
-        <View style={styles.sortRow}>
-          {(['helpful', 'recent', 'highest'] as const).map((key) => (
-            <Pressable key={key} onPress={() => setSortBy(key)}>
-              <Text style={[styles.sortLabel, sortBy === key && styles.sortLabelActive]}>
-                {key === 'helpful' ? 'Most helpful' : key === 'recent' ? 'Most recent' : 'Highest rating'}
-              </Text>
+        <View style={styles.tabsRow}>
+          {TABS.map(({ key, icon }) => (
+            <Pressable key={key} style={styles.tab} onPress={() => setTab(key)}>
+              <Ionicons name={icon} size={19} color={tab === key ? colors.primary : colors.textMuted} />
+              {tab === key && <View style={styles.tabUnderline} />}
             </Pressable>
           ))}
         </View>
+      </View>
 
-        {spotReviews.length === 0 && (
-          <Text style={styles.textMuted}>No reviews yet — be the first to post one.</Text>
-        )}
-        {spotReviews.map((review) => (
-          <View key={review.id} style={styles.reviewCard}>
-            <View style={styles.reviewHeader}>
-              <Avatar uri={review.userAvatar} name={review.userName} size={32} style={styles.avatar} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.reviewUser}>{review.userName}</Text>
-                <Text style={styles.reviewDate}>{formatDate(review.createdAt)}</Text>
-              </View>
-              <ReportMenuButton
-                targetType="review"
-                targetId={review.id}
-                authorUserId={review.userId}
-                authorName={review.userName}
-                onDelete={review.userId === user?.id ? () => deleteReview(review.id) : undefined}
-              />
-            </View>
-            <RatingStars rating={review.ratingOverall} size={13} />
-            <Text style={styles.reviewText}>{review.text}</Text>
-            <View style={styles.reviewFooter}>
-              <Pressable
-                style={styles.reviewFooterLike}
-                hitSlop={8}
-                onPress={() => toggleReviewLike(review.id)}
-              >
-                <Ionicons
-                  name={isReviewLiked(review.id) ? 'heart' : 'heart-outline'}
-                  size={14}
-                  color={isReviewLiked(review.id) ? colors.danger : colors.textMuted}
-                />
-                <Text style={styles.reviewFooterText}>{review.likeCount}</Text>
-              </Pressable>
-              {isSpotOwner && (
-                <Pressable hitSlop={8} onPress={() => startReply(review.id, review.replyText)}>
-                  <Text style={styles.reviewFooterText}>
-                    {review.replyText ? 'Edit reply' : 'Reply'}
-                  </Text>
+      {tab === 'home' && (
+        <View style={styles.section}>
+          {spot.description && <Text style={styles.description}>{spot.description}</Text>}
+
+          {(spot.instagramUrl || spot.tiktokUrl) && (
+            <View style={styles.socialRow}>
+              {spot.instagramUrl && (
+                <Pressable
+                  style={styles.socialButton}
+                  onPress={() =>
+                    Linking.openURL(spot.instagramUrl!).catch(() =>
+                      Alert.alert("Couldn't open Instagram", 'Please try again.'),
+                    )
+                  }
+                >
+                  <Ionicons name="logo-instagram" size={16} color={colors.text} />
+                  <Text style={styles.socialButtonText}>Instagram</Text>
+                </Pressable>
+              )}
+              {spot.tiktokUrl && (
+                <Pressable
+                  style={styles.socialButton}
+                  onPress={() =>
+                    Linking.openURL(spot.tiktokUrl!).catch(() =>
+                      Alert.alert("Couldn't open TikTok", 'Please try again.'),
+                    )
+                  }
+                >
+                  <Ionicons name="logo-tiktok" size={16} color={colors.text} />
+                  <Text style={styles.socialButtonText}>TikTok</Text>
                 </Pressable>
               )}
             </View>
+          )}
 
-            {review.replyText && replyingToId !== review.id && (
-              <View style={styles.ownerReplyBlock}>
-                <Text style={styles.ownerReplyLabel}>Reply from the owner</Text>
-                <Text style={styles.ownerReplyText}>{review.replyText}</Text>
+          {spot.menu.length > 0 && (
+            <>
+              <View style={styles.homeMenuHeaderRow}>
+                <Text style={styles.sectionTitle}>Popular</Text>
+                <Pressable onPress={() => setTab('menu')}>
+                  <Text style={styles.seeAllLink}>Full menu →</Text>
+                </Pressable>
               </View>
-            )}
+              <FlatList
+                data={popularMenuItems.length > 0 ? popularMenuItems : spot.menu}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <View style={styles.menuItem}>
+                    {item.photo && (
+                      <View>
+                        <Image source={{ uri: item.photo }} style={styles.menuPhoto} />
+                        {item.soldOut && (
+                          <View style={styles.soldOutBadge}>
+                            <Text style={styles.soldOutBadgeText}>Sold out</Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                    <Text style={styles.menuName} numberOfLines={1}>
+                      {item.name}
+                      {!item.photo && item.soldOut ? ' (Sold out)' : ''}
+                    </Text>
+                    <Text style={styles.menuPrice}>${item.price.toFixed(2)}</Text>
+                  </View>
+                )}
+              />
+            </>
+          )}
+        </View>
+      )}
 
-            {replyingToId === review.id && (
-              <View style={styles.replyEditor}>
-                <TextInput
-                  style={styles.replyInput}
-                  placeholder="Write a reply..."
-                  placeholderTextColor={colors.textMuted}
-                  value={replyDraft}
-                  onChangeText={setReplyDraft}
-                  multiline
+      {tab === 'reels' && (
+        <View style={styles.reelsGrid}>
+          {spotReels.length === 0 ? (
+            <View style={styles.emptyTabState}>
+              <Ionicons name="play-circle-outline" size={28} color={colors.textMuted} />
+              <Text style={styles.emptyTabText}>No Reels yet.</Text>
+            </View>
+          ) : (
+            <View style={styles.gridRow}>
+              {spotReels.map((post) => (
+                <Pressable
+                  key={post.id}
+                  style={styles.gridTile}
+                  onPress={() => navigation.navigate('Tabs', { screen: 'Reels' })}
+                >
+                  <View style={[styles.gridTile, styles.videoPlaceholder]}>
+                    <Ionicons name="play" size={22} color="#fff" />
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
+      {tab === 'menu' && (
+        <View style={styles.section}>
+          {spot.menu.length === 0 ? (
+            <View style={styles.emptyTabState}>
+              <Ionicons name="restaurant-outline" size={28} color={colors.textMuted} />
+              <Text style={styles.emptyTabText}>No menu yet.</Text>
+            </View>
+          ) : (
+            <>
+              {spot.menu.map((item) => (
+                <View key={item.id} style={styles.menuRow}>
+                  {item.photo ? (
+                    <Image source={{ uri: item.photo }} style={styles.menuRowPhoto} />
+                  ) : (
+                    <View style={styles.menuRowPhotoPlaceholder}>
+                      <Ionicons name="cafe-outline" size={16} color={colors.textMuted} />
+                    </View>
+                  )}
+                  <View style={styles.menuRowBody}>
+                    <View style={styles.menuRowNameLine}>
+                      <Text style={styles.menuRowName} numberOfLines={1}>
+                        {item.name}
+                      </Text>
+                      {item.isPopular && (
+                        <View style={styles.menuPopularBadge}>
+                          <Text style={styles.menuPopularBadgeText}>Popular</Text>
+                        </View>
+                      )}
+                    </View>
+                    {item.soldOut && <Text style={styles.menuSoldOutText}>Sold out</Text>}
+                  </View>
+                  <Text style={styles.menuRowPrice}>${item.price.toFixed(2)}</Text>
+                </View>
+              ))}
+              {!isSpotOwner &&
+                (spot.acceptingOrders ? (
+                  <>
+                    <Pressable
+                      style={styles.orderButton}
+                      onPress={() => navigation.navigate('Order', { spotId })}
+                    >
+                      <Ionicons name="bag-handle-outline" size={16} color="#fff" />
+                      <Text style={styles.orderButtonText}>Order ahead</Text>
+                    </Pressable>
+                    {spot.prepTime && (
+                      <Text style={styles.prepTimeHint}>Ready in {spot.prepTime}</Text>
+                    )}
+                  </>
+                ) : (
+                  <View style={styles.orderButtonDisabled}>
+                    <Text style={styles.orderButtonDisabledText}>Not accepting orders right now</Text>
+                  </View>
+                ))}
+            </>
+          )}
+        </View>
+      )}
+
+      {tab === 'reviews' && (
+        <View style={styles.section}>
+          {recommendPercent !== null && (
+            <View style={styles.recommendRow}>
+              <Ionicons name="thumbs-up" size={14} color={colors.success} />
+              <Text style={styles.recommendText}>{recommendPercent}% recommend</Text>
+            </View>
+          )}
+
+          <View style={styles.reviewsSummaryRow}>
+            <View style={styles.reviewsSummaryLeft}>
+              <Text style={styles.bigRating}>{reviewCount === 0 ? '–' : rating.toFixed(1)}</Text>
+              <RatingStars rating={rating} size={16} />
+              <Text style={styles.reviewCountText}>{reviewCount} reviews</Text>
+            </View>
+            <View style={styles.distributionBars}>
+              {distribution.map((count, i) => (
+                <View key={i} style={styles.barRow}>
+                  <Text style={styles.barLabel}>{5 - i}</Text>
+                  <View style={styles.barTrack}>
+                    <View
+                      style={[
+                        styles.barFill,
+                        { width: `${(count / maxDistribution) * 100}%` },
+                      ]}
+                    />
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {spot.ownerUserId !== user?.id && (
+            <Pressable
+              style={styles.writeReviewButton}
+              onPress={() => navigation.navigate('AddReview', { spotId: spot.id })}
+            >
+              <Text style={styles.writeReviewText}>
+                {allSpotReviews.some((r) => r.userId === user?.id) ? 'Edit your review' : 'Write a review'}
+              </Text>
+            </Pressable>
+          )}
+
+          <View style={styles.sortRow}>
+            {(['helpful', 'recent', 'highest'] as const).map((key) => (
+              <Pressable key={key} onPress={() => setSortBy(key)}>
+                <Text style={[styles.sortLabel, sortBy === key && styles.sortLabelActive]}>
+                  {key === 'helpful' ? 'Most helpful' : key === 'recent' ? 'Most recent' : 'Highest rating'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {spotReviews.length === 0 && (
+            <Text style={styles.textMuted}>No reviews yet — be the first to post one.</Text>
+          )}
+          {spotReviews.map((review) => (
+            <View key={review.id} style={styles.reviewCard}>
+              <View style={styles.reviewHeader}>
+                <Avatar uri={review.userAvatar} name={review.userName} size={32} style={styles.avatar} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.reviewUser}>{review.userName}</Text>
+                  <Text style={styles.reviewDate}>{formatDate(review.createdAt)}</Text>
+                </View>
+                <ReportMenuButton
+                  targetType="review"
+                  targetId={review.id}
+                  authorUserId={review.userId}
+                  authorName={review.userName}
+                  onDelete={review.userId === user?.id ? () => deleteReview(review.id) : undefined}
                 />
-                <View style={styles.replyEditorActions}>
-                  <Pressable
-                    hitSlop={8}
-                    onPress={() => {
-                      setReplyingToId(null);
-                      setReplyDraft('');
-                    }}
-                  >
-                    <Text style={styles.replyEditorCancel}>Cancel</Text>
-                  </Pressable>
-                  <Pressable
-                    hitSlop={8}
-                    disabled={submittingReply}
-                    onPress={() => handleSubmitReply(review.id)}
-                  >
-                    <Text style={styles.replyEditorSave}>
-                      {submittingReply ? 'Saving...' : 'Save'}
+              </View>
+              <RatingStars rating={review.ratingOverall} size={13} />
+              <Text style={styles.reviewText}>{review.text}</Text>
+              <View style={styles.reviewFooter}>
+                <Pressable
+                  style={styles.reviewFooterLike}
+                  hitSlop={8}
+                  onPress={() => toggleReviewLike(review.id)}
+                >
+                  <Ionicons
+                    name={isReviewLiked(review.id) ? 'heart' : 'heart-outline'}
+                    size={14}
+                    color={isReviewLiked(review.id) ? colors.danger : colors.textMuted}
+                  />
+                  <Text style={styles.reviewFooterText}>{review.likeCount}</Text>
+                </Pressable>
+                {isSpotOwner && (
+                  <Pressable hitSlop={8} onPress={() => startReply(review.id, review.replyText)}>
+                    <Text style={styles.reviewFooterText}>
+                      {review.replyText ? 'Edit reply' : 'Reply'}
                     </Text>
                   </Pressable>
-                </View>
+                )}
               </View>
-            )}
-          </View>
-        ))}
-      </View>
+
+              {review.replyText && replyingToId !== review.id && (
+                <View style={styles.ownerReplyBlock}>
+                  <Text style={styles.ownerReplyLabel}>Reply from the owner</Text>
+                  <Text style={styles.ownerReplyText}>{review.replyText}</Text>
+                </View>
+              )}
+
+              {replyingToId === review.id && (
+                <View style={styles.replyEditor}>
+                  <TextInput
+                    style={styles.replyInput}
+                    placeholder="Write a reply..."
+                    placeholderTextColor={colors.textMuted}
+                    value={replyDraft}
+                    onChangeText={setReplyDraft}
+                    multiline
+                  />
+                  <View style={styles.replyEditorActions}>
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => {
+                        setReplyingToId(null);
+                        setReplyDraft('');
+                      }}
+                    >
+                      <Text style={styles.replyEditorCancel}>Cancel</Text>
+                    </Pressable>
+                    <Pressable
+                      hitSlop={8}
+                      disabled={submittingReply}
+                      onPress={() => handleSubmitReply(review.id)}
+                    >
+                      <Text style={styles.replyEditorSave}>
+                        {submittingReply ? 'Saving...' : 'Save'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+            </View>
+          ))}
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -709,8 +829,23 @@ const makeStyles = (colors: ThemeColors) =>
     fontWeight: '600',
     color: colors.text,
   },
+  tabsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.sm + 2,
+  },
+  tabUnderline: {
+    height: 2,
+    width: 28,
+    borderRadius: 1,
+    backgroundColor: colors.primary,
+    marginTop: spacing.xs,
+  },
   description: {
-    marginTop: spacing.md,
     color: colors.text,
     fontSize: 14,
     lineHeight: 20,
@@ -735,11 +870,22 @@ const makeStyles = (colors: ThemeColors) =>
     fontWeight: '600',
     color: colors.text,
   },
+  homeMenuHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  seeAllLink: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+  },
   sectionTitle: {
     fontSize: 17,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: spacing.sm,
   },
   menuItem: {
     width: 110,
@@ -761,6 +907,95 @@ const makeStyles = (colors: ThemeColors) =>
     fontSize: 12,
     color: colors.textMuted,
     fontWeight: '600',
+  },
+  emptyTabState: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingTop: spacing.xl,
+    paddingHorizontal: spacing.xl,
+  },
+  emptyTabText: {
+    color: colors.textMuted,
+    fontSize: 13,
+  },
+  reelsGrid: {
+    paddingTop: spacing.xs,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: GRID_GAP,
+    paddingHorizontal: GRID_GAP,
+  },
+  gridTile: {
+    width: '33%',
+    aspectRatio: 1,
+    marginBottom: GRID_GAP,
+    backgroundColor: colors.cream,
+  },
+  videoPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.dark,
+  },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  menuRowPhoto: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.sm,
+    backgroundColor: colors.cream,
+  },
+  menuRowPhotoPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: radius.sm,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuRowBody: {
+    flex: 1,
+  },
+  menuRowNameLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  menuRowName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    flexShrink: 1,
+  },
+  menuPopularBadge: {
+    backgroundColor: colors.primaryMuted,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 1,
+  },
+  menuPopularBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.primaryDark,
+  },
+  menuSoldOutText: {
+    fontSize: 11,
+    color: colors.textMuted,
+    marginTop: 1,
+  },
+  menuRowPrice: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.text,
   },
   orderButton: {
     flexDirection: 'row',
