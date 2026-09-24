@@ -1,0 +1,460 @@
+<!--
+  Source for the "Kuppio Legal" artifact (Privacy Policy + Terms of Service),
+  published at https://claude.ai/artifact/U1kXZS4FsMw1n7hHU3TA1f — that URL
+  is what src/screens/AuthScreen.tsx links to (as #privacy / #terms).
+
+  This file's content is derived from legal/PRIVACY.md and legal/TERMS.md —
+  when the policy text changes, update those two files first, then mirror the
+  change here and republish. It doesn't build/run as part of the app.
+-->
+<title>Kuppio Legal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500;1,9..144,600&family=Source+Sans+3:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #FFFBF5;
+    --surface: #FFFFFF;
+    --surface-2: #FBF6EC;
+    --text: #241F1B;
+    --text-muted: #8A8078;
+    --border: #EDE4D6;
+    --accent: #EE4C6A;
+    --accent-dark: #D63A57;
+    --accent-muted: #FBE4E8;
+    --success: #2E9E5B;
+    --success-muted: #E3F2E9;
+    --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+    --font-body: "Source Sans 3", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0B0A0C;
+      --surface: #1C191B;
+      --surface-2: #221E1F;
+      --text: #F7F4F2;
+      --text-muted: #9C948E;
+      --border: #2B2729;
+      --accent: #EE4C6A;
+      --accent-dark: #FF8FA3;
+      --accent-muted: rgba(238, 76, 106, 0.16);
+      --success: #4CBE81;
+      --success-muted: rgba(46, 158, 91, 0.18);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B0A0C;
+    --surface: #1C191B;
+    --surface-2: #221E1F;
+    --text: #F7F4F2;
+    --text-muted: #9C948E;
+    --border: #2B2729;
+    --accent: #EE4C6A;
+    --accent-dark: #FF8FA3;
+    --accent-muted: rgba(238, 76, 106, 0.16);
+    --success: #4CBE81;
+    --success-muted: rgba(46, 158, 91, 0.18);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 16px;
+    line-height: 1.6;
+    padding-inline: 20px;
+    padding-block: 0 48px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent-dark); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  a:focus-visible, button:focus-visible, [role="tab"]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  .topbar {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 10;
+    background: var(--bg);
+    padding-block: 18px 10px;
+    margin-inline: -20px;
+    padding-inline: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    max-width: 680px;
+    margin-inline: auto;
+    flex-wrap: wrap;
+  }
+  .wordmark {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 600;
+    font-size: 1.5rem;
+    color: var(--accent);
+    letter-spacing: -0.01em;
+  }
+  .eyebrow-date {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+
+  .tabs {
+    max-width: 680px;
+    margin: 18px auto 0;
+    display: flex;
+    gap: 4px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px;
+  }
+  .tab {
+    flex: 1;
+    appearance: none;
+    border: none;
+    background: transparent;
+    font-family: var(--font-body);
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 9px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  .tab[aria-selected="true"] {
+    background: var(--accent);
+    color: #fff;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tab { transition: none; }
+  }
+
+  main {
+    max-width: 680px;
+    margin: 0 auto;
+    padding-top: 28px;
+  }
+
+  .doc-head { margin-bottom: 8px; }
+  .doc-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(1.7rem, 5vw, 2.1rem);
+    text-wrap: balance;
+    margin: 0 0 6px;
+  }
+  .doc-sub {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    margin: 0 0 28px;
+  }
+  .doc-sub strong { color: var(--text); font-weight: 600; }
+
+  .lede {
+    font-size: 1.02rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin: 0 0 32px;
+  }
+
+  section.clause { margin-bottom: 30px; }
+  .clause-num {
+    font-family: var(--font-display);
+    font-style: italic;
+    color: var(--accent-dark);
+    font-size: 0.95rem;
+    font-weight: 600;
+    display: block;
+    margin-bottom: 2px;
+  }
+  h2.clause-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.28rem;
+    margin: 0 0 10px;
+    text-wrap: balance;
+  }
+  section.clause p { margin: 0 0 12px; }
+  section.clause p:last-child { margin-bottom: 0; }
+  section.clause ul { margin: 10px 0 12px; padding-left: 22px; }
+  section.clause li { margin-bottom: 6px; }
+  section.clause li:last-child { margin-bottom: 0; }
+
+  .term {
+    display: block;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .pill {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--success-muted);
+    color: var(--success);
+    margin-bottom: 10px;
+  }
+
+  .contact-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .contact-card p { margin: 0; }
+  .contact-email {
+    font-weight: 600;
+    font-size: 1.02rem;
+  }
+
+  footer {
+    max-width: 680px;
+    margin: 40px auto 0;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  footer a { color: var(--text-muted); }
+
+  [hidden] { display: none !important; }
+</style>
+
+<div class="topbar">
+  <div class="topbar-row">
+    <span class="wordmark">Kuppio</span>
+    <span class="eyebrow-date">Effective September 23, 2026</span>
+  </div>
+  <div class="tabs" role="tablist" aria-label="Legal document">
+    <button class="tab" id="tab-privacy" role="tab" aria-controls="doc-privacy" aria-selected="false">Privacy Policy</button>
+    <button class="tab" id="tab-terms" role="tab" aria-controls="doc-terms" aria-selected="false">Terms of Service</button>
+  </div>
+</div>
+
+<main>
+  <article id="doc-privacy" role="tabpanel" aria-labelledby="tab-privacy" hidden>
+    <div class="doc-head">
+      <h1 class="doc-title">Privacy Policy</h1>
+      <p class="doc-sub"><strong>Effective date:</strong> September 23, 2026</p>
+    </div>
+
+    <p class="lede">Kuppio ("Kuppio," "we," "us," or "our") operates the Kuppio mobile app — a local discovery app for cute coffee shops, home-based food sellers, and hidden food spots. This Privacy Policy explains what information we collect, how we use it, and the choices you have. By using Kuppio, you agree to the practices described here.</p>
+
+    <section class="clause">
+      <span class="clause-num">I.</span>
+      <h2 class="clause-title">Information we collect</h2>
+      <p><span class="term">Account information.</span> When you sign up, we collect your email address and password (stored securely and never in plain text) to create and secure your account.</p>
+      <p><span class="term">Location.</span> With your permission, we collect your device's GPS location to show you nearby spots, calculate distances, and center the map near you. You can deny or revoke location access at any time in your device settings; the app will still work, using an approximate default location instead.</p>
+      <p><span class="term">Photos and media.</span> If you choose to add a photo or video — to a review, a post, or a business listing — we collect and store that file. If you submit a business for verification, we also collect a photo of a government-issued ID and a photo of the business/storefront; these two verification photos are stored privately and are only visible to you and to Kuppio's review team, never to other users.</p>
+      <p><span class="term">Content you create.</span> Reviews, posts, comments, saved spots, collections, and business listings you create are stored so they can be shown to you and (where public-facing, like reviews and posts) to other users.</p>
+      <p><span class="term">Camera and microphone.</span> If you record a video post, we access your camera and microphone only for that recording, with your permission.</p>
+      <p><span class="term">Usage and device information.</span> We may collect basic technical information (such as device type and app version) to diagnose problems and keep the app working correctly.</p>
+    </section>
+
+    <section class="clause">
+      <span class="clause-num">II.</span>
+      <h2 class="clause-title">How we use information</h2>
+      <p>We use the information above to:</p>
+      <ul>
+        <li>Operate core features: showing nearby spots, displaying and ranking reviews and posts, letting you save spots and place preorders</li>
+        <li>Verify business ownership claims before granting control of a business listing</li>
+        <li>Review reports of content or users that violate our guidelines</li>
+        <li>Maintain and improve the app, and diagnose technical issues</li>
+      </ul>
+      <p>We do not sell your personal information. We do not use third-party advertising trackers.</p>
+    </section>
+
+    <section class="clause">
+      <span class="clause-num">III.</span>
+      <h2 class="clause-title">How we store and share information</h2>
+      <p>Your data is stored using Supabase, our backend infrastructure provider, which hosts our database and file storage. Supabase acts as a data processor on our behalf and does not use your data for its own purposes.</p>
+      <p>Reviews, posts, comments, and public business listings are visible to other users of the app, as is inherent to how those features work. Your government-ID and business-verification photos are never shown publicly — only to Kuppio's review team, for the sole purpose of confirming a business claim.</p>
+      <p>We may disclose information if required by law, or to protect the rights, safety, or property of Kuppio, our users, or the public.</p>
+    </section>
+
+    <section class="clause">
+      <span class="clause-num">IV.</span>
+      <h2 class="clause-title">Your choices</h2>
+      <ul>
+        <li><span class="term" style="display:inline">Delete your account.</span> You can permanently delete your account and associated personal data at any time from Profile → Delete account in the app. Businesses you manage are unclaimed (not deleted) so the listing can continue to exist for other users; your personal reviews, posts, comments, and saved items are removed.</li>
+        <li><span class="term" style="display:inline">Block and report.</span> You can block another user to stop seeing their content, and report content or users that violate our guidelines.</li>
+        <li><span class="term" style="display:inline">Location permission.</span> You can deny or revoke location access at any time in your device's Settings app.</li>
+      </ul>
+    </section>
+
+    <section class="clause">
+      <span class="clause-num">V.</span>
+      <h2 class="clause-title">Children's privacy</h2>
+      <p>Kuppio is not directed at children under 13, and we do not knowingly collect personal information from children under 13. If you believe a child has provided us with personal information, contact us using the information below and we will delete it.</p>
+    </section>
+
+    <section class="clause">
+      <span class="clause-num">VI.</span>
+      <h2 class="clause-title">Changes to this policy</h2>
+      <p>We may update this policy from time to time. If we make material changes, we'll update the effective date above and, where appropriate, notify you in the app.</p>
+    </section>
+
+    <section class="clause">
+      <span class="clause-num">VII.</span>
+      <h2 class="clause-title">Contact us</h2>
+      <p>Questions about this policy or your data can be sent to the address below.</p>
+      <div class="contact-card">
+        <span class="pill">Support</span>
+        <p class="contact-email"><a href="mailto:jahiralancrisostomogarcia@gmail.com">jahiralancrisostomogarcia@gmail.com</a></p>
+      </div>
+    </section>
+  </article>
+
+  <article id="doc-terms" role="tabpanel" aria-labelledby="tab-terms" hidden>
+    <div class="doc-head">
+      <h1 class="doc-title">Terms of Service</h1>
+      <p class="doc-sub"><strong>Effective date:</strong> September 23, 2026</p>
+    </div>
+
+    <p class="lede">These Terms of Service ("Terms") govern your use of the Kuppio mobile app ("Kuppio," "we," "us," or "our"). By creating an account or using the app, you agree to these Terms.</p>
+
+    <section class="clause">
+      <span class="clause-num">1.</span>
+      <h2 class="clause-title">Eligibility</h2>
+      <p>You must be at least 13 years old to use Kuppio. By using the app, you confirm you meet this requirement.</p>
+    </section>
+
+    <section class="clause">
+      <span class="clause-num">2.</span>
+      <h2 class="clause-title">Your account</h2>
+      <p>You're responsible for maintaining the security of your account and for all activity that happens under it. Let us know right away if you believe your account has been compromised.</p>
+    </section>
+
+    <section class="clause">
+      <span class="clause-num">3.</span>
+      <h2 class="clause-title">User-generated content</h2>
+      <p>Kuppio lets you post reviews, photos, videos, and comments, and create or claim business listings. You retain ownership of the content you post, but you grant Kuppio a license to host, display, and distribute it within the app for the purpose of operating the service.</p>
+      <p>You agree not to post content that is:</p>
+      <ul>
+        <li>Illegal, fraudulent, or misleading</li>
+        <li>Harassing, hateful, or abusive toward another person</li>
+        <li>Spam, or unrelated to the purpose of the app</li>
+        <li>Infringing on someone else's intellectual property or privacy</li>
+      </ul>
+      <p>We may remove content or suspend accounts that violate these Terms, and you can report content or block users you don't want to interact with directly in the app.</p>
+    </section>
+
+    <section class="clause">
+      <span class="clause-num">4.</span>
+      <h2 class="clause-title">Business listings and verification</h2>
+      <p>Anyone can submit a claim to an existing business listing or submit a new business for review. All submissions — including the ID photo and business photo you provide — are reviewed by Kuppio before a listing is created or ownership is transferred; submitting an application does not guarantee approval. Business owners are responsible for the accuracy of the information (hours, menu, photos, pricing) they publish through their listing.</p>
+    </section>
+
+    <section class="clause">
+      <span class="clause-num">5.</span>
+      <h2 class="clause-title">Orders and payments</h2>
+      <p>Preorders placed through Kuppio are currently pay-at-pickup: the app sends your order ahead to the business, but does not process payment. You pay the business directly at pickup. Kuppio is not a party to that payment transaction and is not responsible for pricing, availability, or fulfillment of orders — those are between you and the business.</p>
+    </section>
+
+    <section class="clause">
+      <span class="clause-num">6.</span>
+      <h2 class="clause-title">Location services</h2>
+      <p>Kuppio uses your device's location, with your permission, to show nearby spots and distances. You can disable location access at any time in your device settings.</p>
+    </section>
+
+    <section class="clause">
+      <span class="clause-num">7.</span>
+      <h2 class="clause-title">Termination</h2>
+      <p>You may delete your account at any time from Profile → Delete account. We may suspend or terminate your access if you violate these Terms.</p>
+    </section>
+
+    <section class="clause">
+      <span class="clause-num">8.</span>
+      <h2 class="clause-title">Disclaimers</h2>
+      <p>Kuppio is provided "as is." We don't guarantee the accuracy of business information, reviews, or content posted by users, and we're not responsible for your experience at any listed business. Use the app at your own discretion.</p>
+    </section>
+
+    <section class="clause">
+      <span class="clause-num">9.</span>
+      <h2 class="clause-title">Limitation of liability</h2>
+      <p>To the fullest extent permitted by law, Kuppio is not liable for indirect, incidental, or consequential damages arising from your use of the app.</p>
+    </section>
+
+    <section class="clause">
+      <span class="clause-num">10.</span>
+      <h2 class="clause-title">Changes to these Terms</h2>
+      <p>We may update these Terms from time to time. Continued use of the app after changes take effect means you accept the updated Terms.</p>
+    </section>
+
+    <section class="clause">
+      <span class="clause-num">11.</span>
+      <h2 class="clause-title">Contact us</h2>
+      <p>Questions about these Terms can be sent to the address below.</p>
+      <div class="contact-card">
+        <span class="pill">Support</span>
+        <p class="contact-email"><a href="mailto:jahiralancrisostomogarcia@gmail.com">jahiralancrisostomogarcia@gmail.com</a></p>
+      </div>
+    </section>
+  </article>
+
+  <footer>
+    <span>© 2026 Kuppio</span>
+    <span><a href="mailto:jahiralancrisostomogarcia@gmail.com">jahiralancrisostomogarcia@gmail.com</a></span>
+  </footer>
+</main>
+
+<script>
+  (function () {
+    var tabs = {
+      privacy: { btn: document.getElementById('tab-privacy'), panel: document.getElementById('doc-privacy') },
+      terms: { btn: document.getElementById('tab-terms'), panel: document.getElementById('doc-terms') }
+    };
+
+    function select(name, updateHash) {
+      if (!tabs[name]) name = 'privacy';
+      Object.keys(tabs).forEach(function (key) {
+        var isActive = key === name;
+        tabs[key].btn.setAttribute('aria-selected', String(isActive));
+        tabs[key].panel.hidden = !isActive;
+      });
+      if (updateHash) {
+        try { history.replaceState(null, '', '#' + name); } catch (e) {}
+      }
+    }
+
+    tabs.privacy.btn.addEventListener('click', function () { select('privacy', true); });
+    tabs.terms.btn.addEventListener('click', function () { select('terms', true); });
+
+    window.addEventListener('hashchange', function () {
+      select(window.location.hash.replace('#', ''), false);
+    });
+
+    var initial = window.location.hash.replace('#', '');
+    select(initial === 'terms' ? 'terms' : 'privacy', false);
+  })();
+</script>

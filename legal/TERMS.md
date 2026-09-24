@@ -1,6 +1,6 @@
 # Terms of Service
 
-**Effective date:** [FILL IN]
+**Effective date:** September 23, 2026
 
 These Terms of Service ("Terms") govern your use of the Kuppio mobile app ("Kuppio," "we," "us," or "our"). By creating an account or using the app, you agree to these Terms.
 
@@ -54,4 +54,4 @@ We may update these Terms from time to time. Continued use of the app after chan
 
 ## 11. Contact Us
 
-Questions about these Terms can be sent to: [FILL IN SUPPORT EMAIL]
+Questions about these Terms can be sent to: jahiralancrisostomogarcia@gmail.com
