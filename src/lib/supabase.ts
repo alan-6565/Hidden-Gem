@@ -15,7 +15,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage: AsyncStorage,
     autoRefreshToken: true,
     persistSession: true,
+    // No browser URL bar to auto-detect from on a phone — the password-reset
+    // deep link is instead caught and exchanged manually in AuthContext.
     detectSessionInUrl: false,
+    // PKCE keeps the reset-password link's code_verifier device-side and
+    // puts only a short-lived, single-use code in the emailed link (rather
+    // than the account's real access/refresh tokens sitting in a URL).
+    flowType: 'pkce',
   },
 });
 

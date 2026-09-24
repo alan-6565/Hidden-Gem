@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { pickMediaFromLibrary, uploadMedia, uploadVerificationDoc } from '../lib/mediaUpload';
+import TimePickerField from '../components/TimePickerField';
 import { MenuItem, OpenHours, PriceRange, SpotCategory } from '../types';
 import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
@@ -331,20 +332,16 @@ export default function CreateBusinessScreen({ route, navigation }: Props) {
           </Pressable>
           {hoursByDay[day].enabled ? (
             <View style={styles.timeInputs}>
-              <TextInput
-                style={styles.timeInput}
+              <TimePickerField
+                label={`${day} opens`}
                 value={hoursByDay[day].open}
-                onChangeText={(v) => setDayTime(day, 'open', v)}
-                placeholder="9:00"
-                placeholderTextColor={colors.textMuted}
+                onChange={(v) => setDayTime(day, 'open', v)}
               />
               <Text style={styles.timeSeparator}>–</Text>
-              <TextInput
-                style={styles.timeInput}
+              <TimePickerField
+                label={`${day} closes`}
                 value={hoursByDay[day].close}
-                onChangeText={(v) => setDayTime(day, 'close', v)}
-                placeholder="17:00"
-                placeholderTextColor={colors.textMuted}
+                onChange={(v) => setDayTime(day, 'close', v)}
               />
             </View>
           ) : (
