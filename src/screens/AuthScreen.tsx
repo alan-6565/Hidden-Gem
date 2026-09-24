@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -8,12 +9,17 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../context/AuthContext';
 import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 
 type Mode = 'sign_in' | 'sign_up';
+
+// TODO: point this at the permanent hosted URL once the legal docs move off
+// the Artifact link (see the "Kuppio Legal" artifact for the source text).
+const LEGAL_URL = 'https://claude.ai/artifact/G7aaZenj593CHUZwVagSne';
 
 export default function AuthScreen() {
   const { colors } = useTheme();
@@ -26,11 +32,16 @@ export default function AuthScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkEmailNotice, setCheckEmailNotice] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
 
   const handleSubmit = async () => {
     setError(null);
     if (!email.trim() || !password) {
       setError('Enter an email and password.');
+      return;
+    }
+    if (mode === 'sign_up' && !agreedToTerms) {
+      setError('You must agree to the Terms of Service and Privacy Policy to sign up.');
       return;
     }
     setSubmitting(true);
@@ -95,12 +106,39 @@ export default function AuthScreen() {
               onChangeText={setPassword}
             />
 
+            {mode === 'sign_up' && (
+              <Pressable
+                style={styles.termsRow}
+                onPress={() => setAgreedToTerms((v) => !v)}
+                hitSlop={4}
+              >
+                <Ionicons
+                  name={agreedToTerms ? 'checkbox' : 'square-outline'}
+                  size={18}
+                  color={agreedToTerms ? colors.primary : colors.textMuted}
+                />
+                <Text style={styles.termsText}>
+                  I agree to the{' '}
+                  <Text style={styles.termsLink} onPress={() => Linking.openURL(LEGAL_URL)}>
+                    Terms of Service
+                  </Text>{' '}
+                  and{' '}
+                  <Text style={styles.termsLink} onPress={() => Linking.openURL(LEGAL_URL)}>
+                    Privacy Policy
+                  </Text>
+                </Text>
+              </Pressable>
+            )}
+
             {error && <Text style={styles.errorText}>{error}</Text>}
 
             <Pressable
-              style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+              style={[
+                styles.submitButton,
+                (submitting || (mode === 'sign_up' && !agreedToTerms)) && styles.submitButtonDisabled,
+              ]}
               onPress={handleSubmit}
-              disabled={submitting}
+              disabled={submitting || (mode === 'sign_up' && !agreedToTerms)}
             >
               <Text style={styles.submitButtonText}>
                 {submitting
@@ -166,6 +204,22 @@ const makeStyles = (colors: ThemeColors) =>
     fontSize: 15,
     color: colors.text,
     marginBottom: spacing.sm,
+  },
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 13,
+    color: colors.textMuted,
+    lineHeight: 18,
+  },
+  termsLink: {
+    color: colors.primary,
+    fontWeight: '700',
   },
   errorText: {
     color: colors.danger,
