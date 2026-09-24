@@ -15,8 +15,8 @@ import {
   fetchLikedReviewIds,
   fetchLikedSpotIds,
   fetchMyProfile,
-  fetchNotifications,
   fetchMyVerifications,
+  fetchNotifications,
   fetchOrders,
   fetchPosts,
   fetchReviews,
@@ -24,13 +24,13 @@ import {
   fetchSavedSpotIds,
   fetchSpot,
   fetchSpots,
-  markAllNotificationsRead,
-  markNotificationRead,
   insertComment,
   insertCollection,
   insertOrder,
   insertPost,
   insertReview,
+  markAllNotificationsRead as apiMarkAllNotificationsRead,
+  markNotificationRead as apiMarkNotificationRead,
   NewOrderInput,
   NewPostInput,
   NewReviewInput,
@@ -60,6 +60,8 @@ interface DataContextValue {
   posts: Post[];
   comments: Comment[];
   orders: Order[];
+  notifications: AppNotification[];
+  unreadNotificationCount: number;
   collections: Collection[];
   savedSpotIds: string[];
   likedSpotIds: string[];
@@ -70,11 +72,10 @@ interface DataContextValue {
   followingIds: string[];
   stories: Post[];
   profile: Profile | null;
-  notifications: AppNotification[];
-  unreadNotificationCount: number;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  refreshNotifications: () => Promise<void>;
   isSaved: (spotId: string) => boolean;
   toggleSaved: (spotId: string) => Promise<void>;
   isSpotHyped: (spotId: string) => boolean;
@@ -98,12 +99,11 @@ interface DataContextValue {
   addCollection: (name: string, description: string) => Promise<void>;
   updateSpot: (spotId: string, input: SpotEditInput) => Promise<void>;
   updateProfile: (input: { username?: string; avatarUrl?: string | null }) => Promise<void>;
-  refreshNotifications: () => Promise<void>;
-  markNotificationRead: (notificationId: string) => Promise<void>;
-  markAllNotificationsRead: () => Promise<void>;
   submitVerification: (input: NewBusinessVerificationInput) => Promise<BusinessVerification>;
   placeOrder: (input: NewOrderInput) => Promise<Order>;
   setOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
+  markNotificationRead: (notificationId: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
   reportContent: (targetType: ReportTargetType, targetId: string, reason: string) => Promise<void>;
   blockUser: (userId: string) => Promise<void>;
   unblockUser: (userId: string) => Promise<void>;
@@ -119,6 +119,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [rawPosts, setPosts] = useState<Post[]>([]);
   const [rawComments, setComments] = useState<Comment[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [savedSpotIds, setSavedSpotIds] = useState<string[]>([]);
   const [likedSpotIds, setLikedSpotIds] = useState<string[]>([]);
@@ -129,7 +130,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
   const [followingIds, setFollowingIds] = useState<string[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -152,6 +152,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         postsData,
         commentsData,
         ordersData,
+        notificationsData,
         collectionsData,
         savedData,
         likedSpotData,
@@ -162,13 +163,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         blockedData,
         followingData,
         profileData,
-        notificationsData,
       ] = await Promise.all([
         fetchSpots(),
         fetchReviews(),
         fetchPosts(),
         fetchComments(),
         fetchOrders(),
+        fetchNotifications(),
         fetchCollections(user.id),
         fetchSavedSpotIds(user.id),
         fetchLikedSpotIds(user.id),
@@ -179,13 +180,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         fetchBlockedUserIds(user.id),
         fetchFollowingIds(user.id),
         fetchMyProfile(),
-        fetchNotifications(user.id),
       ]);
       setSpots(spotsData);
       setReviews(reviewsData);
       setPosts(postsData);
       setComments(commentsData);
       setOrders(ordersData);
+      setNotifications(notificationsData);
       setCollections(collectionsData);
       setSavedSpotIds(savedData);
       setLikedSpotIds(likedSpotData);
@@ -196,7 +197,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setBlockedUserIds(blockedData);
       setFollowingIds(followingData);
       setProfile(profileData);
-      setNotifications(notificationsData);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load data');
     } finally {
@@ -207,6 +207,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  const unreadNotificationCount = useMemo(
+    () => notifications.filter((n) => !n.isRead).length,
+    [notifications],
+  );
 
   // Blocked users' content is also excluded server-side by RLS (see
   // supabase/schema.sql), but filtering here too means blocking someone
@@ -502,42 +507,6 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [user],
   );
 
-  const unreadNotificationCount = useMemo(
-    () => notifications.filter((n) => !n.readAt).length,
-    [notifications],
-  );
-
-  const refreshNotifications = useCallback(async () => {
-    if (!user) return;
-    try {
-      setNotifications(await fetchNotifications(user.id));
-    } catch {
-      // Non-critical: the bell just stays stale until the next refresh.
-    }
-  }, [user]);
-
-  const markRead = useCallback(async (notificationId: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notificationId && !n.readAt ? { ...n, readAt: new Date().toISOString() } : n)),
-    );
-    try {
-      await markNotificationRead(notificationId);
-    } catch {
-      refreshNotifications();
-    }
-  }, [refreshNotifications]);
-
-  const markAllRead = useCallback(async () => {
-    if (!user) return;
-    const now = new Date().toISOString();
-    setNotifications((prev) => prev.map((n) => (n.readAt ? n : { ...n, readAt: now })));
-    try {
-      await markAllNotificationsRead(user.id);
-    } catch {
-      refreshNotifications();
-    }
-  }, [user, refreshNotifications]);
-
   const submitVerification = useCallback(
     async (input: NewBusinessVerificationInput) => {
       if (!user) throw new Error('You must be signed in to submit a business for review.');
@@ -570,6 +539,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       throw e;
     }
   }, [orders]);
+
+  const markNotificationRead = useCallback(async (notificationId: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n)),
+    );
+    await apiMarkNotificationRead(notificationId);
+  }, []);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    if (!user) return;
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    await apiMarkAllNotificationsRead(user.id);
+  }, [user]);
+
+  // Cheaper than refresh() for the bell badge — Home refetches this on every
+  // focus, and a full reload of spots/reviews/posts/orders/etc. just to
+  // catch a new notification would be wasteful on the most-visited tab.
+  const refreshNotifications = useCallback(async () => {
+    if (!user) return;
+    setNotifications(await fetchNotifications());
+  }, [user]);
 
   const reportContent = useCallback(
     async (targetType: ReportTargetType, targetId: string, reason: string) => {
@@ -619,6 +609,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         posts,
         comments,
         orders,
+        notifications,
+        unreadNotificationCount,
         collections,
         savedSpotIds,
         likedSpotIds,
@@ -629,11 +621,10 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         followingIds,
         stories,
         profile,
-        notifications,
-        unreadNotificationCount,
         loading,
         error,
         refresh: load,
+        refreshNotifications,
         isSaved,
         toggleSaved,
         isSpotHyped,
@@ -657,12 +648,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         addCollection,
         updateSpot,
         updateProfile,
-        refreshNotifications,
-        markNotificationRead: markRead,
-        markAllNotificationsRead: markAllRead,
         submitVerification,
         placeOrder,
         setOrderStatus,
+        markNotificationRead,
+        markAllNotificationsRead,
         reportContent,
         blockUser,
         unblockUser,

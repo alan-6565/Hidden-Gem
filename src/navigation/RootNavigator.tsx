@@ -16,13 +16,13 @@ import ComposeScreen from '../screens/ComposeScreen';
 import SearchFiltersScreen from '../screens/SearchFiltersScreen';
 import BusinessEditScreen from '../screens/BusinessEditScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
-import NotificationsScreen from '../screens/NotificationsScreen';
 import CreateBusinessScreen from '../screens/CreateBusinessScreen';
 import ClaimBusinessScreen from '../screens/ClaimBusinessScreen';
 import VerificationStatusScreen from '../screens/VerificationStatusScreen';
 import AdminReviewScreen from '../screens/AdminReviewScreen';
 import OrderScreen from '../screens/OrderScreen';
 import OrdersScreen from '../screens/OrdersScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import { RootStackParamList, TabParamList } from './types';
 import { radius, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
@@ -132,11 +132,6 @@ export default function RootNavigator() {
         options={{ title: 'Edit Profile' }}
       />
       <Stack.Screen
-        name="Notifications"
-        component={NotificationsScreen}
-        options={{ title: 'Notifications' }}
-      />
-      <Stack.Screen
         name="CreateBusiness"
         component={CreateBusinessScreen}
         options={{ title: 'Add Your Business' }}
@@ -158,6 +153,11 @@ export default function RootNavigator() {
       />
       <Stack.Screen name="Order" component={OrderScreen} options={{ title: 'Order Ahead' }} />
       <Stack.Screen name="Orders" component={OrdersScreen} options={{ title: 'Orders' }} />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ title: 'Notifications' }}
+      />
     </Stack.Navigator>
   );
 }

@@ -198,25 +198,6 @@ export interface NewBusinessVerificationInput {
   businessPhotoPath: string;
 }
 
-export type NotificationType =
-  | 'follow'
-  | 'review_reply'
-  | 'order_status'
-  | 'verification_approved'
-  | 'verification_rejected';
-
-export interface AppNotification {
-  id: string;
-  recipientUserId: string;
-  actorUserId: string | null;
-  type: NotificationType;
-  title: string;
-  body: string | null;
-  data: { spotId?: string; orderId?: string; reviewId?: string; verificationId?: string; existingSpotId?: string | null; followerId?: string };
-  readAt: string | null;
-  createdAt: string;
-}
-
 export type ReportTargetType = 'post' | 'review' | 'comment' | 'user';
 
 export interface Report {
@@ -228,4 +209,19 @@ export interface Report {
   status: 'open' | 'resolved' | 'dismissed';
   createdAt: string;
   resolvedAt: string | null;
+}
+
+export type NotificationType = 'new_follower' | 'review_reply' | 'order_status' | 'new_order';
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  spotId: string | null;
+  orderId: string | null;
+  reviewId: string | null;
+  actorId: string | null;
+  isRead: boolean;
+  createdAt: string;
 }

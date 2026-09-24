@@ -352,7 +352,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             </View>
           )}
         />
-        {spot.menu.length > 0 && (
+        {spot.menu.length > 0 && !isSpotOwner && (
           spot.acceptingOrders ? (
             <>
               <Pressable

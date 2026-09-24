@@ -14,7 +14,7 @@ export type RootStackParamList = {
   VerificationStatus: undefined;
   AdminReview: undefined;
   Order: { spotId: string };
-  Orders: undefined;
+  Orders: { mode?: 'mine' | 'business' } | undefined;
   EditProfile: undefined;
   Notifications: undefined;
 };

@@ -56,7 +56,23 @@ export default function HomeScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { spots, posts, stories, reviews, savedSpotIds, followingIds, profile, unreadNotificationCount, refreshNotifications } = useAppData();
+  const {
+    spots,
+    posts,
+    stories,
+    reviews,
+    savedSpotIds,
+    followingIds,
+    profile,
+    unreadNotificationCount,
+    refreshNotifications,
+  } = useAppData();
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshNotifications();
+    }, [refreshNotifications]),
+  );
   const { user } = useAuth();
   const { filters, resetFilters } = useSearchFilters();
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('all');
@@ -161,14 +177,6 @@ export default function HomeScreen({ navigation }: Props) {
     }
     return map;
   }, [reviews]);
-
-  // Refreshed on focus (not a live subscription) so the badge count is
-  // reasonably current without needing a realtime channel yet.
-  useFocusEffect(
-    useCallback(() => {
-      refreshNotifications();
-    }, [refreshNotifications]),
-  );
 
   const goToSpot = (spotId: string) => navigation.navigate('SpotProfile', { spotId });
 
@@ -399,26 +407,6 @@ const makeStyles = (colors: ThemeColors) =>
     content: {
       paddingBottom: spacing.xl,
     },
-    bellButton: {
-      position: 'relative',
-    },
-    bellBadge: {
-      position: 'absolute',
-      top: -4,
-      right: -4,
-      minWidth: 16,
-      height: 16,
-      borderRadius: 8,
-      paddingHorizontal: 3,
-      backgroundColor: colors.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    bellBadgeText: {
-      color: '#fff',
-      fontSize: 10,
-      fontWeight: '800',
-    },
     header: {
       flexDirection: 'row',
       justifyContent: 'space-between',
@@ -473,6 +461,26 @@ const makeStyles = (colors: ThemeColors) =>
       fontWeight: '600',
       color: colors.textMuted,
       marginRight: 2,
+    },
+    bellButton: {
+      position: 'relative',
+    },
+    bellBadge: {
+      position: 'absolute',
+      top: -4,
+      right: -6,
+      minWidth: 16,
+      height: 16,
+      borderRadius: 8,
+      paddingHorizontal: 3,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    bellBadgeText: {
+      color: '#fff',
+      fontSize: 10,
+      fontWeight: '800',
     },
     searchBar: {
       flexDirection: 'row',
