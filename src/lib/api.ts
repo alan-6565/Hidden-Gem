@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import {
+  AppNotification,
   BusinessVerification,
   Collection,
   Comment,
@@ -112,6 +113,21 @@ function mapOrder(row: any): Order {
     total: Number(row.total),
     note: row.note ?? undefined,
     pickupTime: row.pickup_time ?? undefined,
+    createdAt: row.created_at,
+  };
+}
+
+function mapNotification(row: any): AppNotification {
+  return {
+    id: row.id,
+    type: row.type,
+    title: row.title,
+    body: row.body,
+    spotId: row.spot_id ?? null,
+    orderId: row.order_id ?? null,
+    reviewId: row.review_id ?? null,
+    actorId: row.actor_id ?? null,
+    isRead: row.is_read,
     createdAt: row.created_at,
   };
 }
@@ -707,6 +723,32 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus): P
     .single();
   if (error) throw error;
   return mapOrder(data);
+}
+
+export async function fetchNotifications(): Promise<AppNotification[]> {
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapNotification);
+}
+
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  const { error } = await supabase
+    .from('notifications')
+    .update({ is_read: true })
+    .eq('id', notificationId);
+  if (error) throw error;
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('notifications')
+    .update({ is_read: true })
+    .eq('user_id', userId)
+    .eq('is_read', false);
+  if (error) throw error;
 }
 
 // Reports & blocking — minimum-viable content moderation (App Store

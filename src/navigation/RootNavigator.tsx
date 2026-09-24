@@ -22,6 +22,7 @@ import VerificationStatusScreen from '../screens/VerificationStatusScreen';
 import AdminReviewScreen from '../screens/AdminReviewScreen';
 import OrderScreen from '../screens/OrderScreen';
 import OrdersScreen from '../screens/OrdersScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import { RootStackParamList, TabParamList } from './types';
 import { radius, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
@@ -152,6 +153,11 @@ export default function RootNavigator() {
       />
       <Stack.Screen name="Order" component={OrderScreen} options={{ title: 'Order Ahead' }} />
       <Stack.Screen name="Orders" component={OrdersScreen} options={{ title: 'Orders' }} />
+      <Stack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ title: 'Notifications' }}
+      />
     </Stack.Navigator>
   );
 }

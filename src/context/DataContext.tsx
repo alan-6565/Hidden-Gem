@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { BusinessVerification, Collection, Comment, NewBusinessVerificationInput, Order, OrderStatus, Post, Profile, ReportTargetType, Review, Spot } from '../types';
+import { AppNotification, BusinessVerification, Collection, Comment, NewBusinessVerificationInput, Order, OrderStatus, Post, Profile, ReportTargetType, Review, Spot } from '../types';
 import { useAuth } from './AuthContext';
 import {
   blockUser as apiBlockUser,
@@ -16,6 +16,7 @@ import {
   fetchLikedSpotIds,
   fetchMyProfile,
   fetchMyVerifications,
+  fetchNotifications,
   fetchOrders,
   fetchPosts,
   fetchReviews,
@@ -28,6 +29,8 @@ import {
   insertOrder,
   insertPost,
   insertReview,
+  markAllNotificationsRead as apiMarkAllNotificationsRead,
+  markNotificationRead as apiMarkNotificationRead,
   NewOrderInput,
   NewPostInput,
   NewReviewInput,
@@ -57,6 +60,8 @@ interface DataContextValue {
   posts: Post[];
   comments: Comment[];
   orders: Order[];
+  notifications: AppNotification[];
+  unreadNotificationCount: number;
   collections: Collection[];
   savedSpotIds: string[];
   likedSpotIds: string[];
@@ -70,6 +75,7 @@ interface DataContextValue {
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
+  refreshNotifications: () => Promise<void>;
   isSaved: (spotId: string) => boolean;
   toggleSaved: (spotId: string) => Promise<void>;
   isSpotHyped: (spotId: string) => boolean;
@@ -96,6 +102,8 @@ interface DataContextValue {
   submitVerification: (input: NewBusinessVerificationInput) => Promise<BusinessVerification>;
   placeOrder: (input: NewOrderInput) => Promise<Order>;
   setOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
+  markNotificationRead: (notificationId: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
   reportContent: (targetType: ReportTargetType, targetId: string, reason: string) => Promise<void>;
   blockUser: (userId: string) => Promise<void>;
   unblockUser: (userId: string) => Promise<void>;
@@ -111,6 +119,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [rawPosts, setPosts] = useState<Post[]>([]);
   const [rawComments, setComments] = useState<Comment[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [savedSpotIds, setSavedSpotIds] = useState<string[]>([]);
   const [likedSpotIds, setLikedSpotIds] = useState<string[]>([]);
@@ -143,6 +152,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         postsData,
         commentsData,
         ordersData,
+        notificationsData,
         collectionsData,
         savedData,
         likedSpotData,
@@ -159,6 +169,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         fetchPosts(),
         fetchComments(),
         fetchOrders(),
+        fetchNotifications(),
         fetchCollections(user.id),
         fetchSavedSpotIds(user.id),
         fetchLikedSpotIds(user.id),
@@ -175,6 +186,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setPosts(postsData);
       setComments(commentsData);
       setOrders(ordersData);
+      setNotifications(notificationsData);
       setCollections(collectionsData);
       setSavedSpotIds(savedData);
       setLikedSpotIds(likedSpotData);
@@ -195,6 +207,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  const unreadNotificationCount = useMemo(
+    () => notifications.filter((n) => !n.isRead).length,
+    [notifications],
+  );
 
   // Blocked users' content is also excluded server-side by RLS (see
   // supabase/schema.sql), but filtering here too means blocking someone
@@ -523,6 +540,27 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [orders]);
 
+  const markNotificationRead = useCallback(async (notificationId: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n)),
+    );
+    await apiMarkNotificationRead(notificationId);
+  }, []);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    if (!user) return;
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    await apiMarkAllNotificationsRead(user.id);
+  }, [user]);
+
+  // Cheaper than refresh() for the bell badge — Home refetches this on every
+  // focus, and a full reload of spots/reviews/posts/orders/etc. just to
+  // catch a new notification would be wasteful on the most-visited tab.
+  const refreshNotifications = useCallback(async () => {
+    if (!user) return;
+    setNotifications(await fetchNotifications());
+  }, [user]);
+
   const reportContent = useCallback(
     async (targetType: ReportTargetType, targetId: string, reason: string) => {
       if (!user) return;
@@ -571,6 +609,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         posts,
         comments,
         orders,
+        notifications,
+        unreadNotificationCount,
         collections,
         savedSpotIds,
         likedSpotIds,
@@ -584,6 +624,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         loading,
         error,
         refresh: load,
+        refreshNotifications,
         isSaved,
         toggleSaved,
         isSpotHyped,
@@ -610,6 +651,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         submitVerification,
         placeOrder,
         setOrderStatus,
+        markNotificationRead,
+        markAllNotificationsRead,
         reportContent,
         blockUser,
         unblockUser,

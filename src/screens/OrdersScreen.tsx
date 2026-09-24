@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,14 +32,18 @@ const getStatusColors = (colors: ThemeColors): Record<OrderStatus, string> => ({
   cancelled: colors.textMuted,
 });
 
-export default function OrdersScreen({ navigation }: Props) {
+const CURRENT_STATUSES: OrderStatus[] = ['pending', 'accepted', 'ready'];
+const IN_PROGRESS_STATUSES: OrderStatus[] = ['accepted', 'ready'];
+const HISTORY_STATUSES: OrderStatus[] = ['completed', 'declined', 'cancelled'];
+
+export default function OrdersScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const STATUS_COLORS = useMemo(() => getStatusColors(colors), [colors]);
   const insets = useSafeAreaInsets();
   const { orders, spots, setOrderStatus, refresh } = useAppData();
   const { user } = useAuth();
-  const [mode, setMode] = useState<Mode>('mine');
+  const [mode, setMode] = useState<Mode>(route.params?.mode ?? 'mine');
 
   // Orders are only loaded once at app launch otherwise — a business would
   // only see a new order after restarting the app.
@@ -65,6 +69,28 @@ export default function OrdersScreen({ navigation }: Props) {
   );
 
   const list = mode === 'business' ? businessOrders : myOrders;
+
+  // A business is triaging (a pending order needs a decision now, distinct
+  // from one already accepted), while a customer is just waiting — so the
+  // business view gets a 3-way split and the customer view a simpler 2-way.
+  const sections = useMemo(() => {
+    if (mode === 'business') {
+      const needsAction = list.filter((o) => o.status === 'pending');
+      const inProgress = list.filter((o) => IN_PROGRESS_STATUSES.includes(o.status));
+      const history = list.filter((o) => HISTORY_STATUSES.includes(o.status));
+      return [
+        ...(needsAction.length > 0 ? [{ title: 'Needs action', data: needsAction }] : []),
+        ...(inProgress.length > 0 ? [{ title: 'In progress', data: inProgress }] : []),
+        ...(history.length > 0 ? [{ title: 'History', data: history }] : []),
+      ];
+    }
+    const current = list.filter((o) => CURRENT_STATUSES.includes(o.status));
+    const past = list.filter((o) => HISTORY_STATUSES.includes(o.status));
+    return [
+      ...(current.length > 0 ? [{ title: 'Current', data: current }] : []),
+      ...(past.length > 0 ? [{ title: 'Past', data: past }] : []),
+    ];
+  }, [list, mode]);
 
   const handleStatusChange = (order: Order, status: OrderStatus) => {
     setOrderStatus(order.id, status).catch((e: any) =>
@@ -102,15 +128,19 @@ export default function OrdersScreen({ navigation }: Props) {
         </View>
       )}
 
-      <FlatList
-        data={list}
+      <SectionList
+        sections={sections}
         keyExtractor={(item) => item.id}
         contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + spacing.xl }]}
+        stickySectionHeadersEnabled={false}
         ListEmptyComponent={
           <Text style={styles.emptyText}>
             {mode === 'business' ? 'No orders yet.' : "You haven't placed any orders yet."}
           </Text>
         }
+        renderSectionHeader={({ section }) => (
+          <Text style={styles.sectionHeader}>{section.title}</Text>
+        )}
         renderItem={({ item }) => {
           const spot = spots.find((s) => s.id === item.spotId);
           return (
@@ -210,6 +240,15 @@ const makeStyles = (colors: ThemeColors) =>
     color: colors.textMuted,
     textAlign: 'center',
     marginTop: spacing.xl,
+  },
+  sectionHeader: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    backgroundColor: colors.background,
+    paddingBottom: spacing.xs,
   },
   card: {
     backgroundColor: colors.card,
