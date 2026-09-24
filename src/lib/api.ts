@@ -120,14 +120,13 @@ function mapOrder(row: any): Order {
 function mapNotification(row: any): AppNotification {
   return {
     id: row.id,
+    recipientUserId: row.recipient_user_id,
+    actorUserId: row.actor_user_id ?? null,
     type: row.type,
     title: row.title,
-    body: row.body,
-    spotId: row.spot_id ?? null,
-    orderId: row.order_id ?? null,
-    reviewId: row.review_id ?? null,
-    actorId: row.actor_id ?? null,
-    isRead: row.is_read,
+    body: row.body ?? null,
+    data: row.data ?? {},
+    readAt: row.read_at ?? null,
     createdAt: row.created_at,
   };
 }
@@ -725,29 +724,38 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus): P
   return mapOrder(data);
 }
 
-export async function fetchNotifications(): Promise<AppNotification[]> {
+export async function fetchNotifications(userId: string): Promise<AppNotification[]> {
   const { data, error } = await supabase
     .from('notifications')
     .select('*')
-    .order('created_at', { ascending: false });
-  if (error) throw error;
+    .eq('recipient_user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) {
+    // The notifications table may not exist yet on a database that hasn't
+    // run its migration — degrade to an empty list rather than failing the
+    // whole app load.
+    console.warn('Could not load notifications:', error.message);
+    return [];
+  }
   return (data ?? []).map(mapNotification);
 }
 
 export async function markNotificationRead(notificationId: string): Promise<void> {
   const { error } = await supabase
     .from('notifications')
-    .update({ is_read: true })
-    .eq('id', notificationId);
+    .update({ read_at: new Date().toISOString() })
+    .eq('id', notificationId)
+    .is('read_at', null);
   if (error) throw error;
 }
 
 export async function markAllNotificationsRead(userId: string): Promise<void> {
   const { error } = await supabase
     .from('notifications')
-    .update({ is_read: true })
-    .eq('user_id', userId)
-    .eq('is_read', false);
+    .update({ read_at: new Date().toISOString() })
+    .eq('recipient_user_id', userId)
+    .is('read_at', null);
   if (error) throw error;
 }
 

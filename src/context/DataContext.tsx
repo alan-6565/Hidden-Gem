@@ -169,7 +169,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         fetchPosts(),
         fetchComments(),
         fetchOrders(),
-        fetchNotifications(),
+        fetchNotifications(user.id),
         fetchCollections(user.id),
         fetchSavedSpotIds(user.id),
         fetchLikedSpotIds(user.id),
@@ -209,7 +209,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [load]);
 
   const unreadNotificationCount = useMemo(
-    () => notifications.filter((n) => !n.isRead).length,
+    () => notifications.filter((n) => !n.readAt).length,
     [notifications],
   );
 
@@ -540,26 +540,38 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     }
   }, [orders]);
 
-  const markNotificationRead = useCallback(async (notificationId: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n)),
-    );
-    await apiMarkNotificationRead(notificationId);
-  }, []);
-
-  const markAllNotificationsRead = useCallback(async () => {
-    if (!user) return;
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-    await apiMarkAllNotificationsRead(user.id);
-  }, [user]);
-
   // Cheaper than refresh() for the bell badge — Home refetches this on every
   // focus, and a full reload of spots/reviews/posts/orders/etc. just to
   // catch a new notification would be wasteful on the most-visited tab.
   const refreshNotifications = useCallback(async () => {
     if (!user) return;
-    setNotifications(await fetchNotifications());
+    setNotifications(await fetchNotifications(user.id));
   }, [user]);
+
+  const markNotificationRead = useCallback(async (notificationId: string) => {
+    const now = new Date().toISOString();
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notificationId && !n.readAt ? { ...n, readAt: now } : n)),
+    );
+    try {
+      await apiMarkNotificationRead(notificationId);
+    } catch (e) {
+      refreshNotifications();
+      throw e;
+    }
+  }, [refreshNotifications]);
+
+  const markAllNotificationsRead = useCallback(async () => {
+    if (!user) return;
+    const now = new Date().toISOString();
+    setNotifications((prev) => prev.map((n) => (n.readAt ? n : { ...n, readAt: now })));
+    try {
+      await apiMarkAllNotificationsRead(user.id);
+    } catch (e) {
+      refreshNotifications();
+      throw e;
+    }
+  }, [user, refreshNotifications]);
 
   const reportContent = useCallback(
     async (targetType: ReportTargetType, targetId: string, reason: string) => {
