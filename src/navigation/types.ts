@@ -1,9 +1,9 @@
-import { CompositeScreenProps } from '@react-navigation/native';
+import { CompositeScreenProps, NavigatorScreenParams } from '@react-navigation/native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
 export type RootStackParamList = {
-  Tabs: undefined;
+  Tabs: NavigatorScreenParams<TabParamList> | undefined;
   SpotProfile: { spotId: string };
   AddReview: { spotId: string };
   Compose: { isStory?: boolean } | undefined;
@@ -17,6 +17,9 @@ export type RootStackParamList = {
   Orders: { mode?: 'mine' | 'business' } | undefined;
   EditProfile: undefined;
   Notifications: undefined;
+  Settings: undefined;
+  Saved: undefined;
+  BlockedUsers: undefined;
 };
 
 export type TabParamList = {

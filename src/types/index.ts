@@ -76,6 +76,8 @@ export interface Profile {
   userId: string;
   username: string;
   avatarUrl: string | null;
+  bio: string | null;
+  location: string | null;
 }
 
 export type PostAuthorType = 'customer' | 'owner';

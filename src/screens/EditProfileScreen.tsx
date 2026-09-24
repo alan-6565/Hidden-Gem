@@ -33,13 +33,18 @@ export default function EditProfileScreen({ navigation }: Props) {
 
   const [username, setUsername] = useState(profile?.username ?? '');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile?.avatarUrl ?? null);
+  const [bio, setBio] = useState(profile?.bio ?? '');
+  const [location, setLocation] = useState(profile?.location ?? '');
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const cleanUsername = username.trim().toLowerCase();
   const usernameValid = USERNAME_PATTERN.test(cleanUsername);
   const changed =
-    cleanUsername !== (profile?.username ?? '') || avatarUrl !== (profile?.avatarUrl ?? null);
+    cleanUsername !== (profile?.username ?? '') ||
+    avatarUrl !== (profile?.avatarUrl ?? null) ||
+    bio.trim() !== (profile?.bio ?? '') ||
+    location.trim() !== (profile?.location ?? '');
 
   const handleChangePhoto = async () => {
     if (!user) return;
@@ -68,6 +73,8 @@ export default function EditProfileScreen({ navigation }: Props) {
       await updateProfile({
         username: cleanUsername !== profile?.username ? cleanUsername : undefined,
         avatarUrl: avatarUrl !== (profile?.avatarUrl ?? null) ? avatarUrl : undefined,
+        bio: bio.trim() !== (profile?.bio ?? '') ? bio.trim() || null : undefined,
+        location: location.trim() !== (profile?.location ?? '') ? location.trim() || null : undefined,
       });
       navigation.goBack();
     } catch (e: any) {
@@ -133,6 +140,28 @@ export default function EditProfileScreen({ navigation }: Props) {
           characters: lowercase letters, numbers, "." and "_".
         </Text>
 
+        <Text style={[styles.label, styles.labelSpaced]}>Bio</Text>
+        <TextInput
+          style={[styles.textField, styles.bioField]}
+          value={bio}
+          onChangeText={setBio}
+          multiline
+          maxLength={150}
+          placeholder="Finding hidden gems around the Bay Area"
+          placeholderTextColor={colors.textMuted}
+        />
+        <Text style={styles.hint}>{bio.length}/150</Text>
+
+        <Text style={[styles.label, styles.labelSpaced]}>Location</Text>
+        <TextInput
+          style={styles.textField}
+          value={location}
+          onChangeText={setLocation}
+          maxLength={60}
+          placeholder="Richmond, CA"
+          placeholderTextColor={colors.textMuted}
+        />
+
         <Pressable
           style={[styles.saveButton, (!changed || !usernameValid || saving) && styles.saveDisabled]}
           onPress={handleSave}
@@ -155,6 +184,21 @@ const makeStyles = (colors: ThemeColors) =>
     linkText: { color: colors.primary, fontWeight: '700', fontSize: 14 },
     linkMuted: { color: colors.textMuted, fontWeight: '600', fontSize: 14 },
     label: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: spacing.xs },
+    labelSpaced: { marginTop: spacing.lg },
+    textField: {
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      fontSize: 15,
+      color: colors.text,
+    },
+    bioField: {
+      minHeight: 72,
+      textAlignVertical: 'top',
+    },
     inputRow: {
       flexDirection: 'row',
       alignItems: 'center',
