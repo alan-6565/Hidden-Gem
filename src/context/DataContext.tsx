@@ -1,5 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { BusinessVerification, Collection, Comment, NewBusinessVerificationInput, Order, OrderStatus, Post, Profile, ReportTargetType, Review, Spot } from '../types';
+import { AppNotification, BusinessVerification, Collection, Comment, NewBusinessVerificationInput, Order, OrderStatus, Post, Profile, ReportTargetType, Review, Spot } from '../types';
 import { useAuth } from './AuthContext';
 import {
   blockUser as apiBlockUser,
@@ -15,6 +15,7 @@ import {
   fetchLikedReviewIds,
   fetchLikedSpotIds,
   fetchMyProfile,
+  fetchNotifications,
   fetchMyVerifications,
   fetchOrders,
   fetchPosts,
@@ -23,6 +24,8 @@ import {
   fetchSavedSpotIds,
   fetchSpot,
   fetchSpots,
+  markAllNotificationsRead,
+  markNotificationRead,
   insertComment,
   insertCollection,
   insertOrder,
@@ -67,6 +70,8 @@ interface DataContextValue {
   followingIds: string[];
   stories: Post[];
   profile: Profile | null;
+  notifications: AppNotification[];
+  unreadNotificationCount: number;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -93,6 +98,9 @@ interface DataContextValue {
   addCollection: (name: string, description: string) => Promise<void>;
   updateSpot: (spotId: string, input: SpotEditInput) => Promise<void>;
   updateProfile: (input: { username?: string; avatarUrl?: string | null }) => Promise<void>;
+  refreshNotifications: () => Promise<void>;
+  markNotificationRead: (notificationId: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
   submitVerification: (input: NewBusinessVerificationInput) => Promise<BusinessVerification>;
   placeOrder: (input: NewOrderInput) => Promise<Order>;
   setOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
@@ -121,6 +129,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
   const [followingIds, setFollowingIds] = useState<string[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -153,6 +162,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         blockedData,
         followingData,
         profileData,
+        notificationsData,
       ] = await Promise.all([
         fetchSpots(),
         fetchReviews(),
@@ -169,6 +179,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         fetchBlockedUserIds(user.id),
         fetchFollowingIds(user.id),
         fetchMyProfile(),
+        fetchNotifications(user.id),
       ]);
       setSpots(spotsData);
       setReviews(reviewsData);
@@ -185,6 +196,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setBlockedUserIds(blockedData);
       setFollowingIds(followingData);
       setProfile(profileData);
+      setNotifications(notificationsData);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load data');
     } finally {
@@ -490,6 +502,42 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     [user],
   );
 
+  const unreadNotificationCount = useMemo(
+    () => notifications.filter((n) => !n.readAt).length,
+    [notifications],
+  );
+
+  const refreshNotifications = useCallback(async () => {
+    if (!user) return;
+    try {
+      setNotifications(await fetchNotifications(user.id));
+    } catch {
+      // Non-critical: the bell just stays stale until the next refresh.
+    }
+  }, [user]);
+
+  const markRead = useCallback(async (notificationId: string) => {
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notificationId && !n.readAt ? { ...n, readAt: new Date().toISOString() } : n)),
+    );
+    try {
+      await markNotificationRead(notificationId);
+    } catch {
+      refreshNotifications();
+    }
+  }, [refreshNotifications]);
+
+  const markAllRead = useCallback(async () => {
+    if (!user) return;
+    const now = new Date().toISOString();
+    setNotifications((prev) => prev.map((n) => (n.readAt ? n : { ...n, readAt: now })));
+    try {
+      await markAllNotificationsRead(user.id);
+    } catch {
+      refreshNotifications();
+    }
+  }, [user, refreshNotifications]);
+
   const submitVerification = useCallback(
     async (input: NewBusinessVerificationInput) => {
       if (!user) throw new Error('You must be signed in to submit a business for review.');
@@ -581,6 +629,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         followingIds,
         stories,
         profile,
+        notifications,
+        unreadNotificationCount,
         loading,
         error,
         refresh: load,
@@ -607,6 +657,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         addCollection,
         updateSpot,
         updateProfile,
+        refreshNotifications,
+        markNotificationRead: markRead,
+        markAllNotificationsRead: markAllRead,
         submitVerification,
         placeOrder,
         setOrderStatus,

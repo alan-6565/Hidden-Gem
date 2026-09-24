@@ -198,6 +198,25 @@ export interface NewBusinessVerificationInput {
   businessPhotoPath: string;
 }
 
+export type NotificationType =
+  | 'follow'
+  | 'review_reply'
+  | 'order_status'
+  | 'verification_approved'
+  | 'verification_rejected';
+
+export interface AppNotification {
+  id: string;
+  recipientUserId: string;
+  actorUserId: string | null;
+  type: NotificationType;
+  title: string;
+  body: string | null;
+  data: { spotId?: string; orderId?: string; reviewId?: string; verificationId?: string; existingSpotId?: string | null; followerId?: string };
+  readAt: string | null;
+  createdAt: string;
+}
+
 export type ReportTargetType = 'post' | 'review' | 'comment' | 'user';
 
 export interface Report {

@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
@@ -55,7 +56,7 @@ export default function HomeScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { spots, posts, stories, reviews, savedSpotIds, followingIds, profile } = useAppData();
+  const { spots, posts, stories, reviews, savedSpotIds, followingIds, profile, unreadNotificationCount, refreshNotifications } = useAppData();
   const { user } = useAuth();
   const { filters, resetFilters } = useSearchFilters();
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('all');
@@ -161,6 +162,14 @@ export default function HomeScreen({ navigation }: Props) {
     return map;
   }, [reviews]);
 
+  // Refreshed on focus (not a live subscription) so the badge count is
+  // reasonably current without needing a realtime channel yet.
+  useFocusEffect(
+    useCallback(() => {
+      refreshNotifications();
+    }, [refreshNotifications]),
+  );
+
   const goToSpot = (spotId: string) => navigation.navigate('SpotProfile', { spotId });
 
   return (
@@ -180,7 +189,20 @@ export default function HomeScreen({ navigation }: Props) {
                   <Ionicons name="chevron-down" size={12} color={colors.textMuted} />
                 </View>
               </View>
-              <Ionicons name="notifications-outline" size={22} color={colors.text} />
+              <Pressable
+                style={styles.bellButton}
+                onPress={() => navigation.navigate('Notifications')}
+                hitSlop={8}
+              >
+                <Ionicons name="notifications-outline" size={22} color={colors.text} />
+                {unreadNotificationCount > 0 && (
+                  <View style={styles.bellBadge}>
+                    <Text style={styles.bellBadgeText}>
+                      {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                    </Text>
+                  </View>
+                )}
+              </Pressable>
             </View>
 
             <StoriesRow
@@ -376,6 +398,26 @@ const makeStyles = (colors: ThemeColors) =>
     },
     content: {
       paddingBottom: spacing.xl,
+    },
+    bellButton: {
+      position: 'relative',
+    },
+    bellBadge: {
+      position: 'absolute',
+      top: -4,
+      right: -4,
+      minWidth: 16,
+      height: 16,
+      borderRadius: 8,
+      paddingHorizontal: 3,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    bellBadgeText: {
+      color: '#fff',
+      fontSize: 10,
+      fontWeight: '800',
     },
     header: {
       flexDirection: 'row',

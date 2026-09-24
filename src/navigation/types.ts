@@ -16,6 +16,7 @@ export type RootStackParamList = {
   Order: { spotId: string };
   Orders: undefined;
   EditProfile: undefined;
+  Notifications: undefined;
 };
 
 export type TabParamList = {
