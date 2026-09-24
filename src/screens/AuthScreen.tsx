@@ -15,7 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 
-type Mode = 'sign_in' | 'sign_up';
+type Mode = 'sign_in' | 'sign_up' | 'forgot_password';
 
 // The old artifact link here was dead (deleted or never actually shared) —
 // signing up linked to a page that couldn't load. This one is real, live,
@@ -29,14 +29,20 @@ export default function AuthScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, sendPasswordReset } = useAuth();
   const [mode, setMode] = useState<Mode>('sign_in');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkEmailNotice, setCheckEmailNotice] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+
+  const goToMode = (next: Mode) => {
+    setError(null);
+    setMode(next);
+  };
 
   const handleSubmit = async () => {
     setError(null);
@@ -63,6 +69,23 @@ export default function AuthScreen() {
     }
   };
 
+  const handleSendReset = async () => {
+    setError(null);
+    if (!email.trim()) {
+      setError('Enter your email.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await sendPasswordReset(email.trim());
+      setResetEmailSent(true);
+    } catch (e: any) {
+      setError(e?.message ?? 'Something went wrong.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -71,7 +94,7 @@ export default function AuthScreen() {
       <View style={[styles.content, { paddingTop: insets.top + spacing.xl }]}>
         <Text style={styles.logo}>Kuppio</Text>
         <Text style={styles.subtitle}>
-          {mode === 'sign_in' ? 'Welcome back' : 'Create your account'}
+          {mode === 'sign_in' ? 'Welcome back' : mode === 'sign_up' ? 'Create your account' : 'Reset your password'}
         </Text>
 
         {checkEmailNotice ? (
@@ -83,12 +106,63 @@ export default function AuthScreen() {
               style={styles.switchButton}
               onPress={() => {
                 setCheckEmailNotice(false);
-                setMode('sign_in');
+                goToMode('sign_in');
               }}
             >
               <Text style={styles.switchButtonText}>Back to sign in</Text>
             </Pressable>
           </View>
+        ) : mode === 'forgot_password' ? (
+          resetEmailSent ? (
+            <View style={styles.noticeBox}>
+              <Text style={styles.noticeText}>
+                If an account exists for {email.trim()}, we've sent a link to reset your password.
+              </Text>
+              <Pressable
+                style={styles.switchButton}
+                onPress={() => {
+                  setResetEmailSent(false);
+                  goToMode('sign_in');
+                }}
+              >
+                <Text style={styles.switchButtonText}>Back to sign in</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <>
+              <Text style={styles.helperText}>
+                Enter the email on your account and we'll send you a link to set a new password.
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Email"
+                placeholderTextColor={colors.textMuted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+              />
+
+              {error && <Text style={styles.errorText}>{error}</Text>}
+
+              <Pressable
+                style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+                onPress={handleSendReset}
+                disabled={submitting}
+              >
+                <Text style={styles.submitButtonText}>
+                  {submitting ? 'Sending...' : 'Send reset link'}
+                </Text>
+              </Pressable>
+
+              <Pressable style={styles.toggleRow} onPress={() => goToMode('sign_in')}>
+                <Text style={styles.toggleText}>
+                  Back to <Text style={styles.toggleTextBold}>sign in</Text>
+                </Text>
+              </Pressable>
+            </>
+          )
         ) : (
           <>
             <TextInput
@@ -109,6 +183,12 @@ export default function AuthScreen() {
               value={password}
               onChangeText={setPassword}
             />
+
+            {mode === 'sign_in' && (
+              <Pressable style={styles.forgotRow} onPress={() => goToMode('forgot_password')} hitSlop={4}>
+                <Text style={styles.forgotText}>Forgot password?</Text>
+              </Pressable>
+            )}
 
             {mode === 'sign_up' && (
               <Pressable
@@ -208,6 +288,22 @@ const makeStyles = (colors: ThemeColors) =>
     fontSize: 15,
     color: colors.text,
     marginBottom: spacing.sm,
+  },
+  helperText: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginBottom: spacing.md,
+    lineHeight: 18,
+  },
+  forgotRow: {
+    alignItems: 'flex-end',
+    marginTop: -spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  forgotText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary,
   },
   termsRow: {
     flexDirection: 'row',

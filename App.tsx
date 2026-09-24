@@ -5,6 +5,7 @@ import { DarkTheme, DefaultTheme, NavigationContainer, Theme } from '@react-navi
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import RootNavigator from './src/navigation/RootNavigator';
 import AuthScreen from './src/screens/AuthScreen';
+import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { DataProvider, useAppData } from './src/context/DataContext';
 import { SearchFilterProvider } from './src/context/SearchFilterContext';
@@ -42,7 +43,7 @@ function LoadedApp() {
 function AppContent() {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { session, initializing } = useAuth();
+  const { session, initializing, recoveryMode } = useAuth();
 
   if (initializing) {
     return (
@@ -50,6 +51,14 @@ function AppContent() {
         <ActivityIndicator size="large" color={colors.primary} />
       </View>
     );
+  }
+
+  // Takes priority over the signed-in app below even once a session exists —
+  // opening the app via a password-reset link creates one as a side effect
+  // of exchanging the link's code, but the user still needs to set a new
+  // password before going anywhere else.
+  if (recoveryMode) {
+    return <ResetPasswordScreen />;
   }
 
   if (!session) {

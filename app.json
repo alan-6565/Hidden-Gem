@@ -2,6 +2,7 @@
   "expo": {
     "name": "Kuppio",
     "slug": "wheres-the-tea",
+    "scheme": "kuppio",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
