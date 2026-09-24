@@ -23,6 +23,9 @@ import AdminReviewScreen from '../screens/AdminReviewScreen';
 import OrderScreen from '../screens/OrderScreen';
 import OrdersScreen from '../screens/OrdersScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import SettingsScreen from '../screens/SettingsScreen';
+import SavedScreen from '../screens/SavedScreen';
+import BlockedUsersScreen from '../screens/BlockedUsersScreen';
 import { RootStackParamList, TabParamList } from './types';
 import { radius, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
@@ -157,6 +160,17 @@ export default function RootNavigator() {
         name="Notifications"
         component={NotificationsScreen}
         options={{ title: 'Notifications' }}
+      />
+      <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
+      <Stack.Screen
+        name="Saved"
+        component={SavedScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="BlockedUsers"
+        component={BlockedUsersScreen}
+        options={{ title: 'Blocked Users' }}
       />
     </Stack.Navigator>
   );

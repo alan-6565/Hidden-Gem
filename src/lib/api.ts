@@ -818,7 +818,13 @@ export async function deleteOwnAccount(): Promise<void> {
 export const USERNAME_PATTERN = /^[a-z0-9_.]{3,20}$/;
 
 function mapProfile(row: any): Profile {
-  return { userId: row.user_id, username: row.username, avatarUrl: row.avatar_url ?? null };
+  return {
+    userId: row.user_id,
+    username: row.username,
+    avatarUrl: row.avatar_url ?? null,
+    bio: row.bio ?? null,
+    location: row.location ?? null,
+  };
 }
 
 export async function fetchMyProfile(): Promise<Profile | null> {
@@ -833,11 +839,13 @@ export async function fetchMyProfile(): Promise<Profile | null> {
 
 export async function updateMyProfile(
   userId: string,
-  input: { username?: string; avatarUrl?: string | null },
+  input: { username?: string; avatarUrl?: string | null; bio?: string | null; location?: string | null },
 ): Promise<Profile> {
   const payload: Record<string, unknown> = {};
   if (input.username !== undefined) payload.username = input.username.trim().toLowerCase();
   if (input.avatarUrl !== undefined) payload.avatar_url = input.avatarUrl;
+  if (input.bio !== undefined) payload.bio = input.bio?.trim() || null;
+  if (input.location !== undefined) payload.location = input.location?.trim() || null;
 
   const { data, error } = await supabase
     .from('profiles')
@@ -848,11 +856,35 @@ export async function updateMyProfile(
   if (error) {
     if (error.code === '23505') throw new Error('That username is already taken.');
     if (error.code === '23514') {
+      if (error.message.includes('profiles_bio_length')) throw new Error('Bio must be 150 characters or fewer.');
+      if (error.message.includes('profiles_location_length')) throw new Error('Location must be 60 characters or fewer.');
       throw new Error('Usernames are 3–20 characters: lowercase letters, numbers, "." and "_".');
     }
     throw error;
   }
   return mapProfile(data);
+}
+
+// Public — anyone can see how many people follow a given user (the follows
+// table's own "public read" policy already allows this; this just counts).
+export async function fetchFollowerCount(userId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('follows')
+    .select('*', { count: 'exact', head: true })
+    .eq('followed_id', userId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+// Blocking only ever stores an id (blocked_users.blocked_user_id) — this
+// resolves a batch of ids to a displayable username/avatar for a "manage
+// blocked users" list. profiles is public-readable, so no special access
+// is needed beyond knowing which ids to ask for.
+export async function fetchProfilesByIds(userIds: string[]): Promise<Profile[]> {
+  if (userIds.length === 0) return [];
+  const { data, error } = await supabase.from('profiles').select('*').in('user_id', userIds);
+  if (error) throw error;
+  return (data ?? []).map(mapProfile);
 }
 
 // Re-read one spot — its Kuppio Score is recomputed by the database whenever a

@@ -98,7 +98,7 @@ interface DataContextValue {
   deleteComment: (postId: string, commentId: string) => Promise<void>;
   addCollection: (name: string, description: string) => Promise<void>;
   updateSpot: (spotId: string, input: SpotEditInput) => Promise<void>;
-  updateProfile: (input: { username?: string; avatarUrl?: string | null }) => Promise<void>;
+  updateProfile: (input: { username?: string; avatarUrl?: string | null; bio?: string | null; location?: string | null }) => Promise<void>;
   submitVerification: (input: NewBusinessVerificationInput) => Promise<BusinessVerification>;
   placeOrder: (input: NewOrderInput) => Promise<Order>;
   setOrderStatus: (orderId: string, status: OrderStatus) => Promise<void>;
@@ -140,7 +140,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setReviews(mockReviews);
       setPosts(mockPosts);
       setCollections(mockCollections);
-      setProfile({ userId: user.id, username: 'you', avatarUrl: null });
+      setProfile({ userId: user.id, username: 'you', avatarUrl: null, bio: null, location: null });
       setLoading(false);
       return;
     }
@@ -489,7 +489,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   // The database rewrites the name/avatar on everything this user already
   // posted (see propagate_profile_changes), so mirror that locally.
   const updateProfile = useCallback(
-    async (input: { username?: string; avatarUrl?: string | null }) => {
+    async (input: { username?: string; avatarUrl?: string | null; bio?: string | null; location?: string | null }) => {
       if (!user) throw new Error('You must be signed in.');
       const updated = await apiUpdateMyProfile(user.id, input);
       setProfile(updated);
