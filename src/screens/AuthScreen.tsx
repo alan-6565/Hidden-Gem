@@ -17,9 +17,13 @@ import { useTheme } from '../context/ThemeContext';
 
 type Mode = 'sign_in' | 'sign_up';
 
-// TODO: point this at the permanent hosted URL once the legal docs move off
-// the Artifact link (see the "Kuppio Legal" artifact for the source text).
-const LEGAL_URL = 'https://claude.ai/artifact/G7aaZenj593CHUZwVagSne';
+// The old artifact link here was dead (deleted or never actually shared) —
+// signing up linked to a page that couldn't load. This one is real, live,
+// and matches legal/PRIVACY.md and legal/TERMS.md (the source text — update
+// both together). #privacy / #terms select the right tab and deep-link
+// correctly on first load.
+const PRIVACY_URL = 'https://claude.ai/artifact/U1kXZS4FsMw1n7hHU3TA1f#privacy';
+const TERMS_URL = 'https://claude.ai/artifact/U1kXZS4FsMw1n7hHU3TA1f#terms';
 
 export default function AuthScreen() {
   const { colors } = useTheme();
@@ -119,11 +123,11 @@ export default function AuthScreen() {
                 />
                 <Text style={styles.termsText}>
                   I agree to the{' '}
-                  <Text style={styles.termsLink} onPress={() => Linking.openURL(LEGAL_URL)}>
+                  <Text style={styles.termsLink} onPress={() => Linking.openURL(TERMS_URL)}>
                     Terms of Service
                   </Text>{' '}
                   and{' '}
-                  <Text style={styles.termsLink} onPress={() => Linking.openURL(LEGAL_URL)}>
+                  <Text style={styles.termsLink} onPress={() => Linking.openURL(PRIVACY_URL)}>
                     Privacy Policy
                   </Text>
                 </Text>

@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Effective date:** [FILL IN]
+**Effective date:** September 23, 2026
 
 Kuppio ("Kuppio," "we," "us," or "our") operates the Kuppio mobile app. This Privacy Policy explains what information we collect, how we use it, and the choices you have. By using Kuppio, you agree to the practices described here.
 
@@ -52,4 +52,4 @@ We may update this policy from time to time. If we make material changes, we'll 
 
 ## Contact Us
 
-Questions about this policy or your data can be sent to: [FILL IN SUPPORT EMAIL]
+Questions about this policy or your data can be sent to: jahiralancrisostomogarcia@gmail.com
