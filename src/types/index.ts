@@ -210,3 +210,18 @@ export interface Report {
   createdAt: string;
   resolvedAt: string | null;
 }
+
+export type NotificationType = 'new_follower' | 'review_reply' | 'order_status' | 'new_order';
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  spotId: string | null;
+  orderId: string | null;
+  reviewId: string | null;
+  actorId: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
