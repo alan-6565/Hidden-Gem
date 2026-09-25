@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
@@ -13,9 +13,11 @@ import { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BusinessHub'>;
 
+type Spot = ReturnType<typeof useAppData>['spots'][number];
+
 // How much of a "filled out" business profile this spot has — used to give
 // an owner something concrete to act on, not a vanity number.
-function profileCompletion(spot: ReturnType<typeof useAppData>['spots'][number]): number {
+function profileCompletion(spot: Spot): number {
   const checks = [
     spot.photos.length > 0,
     !!spot.description && spot.description.trim().length > 0,
@@ -27,14 +29,26 @@ function profileCompletion(spot: ReturnType<typeof useAppData>['spots'][number])
   return Math.round((checks.filter(Boolean).length / checks.length) * 100);
 }
 
+// What's actually required before a first-time Publish — a subset of full
+// profile completion. Phone/socials are nice-to-have, not blockers.
+function missingPublishRequirements(spot: Spot): string[] {
+  const missing: string[] = [];
+  if (spot.photos.length === 0) missing.push('At least one photo');
+  if (!spot.description || spot.description.trim().length === 0) missing.push('A description');
+  if (spot.hours.length === 0) missing.push('Your hours');
+  if (spot.menu.length === 0) missing.push('At least one menu item');
+  return missing;
+}
+
 export default function BusinessHubScreen({ route, navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { spotId } = route.params;
-  const { spots, posts, reviews } = useAppData();
+  const { spots, posts, reviews, updateSpot } = useAppData();
   const spot = spots.find((s) => s.id === spotId);
   const [followerCount, setFollowerCount] = useState(0);
   const [saveCount, setSaveCount] = useState(0);
+  const [publishing, setPublishing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -60,6 +74,43 @@ export default function BusinessHubScreen({ route, navigation }: Props) {
   const rating = getDisplayRating(spot, reviews);
   const reviewCount = getReviewCount(spot, reviews);
   const completion = profileCompletion(spot);
+  const missing = missingPublishRequirements(spot);
+  const canPublish = missing.length === 0;
+
+  const handlePublish = async () => {
+    setPublishing(true);
+    try {
+      await updateSpot(spotId, { published: true });
+    } catch (e: any) {
+      Alert.alert("Couldn't publish", e?.message ?? 'Please try again.');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const handlePause = () => {
+    Alert.alert(
+      'Pause your page?',
+      `${spot.name} will disappear from Discover, Map, and search until you publish it again. Existing reviews, orders, and content are kept.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Pause page',
+          style: 'destructive',
+          onPress: async () => {
+            setPublishing(true);
+            try {
+              await updateSpot(spotId, { published: false });
+            } catch (e: any) {
+              Alert.alert("Couldn't pause", e?.message ?? 'Please try again.');
+            } finally {
+              setPublishing(false);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -72,10 +123,60 @@ export default function BusinessHubScreen({ route, navigation }: Props) {
             </Text>
             <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
           </View>
+          <View style={styles.statusPillRow}>
+            <View style={[styles.statusPill, spot.published ? styles.statusPillLive : styles.statusPillDraft]}>
+              <Text style={[styles.statusPillText, spot.published ? styles.statusPillTextLive : styles.statusPillTextDraft]}>
+                {spot.published ? 'Live' : 'Draft'}
+              </Text>
+            </View>
+          </View>
           <Pressable onPress={() => navigation.navigate('SpotProfile', { spotId })}>
-            <Text style={styles.viewPublicLink}>View public profile →</Text>
+            <Text style={styles.viewPublicLink}>
+              {spot.published ? 'View public profile →' : 'Preview page (only you can see it) →'}
+            </Text>
           </Pressable>
         </View>
+      </View>
+
+      <View style={styles.publishCard}>
+        {spot.published ? (
+          <>
+            <View style={styles.publishRow}>
+              <Ionicons name="globe-outline" size={18} color={colors.success} />
+              <Text style={styles.publishText}>Your page is live and searchable on Discover and Map.</Text>
+            </View>
+            <Pressable style={styles.pauseButton} onPress={handlePause} disabled={publishing}>
+              <Text style={styles.pauseButtonText}>{publishing ? 'Pausing…' : 'Pause page'}</Text>
+            </Pressable>
+          </>
+        ) : canPublish ? (
+          <>
+            <View style={styles.publishRow}>
+              <Ionicons name="eye-off-outline" size={18} color={colors.textMuted} />
+              <Text style={styles.publishText}>
+                Your page is a draft — only you can see it. Publish to make it searchable.
+              </Text>
+            </View>
+            <Pressable style={styles.publishButton} onPress={handlePublish} disabled={publishing}>
+              <Text style={styles.publishButtonText}>{publishing ? 'Publishing…' : 'Publish'}</Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <View style={styles.publishRow}>
+              <Ionicons name="eye-off-outline" size={18} color={colors.textMuted} />
+              <Text style={styles.publishText}>
+                Your page is a draft. Finish these before you can publish it:
+              </Text>
+            </View>
+            {missing.map((item) => (
+              <View key={item} style={styles.missingRow}>
+                <Ionicons name="ellipse-outline" size={6} color={colors.textMuted} />
+                <Text style={styles.missingText}>{item}</Text>
+              </View>
+            ))}
+          </>
+        )}
       </View>
 
       {completion < 100 && (
@@ -223,6 +324,85 @@ const makeStyles = (colors: ThemeColors) =>
       fontWeight: '600',
       color: colors.primary,
       marginTop: 2,
+    },
+    statusPillRow: {
+      flexDirection: 'row',
+      marginTop: 4,
+    },
+    statusPill: {
+      borderRadius: radius.pill,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 2,
+    },
+    statusPillLive: {
+      backgroundColor: colors.successMuted,
+    },
+    statusPillDraft: {
+      backgroundColor: colors.border,
+    },
+    statusPillText: {
+      fontSize: 10,
+      fontWeight: '800',
+      letterSpacing: 0.5,
+    },
+    statusPillTextLive: {
+      color: colors.success,
+    },
+    statusPillTextDraft: {
+      color: colors.textMuted,
+    },
+    publishCard: {
+      backgroundColor: colors.card,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      padding: spacing.md,
+      marginTop: spacing.lg,
+      gap: spacing.sm,
+    },
+    publishRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.sm,
+    },
+    publishText: {
+      flex: 1,
+      fontSize: 13,
+      color: colors.text,
+      lineHeight: 18,
+    },
+    missingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      marginLeft: spacing.lg + 4,
+    },
+    missingText: {
+      fontSize: 12,
+      color: colors.textMuted,
+    },
+    publishButton: {
+      backgroundColor: colors.primary,
+      borderRadius: radius.md,
+      paddingVertical: spacing.sm + 2,
+      alignItems: 'center',
+    },
+    publishButtonText: {
+      color: '#fff',
+      fontWeight: '700',
+      fontSize: 14,
+    },
+    pauseButton: {
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: radius.md,
+      paddingVertical: spacing.sm + 2,
+      alignItems: 'center',
+    },
+    pauseButtonText: {
+      color: colors.textMuted,
+      fontWeight: '700',
+      fontSize: 14,
     },
     completionCard: {
       backgroundColor: colors.card,

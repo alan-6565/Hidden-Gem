@@ -41,6 +41,7 @@ export const mockSpots: Spot[] = [
     hiddenGemVotes: 18,
     ownerUserId: null,
     promotedUntil: null,
+    published: true,
   },
   {
     id: 'spot-2',
@@ -62,6 +63,7 @@ export const mockSpots: Spot[] = [
     hiddenGemVotes: 33,
     ownerUserId: null,
     promotedUntil: null,
+    published: true,
   },
   {
     id: 'spot-3',
@@ -83,6 +85,7 @@ export const mockSpots: Spot[] = [
     hiddenGemVotes: 61,
     ownerUserId: null,
     promotedUntil: null,
+    published: true,
   },
 ];
 

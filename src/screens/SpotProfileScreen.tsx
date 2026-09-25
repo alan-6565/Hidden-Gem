@@ -179,6 +179,14 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {isSpotOwner && !spot.published && (
+        <View style={[styles.draftBanner, { paddingTop: insets.top + spacing.sm }]}>
+          <Ionicons name="eye-off-outline" size={14} color="#fff" />
+          <Text style={styles.draftBannerText}>
+            Draft preview — only you can see this page. Publish it from Business Hub.
+          </Text>
+        </View>
+      )}
       <View style={styles.photoWrapper}>
         <FlatList
           data={spot.photos}
@@ -644,6 +652,20 @@ const makeStyles = (colors: ThemeColors) =>
   },
   content: {
     paddingBottom: spacing.xl,
+  },
+  draftBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.text,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+  },
+  draftBannerText: {
+    flex: 1,
+    color: colors.background,
+    fontSize: 12,
+    fontWeight: '600',
   },
   photoWrapper: {
     position: 'relative',
