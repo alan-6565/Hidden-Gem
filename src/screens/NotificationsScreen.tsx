@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAppData } from '../context/DataContext';
+import { notificationRoute } from '../utils/notificationRoute';
 import { useTheme } from '../context/ThemeContext';
 import { AppNotification, NotificationType } from '../types';
 import { radius, spacing, ThemeColors } from '../theme';
@@ -46,24 +47,9 @@ export default function NotificationsScreen({ navigation }: Props) {
 
   const handlePress = (n: AppNotification) => {
     if (!n.readAt) markNotificationRead(n.id);
-    switch (n.type) {
-      case 'review_reply':
-        if (n.data.spotId) navigation.navigate('SpotProfile', { spotId: n.data.spotId });
-        break;
-      case 'order_status':
-        navigation.navigate('Orders', { mode: 'mine' });
-        break;
-      case 'new_order':
-        navigation.navigate('Orders', { mode: 'business' });
-        break;
-      case 'verification_approved':
-      case 'verification_rejected':
-        navigation.navigate('VerificationStatus');
-        break;
-      case 'follow':
-        // No public profile screen to open yet — the notification just gets marked read.
-        break;
-    }
+    const route = notificationRoute(n.type, n.data);
+    // Typed per-route in notificationRoute; navigate's overloads can't see that through the union.
+    if (route) navigation.navigate(route.name as any, route.params as any);
   };
 
   return (

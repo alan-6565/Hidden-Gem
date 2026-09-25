@@ -51,6 +51,13 @@
         {
           "locationWhenInUsePermission": "Kuppio uses your location to show spots and distances near you."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#EE4C6A",
+          "defaultChannel": "default"
+        }
       ]
     ]
   }
