@@ -204,7 +204,9 @@ export interface NewBusinessVerificationInput {
   businessPhotoPath: string;
 }
 
-export type ReportTargetType = 'post' | 'review' | 'comment' | 'user';
+export type ReportTargetType = 'post' | 'review' | 'comment' | 'user' | 'spot';
+
+export type ReportAction = 'remove' | 'resolve' | 'dismiss';
 
 export interface Report {
   id: string;
@@ -215,6 +217,24 @@ export interface Report {
   status: 'open' | 'resolved' | 'dismissed';
   createdAt: string;
   resolvedAt: string | null;
+}
+
+// What an admin sees for one reported thing: every open report against it,
+// plus a snapshot of the content itself (null if it's already gone).
+export interface ReportTargetPreview {
+  title: string;
+  body: string | null;
+  mediaUrl: string | null;
+  isVideo: boolean;
+  authorUserId: string | null;
+  spotId: string | null;
+}
+
+export interface ReportGroup {
+  targetType: ReportTargetType;
+  targetId: string;
+  reports: Report[];
+  preview: ReportTargetPreview | null;
 }
 
 export type NotificationType =

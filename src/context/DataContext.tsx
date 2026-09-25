@@ -4,6 +4,7 @@ import { useAuth } from './AuthContext';
 import {
   blockUser as apiBlockUser,
   deleteComment as apiDeleteComment,
+  checkIsAdmin,
   deleteOwnAccount,
   deletePost as apiDeletePost,
   deleteReview as apiDeleteReview,
@@ -42,6 +43,7 @@ import {
   setReviewLiked,
   setSpotFollowed,
   setSpotHyped,
+  setSpotRemoved,
   setSpotSaved,
   SpotEditInput,
   submitBusinessVerification,
@@ -75,6 +77,7 @@ interface DataContextValue {
   followingIds: string[];
   stories: Post[];
   profile: Profile | null;
+  isAdmin: boolean;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
@@ -103,6 +106,7 @@ interface DataContextValue {
   deleteComment: (postId: string, commentId: string) => Promise<void>;
   addCollection: (name: string, description: string) => Promise<void>;
   updateSpot: (spotId: string, input: SpotEditInput) => Promise<void>;
+  removeSpot: (spotId: string) => Promise<void>;
   updateProfile: (input: { username?: string; avatarUrl?: string | null; bio?: string | null; location?: string | null }) => Promise<void>;
   submitVerification: (input: NewBusinessVerificationInput) => Promise<BusinessVerification>;
   placeOrder: (input: NewOrderInput) => Promise<Order>;
@@ -136,6 +140,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
   const [followingIds, setFollowingIds] = useState<string[]>([]);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -170,6 +175,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         blockedData,
         followingData,
         profileData,
+        isAdminData,
       ] = await Promise.all([
         fetchSpots(),
         fetchReviews(),
@@ -188,6 +194,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         fetchBlockedUserIds(user.id),
         fetchFollowingIds(user.id),
         fetchMyProfile(),
+        checkIsAdmin(user.id).catch(() => false),
       ]);
       setSpots(spotsData);
       setReviews(reviewsData);
@@ -206,6 +213,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setBlockedUserIds(blockedData);
       setFollowingIds(followingData);
       setProfile(profileData);
+      setIsAdmin(isAdminData);
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load data');
     } finally {
@@ -519,6 +527,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     setSpots((prev) => prev.map((s) => (s.id === spotId ? updated : s)));
   }, []);
 
+  // Admin-only soft delete (the RPC refuses anyone else). Restoring is a
+  // manual `removed_at = null` in the SQL Editor for now.
+  const removeSpot = useCallback(async (spotId: string) => {
+    await setSpotRemoved(spotId, true);
+    setSpots((prev) => prev.filter((s) => s.id !== spotId));
+  }, []);
+
   // The database rewrites the name/avatar on everything this user already
   // posted (see propagate_profile_changes), so mirror that locally.
   const updateProfile = useCallback(
@@ -667,6 +682,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         followingIds,
         stories,
         profile,
+        isAdmin,
         loading,
         error,
         refresh: load,
@@ -695,6 +711,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         deleteComment,
         addCollection,
         updateSpot,
+        removeSpot,
         updateProfile,
         submitVerification,
         placeOrder,
