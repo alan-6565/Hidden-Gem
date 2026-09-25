@@ -14,6 +14,7 @@ export type RootStackParamList = {
   ClaimBusiness: { spotId: string };
   VerificationStatus: undefined;
   AdminReview: undefined;
+  AdminReports: undefined;
   Order: { spotId: string };
   Orders: { mode?: 'mine' | 'business' } | undefined;
   EditProfile: undefined;

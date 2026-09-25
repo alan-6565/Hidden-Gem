@@ -21,6 +21,7 @@ import CreateBusinessScreen from '../screens/CreateBusinessScreen';
 import ClaimBusinessScreen from '../screens/ClaimBusinessScreen';
 import VerificationStatusScreen from '../screens/VerificationStatusScreen';
 import AdminReviewScreen from '../screens/AdminReviewScreen';
+import AdminReportsScreen from '../screens/AdminReportsScreen';
 import OrderScreen from '../screens/OrderScreen';
 import OrdersScreen from '../screens/OrdersScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
@@ -159,6 +160,11 @@ export default function RootNavigator() {
         name="AdminReview"
         component={AdminReviewScreen}
         options={{ title: 'Review Applications' }}
+      />
+      <Stack.Screen
+        name="AdminReports"
+        component={AdminReportsScreen}
+        options={{ title: 'Reports' }}
       />
       <Stack.Screen name="Order" component={OrderScreen} options={{ title: 'Order Ahead' }} />
       <Stack.Screen name="Orders" component={OrdersScreen} options={{ title: 'Orders' }} />

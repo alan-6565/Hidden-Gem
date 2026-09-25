@@ -13,6 +13,10 @@ import {
   Post,
   PriceRange,
   Profile,
+  Report,
+  ReportAction,
+  ReportGroup,
+  ReportTargetPreview,
   ReportTargetType,
   Review,
   Spot,
@@ -133,7 +137,13 @@ function mapNotification(row: any): AppNotification {
 }
 
 export async function fetchSpots(): Promise<Spot[]> {
-  const { data, error } = await supabase.from('spots').select('*').order('tea_score', { ascending: false });
+  // Admins can still read removed listings (to review or restore them) —
+  // they shouldn't show up in anyone's feed or map, admins included.
+  const { data, error } = await supabase
+    .from('spots')
+    .select('*')
+    .is('removed_at', null)
+    .order('tea_score', { ascending: false });
   if (error) throw error;
   return (data ?? []).map(mapSpot);
 }
@@ -819,6 +829,153 @@ export async function submitReport(
   const { error } = await supabase
     .from('reports')
     .insert({ reporter_user_id: userId, target_type: targetType, target_id: targetId, reason });
+  if (error) throw error;
+}
+
+function mapReport(row: any): Report {
+  return {
+    id: row.id,
+    reporterUserId: row.reporter_user_id,
+    targetType: row.target_type as ReportTargetType,
+    targetId: row.target_id,
+    reason: row.reason,
+    status: row.status,
+    createdAt: row.created_at,
+    resolvedAt: row.resolved_at ?? null,
+  };
+}
+
+async function fetchReportPreviews(
+  targetType: ReportTargetType,
+  ids: string[],
+): Promise<Map<string, ReportTargetPreview>> {
+  const previews = new Map<string, ReportTargetPreview>();
+  if (ids.length === 0) return previews;
+
+  if (targetType === 'post') {
+    const { data, error } = await supabase.from('posts').select('*').in('id', ids);
+    if (error) throw error;
+    for (const row of data ?? []) {
+      const post = mapPost(row);
+      previews.set(post.id, {
+        title: `${post.isStory ? 'Story' : 'Post'} by ${post.authorName}`,
+        body: post.caption || null,
+        mediaUrl: post.mediaUrl,
+        isVideo: post.isVideo,
+        authorUserId: post.userId,
+        spotId: post.spotId,
+      });
+    }
+  } else if (targetType === 'review') {
+    const { data, error } = await supabase.from('reviews').select('*').in('id', ids);
+    if (error) throw error;
+    for (const row of data ?? []) {
+      const review = mapReview(row);
+      previews.set(review.id, {
+        title: `Review by ${review.userName} · ${review.ratingOverall}★`,
+        body: review.text,
+        mediaUrl: review.photo ?? null,
+        isVideo: false,
+        authorUserId: review.userId,
+        spotId: review.spotId,
+      });
+    }
+  } else if (targetType === 'comment') {
+    const { data, error } = await supabase.from('post_comments').select('*').in('id', ids);
+    if (error) throw error;
+    for (const row of data ?? []) {
+      const comment = mapComment(row);
+      previews.set(comment.id, {
+        title: `Comment by ${comment.userName}`,
+        body: comment.text,
+        mediaUrl: null,
+        isVideo: false,
+        authorUserId: comment.userId,
+        spotId: null,
+      });
+    }
+  } else if (targetType === 'spot') {
+    const { data, error } = await supabase.from('spots').select('*').in('id', ids);
+    if (error) throw error;
+    for (const row of data ?? []) {
+      const spot = mapSpot(row);
+      previews.set(spot.id, {
+        title: row.removed_at ? `${spot.name} (removed)` : spot.name,
+        body: spot.description ?? null,
+        mediaUrl: spot.photos[0] ?? null,
+        isVideo: false,
+        authorUserId: spot.ownerUserId,
+        spotId: spot.id,
+      });
+    }
+  } else if (targetType === 'user') {
+    const { data, error } = await supabase.from('profiles').select('*').in('user_id', ids);
+    if (error) throw error;
+    for (const row of data ?? []) {
+      const profile = mapProfile(row);
+      previews.set(profile.userId, {
+        title: `@${profile.username}`,
+        body: profile.bio,
+        mediaUrl: profile.avatarUrl,
+        isVideo: false,
+        authorUserId: profile.userId,
+        spotId: null,
+      });
+    }
+  }
+  return previews;
+}
+
+// Admin-only (RLS returns nothing but your own reports otherwise). Grouped
+// by target so one post reported five times is one item in the queue,
+// most-reported first.
+export async function fetchOpenReportGroups(): Promise<ReportGroup[]> {
+  const { data, error } = await supabase
+    .from('reports')
+    .select('*')
+    .eq('status', 'open')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+
+  const groups = new Map<string, ReportGroup>();
+  for (const report of (data ?? []).map(mapReport)) {
+    const key = `${report.targetType}:${report.targetId}`;
+    const group = groups.get(key);
+    if (group) group.reports.push(report);
+    else groups.set(key, { targetType: report.targetType, targetId: report.targetId, reports: [report], preview: null });
+  }
+
+  const types: ReportTargetType[] = ['post', 'review', 'comment', 'spot', 'user'];
+  const previewsByType = await Promise.all(
+    types.map((type) =>
+      fetchReportPreviews(
+        type,
+        [...groups.values()].filter((g) => g.targetType === type).map((g) => g.targetId),
+      ),
+    ),
+  );
+  for (const [i, type] of types.entries()) {
+    for (const group of groups.values()) {
+      if (group.targetType === type) group.preview = previewsByType[i].get(group.targetId) ?? null;
+    }
+  }
+
+  return [...groups.values()].sort((a, b) => b.reports.length - a.reports.length);
+}
+
+export async function resolveReport(reportId: string, action: ReportAction): Promise<void> {
+  const { error } = await supabase.rpc('admin_resolve_report', {
+    report_id_param: reportId,
+    action,
+  });
+  if (error) throw error;
+}
+
+export async function setSpotRemoved(spotId: string, removed: boolean): Promise<void> {
+  const { error } = await supabase.rpc('admin_set_spot_removed', {
+    spot_id_param: spotId,
+    removed,
+  });
   if (error) throw error;
 }
 
