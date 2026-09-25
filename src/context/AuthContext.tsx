@@ -3,6 +3,7 @@ import { Linking } from 'react-native';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { MOCK_MODE, mockSession } from '../lib/mockData';
+import { unregisterForPushNotifications } from '../lib/pushNotifications';
 
 // Deep link the "reset password" email points at (see
 // resetPasswordForEmail below). Requires two things done outside this repo:
@@ -103,6 +104,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(null);
       return;
     }
+    // Before signing out — it needs this account's session to delete the token.
+    await unregisterForPushNotifications();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   };

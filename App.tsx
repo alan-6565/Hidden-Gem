@@ -1,9 +1,16 @@
 import { StatusBar } from 'expo-status-bar';
 import { useMemo } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { DarkTheme, DefaultTheme, NavigationContainer, Theme } from '@react-navigation/native';
+import {
+  createNavigationContainerRef,
+  DarkTheme,
+  DefaultTheme,
+  NavigationContainer,
+  Theme,
+} from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import RootNavigator from './src/navigation/RootNavigator';
+import { RootStackParamList } from './src/navigation/types';
 import AuthScreen from './src/screens/AuthScreen';
 import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -11,6 +18,15 @@ import { DataProvider, useAppData } from './src/context/DataContext';
 import { SearchFilterProvider } from './src/context/SearchFilterContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { spacing, ThemeColors } from './src/theme';
+import { usePushNotifications } from './src/utils/usePushNotifications';
+
+// Lets push-notification taps navigate from outside any screen.
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
+
+function PushNotifications() {
+  usePushNotifications(navigationRef);
+  return null;
+}
 
 function LoadedApp() {
   const { colors } = useTheme();
@@ -37,7 +53,12 @@ function LoadedApp() {
     );
   }
 
-  return <RootNavigator />;
+  return (
+    <>
+      <RootNavigator />
+      <PushNotifications />
+    </>
+  );
 }
 
 function AppContent() {
@@ -93,7 +114,7 @@ function ThemedNavigation() {
   }, [scheme, colors]);
 
   return (
-    <NavigationContainer theme={navigationTheme}>
+    <NavigationContainer ref={navigationRef} theme={navigationTheme}>
       <AppContent />
       <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
     </NavigationContainer>
