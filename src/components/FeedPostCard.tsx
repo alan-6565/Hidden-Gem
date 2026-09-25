@@ -96,12 +96,22 @@ export default function FeedPostCard({ spot, reviews, onPress }: Props) {
   };
 
   return (
-    <Pressable style={styles.card} onPress={handleCardPress}>
+    <View style={styles.card}>
       {spot.photos.length > 1 ? (
+        // Each photo gets its own Pressable, rather than one Pressable
+        // wrapping the whole swipeable FlatList — a scrollable view nested
+        // *inside* a tappable one races the tap and the swipe gesture
+        // against each other (sometimes a swipe still opens the card).
+        // Giving each item its own tap target, the way Instagram's actual
+        // carousel does it, avoids that race entirely.
         <FlatList
           data={spot.photos}
           keyExtractor={(uri, i) => `${i}-${uri}`}
-          renderItem={({ item }) => <Image source={{ uri: item }} style={styles.carouselImage} />}
+          renderItem={({ item }) => (
+            <Pressable onPress={handleCardPress}>
+              <Image source={{ uri: item }} style={styles.carouselImage} />
+            </Pressable>
+          )}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
@@ -109,7 +119,9 @@ export default function FeedPostCard({ spot, reviews, onPress }: Props) {
           scrollEventThrottle={32}
         />
       ) : (
-        <Image source={{ uri: spot.photos[0] }} style={styles.image} />
+        <Pressable onPress={handleCardPress}>
+          <Image source={{ uri: spot.photos[0] }} style={styles.image} />
+        </Pressable>
       )}
 
       {spot.photos.length > 1 && (
@@ -121,7 +133,7 @@ export default function FeedPostCard({ spot, reviews, onPress }: Props) {
       )}
 
       {areaLabel ? (
-        <View style={styles.areaPill}>
+        <View style={styles.areaPill} pointerEvents="none">
           <Ionicons name="location" size={12} color="#fff" />
           <Text style={styles.areaPillText} numberOfLines={1}>
             {areaLabel}
@@ -157,9 +169,9 @@ export default function FeedPostCard({ spot, reviews, onPress }: Props) {
         </Animated.View>
       )}
 
-      <View style={styles.scrim} />
+      <View style={styles.scrim} pointerEvents="none" />
 
-      <View style={styles.body}>
+      <Pressable style={styles.body} onPress={handleCardPress}>
         <Text style={styles.name} numberOfLines={1}>
           {spot.name}
         </Text>
@@ -195,8 +207,8 @@ export default function FeedPostCard({ spot, reviews, onPress }: Props) {
             <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={18} color="#fff" />
           </Pressable>
         </View>
-      </View>
-    </Pressable>
+      </Pressable>
+    </View>
   );
 }
 
