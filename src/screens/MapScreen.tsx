@@ -101,7 +101,7 @@ export default function MapScreen({ navigation, route }: Props) {
     if (userLocation.permissionDenied) {
       Alert.alert(
         'Location access needed',
-        'Turn on location access for Where\'s the Tea? in Settings to find spots near you.',
+        'Turn on location access for Kuppio in Settings to find spots near you.',
       );
       return;
     }

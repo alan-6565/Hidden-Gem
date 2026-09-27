@@ -1,6 +1,11 @@
+---
+title: Kuppio Terms of Service
+permalink: /terms
+---
+
 # Terms of Service
 
-**Effective date:** September 23, 2026
+**Effective date:** September 26, 2026
 
 These Terms of Service ("Terms") govern your use of the Kuppio mobile app ("Kuppio," "we," "us," or "our"). By creating an account or using the app, you agree to these Terms.
 
@@ -38,7 +43,7 @@ Kuppio uses your device's location, with your permission, to show nearby spots a
 
 ## 7. Termination
 
-You may delete your account at any time from Profile → Delete account. We may suspend or terminate your access if you violate these Terms.
+You may delete your account at any time from Settings → Delete account. We may suspend or terminate your access if you violate these Terms.
 
 ## 8. Disclaimers
 

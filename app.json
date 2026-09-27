@@ -1,15 +1,18 @@
 {
   "expo": {
     "name": "Kuppio",
-    "slug": "wheres-the-tea",
+    "slug": "kuppio",
     "scheme": "kuppio",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.wheres-the-tea"
+      "bundleIdentifier": "com.kuppio.app",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -25,7 +28,7 @@
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
       ],
-      "package": "com.anonymous.wheresthetea"
+      "package": "com.kuppio.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
