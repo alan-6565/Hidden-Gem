@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker, Region } from 'react-native-maps';
@@ -147,7 +147,12 @@ export default function MapScreen({ navigation, route }: Props) {
             {filtersActive && <View style={styles.filterActiveDot} />}
           </Pressable>
 
-          <View style={styles.chipRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.chipScroll}
+            contentContainerStyle={styles.chipRow}
+          >
             {CATEGORY_FILTERS.map((f) => (
               <FilterChip
                 key={f.key}
@@ -161,7 +166,7 @@ export default function MapScreen({ navigation, route }: Props) {
               active={openNowOnly}
               onPress={() => setOpenNowOnly((v) => !v)}
             />
-          </View>
+          </ScrollView>
         </View>
       )}
 
@@ -328,11 +333,15 @@ const makeStyles = (colors: ThemeColors) =>
     borderRadius: 4,
     backgroundColor: colors.primary,
   },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
+  // One scrolling row — with Android's larger default font size the chips
+  // wrapped onto a second line and pushed the map down.
+  chipScroll: {
     marginTop: spacing.sm,
+    marginHorizontal: -spacing.md,
+  },
+  chipRow: {
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
   },
   map: {
     flex: 1,
