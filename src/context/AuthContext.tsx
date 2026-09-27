@@ -25,7 +25,7 @@ interface AuthContextValue {
   // already creates a real session underneath.
   recoveryMode: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, username: string) => Promise<void>;
   signOut: () => Promise<void>;
   sendPasswordReset: (email: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
@@ -65,7 +65,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Every other deep link (there are none yet) is ignored.
     const handleUrl = (url: string) => {
       if (!url.includes('reset-password')) return;
-      supabase.auth.exchangeCodeForSession(url).catch((e) => {
+      // exchangeCodeForSession wants the bare code, not the whole link —
+      // passing the URL sent it as the code and every reset link failed.
+      const code = new URL(url).searchParams.get('code');
+      if (!code) return;
+      supabase.auth.exchangeCodeForSession(code).catch((e) => {
         console.warn('Could not open password reset link:', e?.message);
       });
     };
@@ -90,12 +94,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error) throw error;
   };
 
-  const signUp = async (email: string, password: string) => {
+  const signUp = async (email: string, password: string, username: string) => {
     if (MOCK_MODE) {
       setSession(mockSession);
       return;
     }
-    const { error } = await supabase.auth.signUp({ email, password });
+    // The profile trigger (migration 016) picks the username up from here.
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { username: username.trim().toLowerCase() } },
+    });
     if (error) throw error;
   };
 
