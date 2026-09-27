@@ -28,7 +28,7 @@ import { getDisplayRating, getRatingDistribution, getReviewCount } from '../util
 import { getStatusLabel, isOpenNow } from '../utils/hours';
 import { isPromoted } from '../utils/promotion';
 import { formatDate } from '../utils/date';
-import { CATEGORY_LABELS } from '../constants/categories';
+import { CATEGORY_COLORS, CATEGORY_ICONS, CATEGORY_LABELS } from '../constants/categories';
 import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../navigation/types';
@@ -212,16 +212,24 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         </View>
       )}
       <View style={styles.photoWrapper}>
-        <FlatList
-          data={spot.photos}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(uri, i) => `${uri}-${i}`}
-          renderItem={({ item }) => (
-            <Image source={{ uri: item }} style={{ width, height: 240 }} />
-          )}
-        />
+        {spot.photos.length === 0 ? (
+          // No photos yet (e.g. a new business) — without this the overlay
+          // buttons and the name collided with the status bar.
+          <View style={[styles.photoPlaceholder, { height: 240, backgroundColor: CATEGORY_COLORS[spot.category] }]}>
+            <Ionicons name={CATEGORY_ICONS[spot.category]} size={56} color="rgba(255,255,255,0.9)" />
+          </View>
+        ) : (
+          <FlatList
+            data={spot.photos}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(uri, i) => `${uri}-${i}`}
+            renderItem={({ item }) => (
+              <Image source={{ uri: item }} style={{ width, height: 240 }} />
+            )}
+          />
+        )}
         <View style={[styles.photoOverlayRow, { top: insets.top + spacing.xs }]}>
           <Pressable style={styles.photoOverlayButton} onPress={() => navigation.goBack()}>
             <Ionicons name="chevron-back" size={20} color="#fff" />
@@ -708,6 +716,10 @@ const makeStyles = (colors: ThemeColors) =>
   },
   photoWrapper: {
     position: 'relative',
+  },
+  photoPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   photoOverlayRow: {
     position: 'absolute',
