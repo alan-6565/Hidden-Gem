@@ -62,6 +62,12 @@
           "defaultChannel": "default"
         }
       ]
-    ]
+    ],
+    "owner": "kuppio",
+    "extra": {
+      "eas": {
+        "projectId": "3fe61565-0fa2-4fdc-9614-3233ece61644"
+      }
+    }
   }
 }
