@@ -1,6 +1,11 @@
+---
+title: Kuppio Privacy Policy
+permalink: /privacy
+---
+
 # Privacy Policy
 
-**Effective date:** September 23, 2026
+**Effective date:** September 26, 2026
 
 Kuppio ("Kuppio," "we," "us," or "our") operates the Kuppio mobile app. This Privacy Policy explains what information we collect, how we use it, and the choices you have. By using Kuppio, you agree to the practices described here.
 
@@ -16,6 +21,10 @@ Kuppio ("Kuppio," "we," "us," or "our") operates the Kuppio mobile app. This Pri
 
 **Camera and microphone.** If you record a video post, we access your camera and microphone only for that recording, with your permission.
 
+**Orders.** When you place an order ahead, we store the items, total, pickup time, and any note you add, and share them with that business so they can prepare it.
+
+**Push notifications.** If you allow notifications, we store a push token for your device so we can send you alerts about your orders, replies to your reviews, new followers, and business applications. The token is removed when you sign out or delete your account, and you can turn notifications off at any time in your device settings.
+
 **Usage and device information.** We may collect basic technical information (such as device type and app version) to diagnose problems and keep the app working correctly.
 
 ## How We Use Information
@@ -30,7 +39,7 @@ We do not sell your personal information. We do not use third-party advertising 
 
 ## How We Store and Share Information
 
-Your data is stored using Supabase, our backend infrastructure provider, which hosts our database and file storage. Supabase acts as a data processor on our behalf and does not use your data for its own purposes.
+Your data is stored using Supabase, our backend infrastructure provider, which hosts our database and file storage. Push notifications are delivered through Expo's push notification service and Apple/Google's notification systems, which receive only the notification's text and your device's push token. These providers act on our behalf and do not use your data for their own purposes.
 
 Reviews, posts, comments, and public business listings are visible to other users of the app, as is inherent to how those features work. Your government-ID and business-verification photos are never shown publicly — only to Kuppio's review team, for the sole purpose of confirming a business claim.
 
@@ -38,7 +47,7 @@ We may disclose information if required by law, or to protect the rights, safety
 
 ## Your Choices
 
-- **Delete your account.** You can permanently delete your account and associated personal data at any time from Profile → Delete account in the app. Businesses you manage are unclaimed (not deleted) so the listing can continue to exist for other users; your personal reviews, posts, comments, and saved items are removed.
+- **Delete your account.** You can permanently delete your account and associated personal data at any time from Settings → Delete account in the app. Businesses you manage are unclaimed (not deleted) so the listing can continue to exist for other users; your personal reviews, posts, comments, and saved items are removed.
 - **Block and report.** You can block another user to stop seeing their content, and report content or users that violate our guidelines.
 - **Location permission.** You can deny or revoke location access at any time in your device's Settings app.
 

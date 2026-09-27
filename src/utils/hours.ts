@@ -83,3 +83,60 @@ export function getStatusLabel(hours: OpenHours[], now: Date = new Date()): stri
   }
   return 'Hours unavailable';
 }
+
+// "15-20 min" → 20, "1 hr" → 60, "45" → 45. Takes the upper end of a range
+// so a pickup slot is never earlier than the business said it could be ready.
+export function parsePrepMinutes(prepTime: string | undefined): number | null {
+  if (!prepTime) return null;
+  const numbers = prepTime.match(/\d+(\.\d+)?/g);
+  if (!numbers) return null;
+  const value = Math.max(...numbers.map(Number));
+  return Math.round(/h(ou)?r/i.test(prepTime) ? value * 60 : value);
+}
+
+export interface PickupSlot {
+  // Stored as the order's pickup_time, e.g. "Today 5:15PM".
+  label: string;
+  // Minutes from midnight today; can run past 1440 for tomorrow.
+  minutes: number;
+}
+
+const SLOT_STEP = 15;
+const DEFAULT_PREP_MINUTES = 15;
+
+// Every 15-minute pickup time from (now + prep time) through closing, for
+// today and tomorrow, within the business's open hours. Overnight ranges are
+// handled the same way as isOpenNow. Empty if hours are missing or closed.
+export function getPickupSlots(
+  hours: OpenHours[],
+  prepTime: string | undefined,
+  now: Date = new Date(),
+): PickupSlot[] {
+  const minutesNow = now.getHours() * 60 + now.getMinutes();
+  const prep = parsePrepMinutes(prepTime) ?? DEFAULT_PREP_MINUTES;
+  const earliest = Math.ceil((minutesNow + prep) / SLOT_STEP) * SLOT_STEP;
+
+  // Open windows as [start, end) in minutes relative to midnight today —
+  // yesterday's overnight window, today's, and tomorrow's.
+  const windows: [number, number][] = [];
+  for (const offset of [-1, 0, 1]) {
+    const entry = getEntry(hours, DAY_NAMES[(now.getDay() + 7 + offset) % 7]);
+    if (!entry) continue;
+    const start = offset * 1440 + entry.open;
+    const end = offset * 1440 + (entry.close <= entry.open ? entry.close + 1440 : entry.close);
+    windows.push([start, end]);
+  }
+
+  const horizon = 2 * 1440; // through end of tomorrow
+  const slots = new Map<number, PickupSlot>(); // keyed by minutes: windows can overlap
+  for (const [start, end] of windows) {
+    let t = Math.max(Math.ceil(start / SLOT_STEP) * SLOT_STEP, earliest);
+    for (; t < end && t < horizon; t += SLOT_STEP) {
+      const dayOffset = Math.floor(t / 1440);
+      const dayLabel =
+        dayOffset === 0 ? 'Today' : dayOffset === 1 ? 'Tomorrow' : DAY_NAMES[(now.getDay() + dayOffset) % 7];
+      slots.set(t, { label: `${dayLabel} ${formatTime(t % 1440)}`, minutes: t });
+    }
+  }
+  return [...slots.values()].sort((a, b) => a.minutes - b.minutes);
+}

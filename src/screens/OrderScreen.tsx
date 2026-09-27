@@ -17,6 +17,9 @@ import { OrderItem } from '../types';
 import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../navigation/types';
+import { getPickupSlots, isOpenNow, parsePrepMinutes } from '../utils/hours';
+
+const ASAP = 'ASAP';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Order'>;
 
@@ -29,7 +32,7 @@ export default function OrderScreen({ route, navigation }: Props) {
   const spot = spots.find((s) => s.id === spotId);
 
   const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const [pickupTime, setPickupTime] = useState('');
+  const [pickupTime, setPickupTime] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -44,6 +47,22 @@ export default function OrderScreen({ route, navigation }: Props) {
         quantity: quantities[item.id],
       }));
   }, [spot, quantities]);
+
+  // Computed once per visit — a slot list that shifts under your finger
+  // while you're choosing is worse than one that's a minute stale.
+  const pickup = useMemo(() => {
+    if (!spot) return { openNow: false, prepMinutes: null, days: [] as { day: string; slots: string[] }[] };
+    const days: { day: string; slots: string[] }[] = [];
+    for (const slot of getPickupSlots(spot.hours, spot.prepTime)) {
+      const day = slot.label.slice(0, slot.label.lastIndexOf(' ')); // "Today" / "Tomorrow"
+      const group = days.find((d) => d.day === day);
+      if (group) group.slots.push(slot.label);
+      else days.push({ day, slots: [slot.label] });
+    }
+    return { openNow: isOpenNow(spot.hours), prepMinutes: parsePrepMinutes(spot.prepTime), days };
+  }, [spot]);
+  const hasPickupOptions = pickup.openNow || pickup.days.length > 0;
+  const selectedPickup = pickupTime ?? (pickup.openNow ? ASAP : pickup.days[0]?.slots[0] ?? null);
 
   const total = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
@@ -68,6 +87,10 @@ export default function OrderScreen({ route, navigation }: Props) {
       Alert.alert('Add something to order', 'Pick at least one item first.');
       return;
     }
+    if (!selectedPickup) {
+      Alert.alert('No pickup times available', `${spot.name} isn't open for pickup in the next two days.`);
+      return;
+    }
     setSubmitting(true);
     try {
       await placeOrder({
@@ -75,7 +98,7 @@ export default function OrderScreen({ route, navigation }: Props) {
         items: orderItems,
         total,
         note: note.trim() || undefined,
-        pickupTime: pickupTime.trim() || undefined,
+        pickupTime: selectedPickup,
       });
       Alert.alert(
         'Order placed!',
@@ -124,13 +147,40 @@ export default function OrderScreen({ route, navigation }: Props) {
         })}
 
         <Text style={styles.sectionLabel}>Pickup time</Text>
-        <TextInput
-          style={styles.textInput}
-          value={pickupTime}
-          onChangeText={setPickupTime}
-          placeholder="e.g. Today 5pm"
-          placeholderTextColor={colors.textMuted}
-        />
+        {!hasPickupOptions ? (
+          <Text style={styles.noSlotsText}>
+            {spot.name} isn't open for pickup in the next two days.
+          </Text>
+        ) : (
+          <>
+            {pickup.openNow && (
+              <View style={styles.slotRow}>
+                <SlotChip
+                  label={pickup.prepMinutes ? `ASAP · ~${pickup.prepMinutes} min` : 'ASAP'}
+                  selected={selectedPickup === ASAP}
+                  onPress={() => setPickupTime(ASAP)}
+                  styles={styles}
+                />
+              </View>
+            )}
+            {pickup.days.map(({ day, slots }) => (
+              <View key={day}>
+                <Text style={styles.slotDay}>{day}</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.slotRow}>
+                  {slots.map((slot) => (
+                    <SlotChip
+                      key={slot}
+                      label={slot.slice(slot.lastIndexOf(' ') + 1)}
+                      selected={selectedPickup === slot}
+                      onPress={() => setPickupTime(slot)}
+                      styles={styles}
+                    />
+                  ))}
+                </ScrollView>
+              </View>
+            ))}
+          </>
+        )}
 
         <Text style={styles.sectionLabel}>Notes for the seller (optional)</Text>
         <TextInput
@@ -149,14 +199,35 @@ export default function OrderScreen({ route, navigation }: Props) {
           <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
         </View>
         <Pressable
-          style={[styles.placeButton, (submitting || orderItems.length === 0) && styles.placeButtonDisabled]}
+          style={[
+            styles.placeButton,
+            (submitting || orderItems.length === 0 || !selectedPickup) && styles.placeButtonDisabled,
+          ]}
           onPress={handlePlaceOrder}
-          disabled={submitting || orderItems.length === 0}
+          disabled={submitting || orderItems.length === 0 || !selectedPickup}
         >
           <Text style={styles.placeButtonText}>{submitting ? 'Placing…' : 'Place order'}</Text>
         </Pressable>
       </View>
     </View>
+  );
+}
+
+function SlotChip({
+  label,
+  selected,
+  onPress,
+  styles,
+}: {
+  label: string;
+  selected: boolean;
+  onPress: () => void;
+  styles: ReturnType<typeof makeStyles>;
+}) {
+  return (
+    <Pressable style={[styles.slotChip, selected && styles.slotChipSelected]} onPress={onPress}>
+      <Text style={[styles.slotChipText, selected && styles.slotChipTextSelected]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -226,6 +297,41 @@ const makeStyles = (colors: ThemeColors) =>
     color: colors.text,
     marginTop: spacing.lg,
     marginBottom: spacing.sm,
+  },
+  noSlotsText: {
+    fontSize: 13,
+    color: colors.textMuted,
+  },
+  slotDay: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textMuted,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  slotRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  slotChip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    backgroundColor: colors.card,
+  },
+  slotChipSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  slotChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  slotChipTextSelected: {
+    color: '#fff',
   },
   textInput: {
     backgroundColor: colors.card,

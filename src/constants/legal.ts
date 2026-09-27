@@ -1,5 +1,4 @@
-// The real, published legal page — see legal/kuppio-legal.html and
-// legal/PRIVACY.md / legal/TERMS.md for the source text. #privacy / #terms
-// select the right tab and deep-link correctly on first load.
-export const PRIVACY_URL = 'https://claude.ai/artifact/U1kXZS4FsMw1n7hHU3TA1f#privacy';
-export const TERMS_URL = 'https://claude.ai/artifact/U1kXZS4FsMw1n7hHU3TA1f#terms';
+// Published with GitHub Pages from docs/ (privacy.md / terms.md are the
+// source text). Apple requires these to be reachable without signing in.
+export const PRIVACY_URL = 'https://alan-6565.github.io/Hidden-Gem/privacy';
+export const TERMS_URL = 'https://alan-6565.github.io/Hidden-Gem/terms';
