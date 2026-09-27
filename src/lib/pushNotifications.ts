@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
+import { isRunningInExpoGo } from 'expo';
 import Constants from 'expo-constants';
-import * as Notifications from 'expo-notifications';
+import type * as NotificationsModule from 'expo-notifications';
 import { supabase } from './supabase';
 import { MOCK_MODE } from './mockData';
 
@@ -8,9 +9,18 @@ import { MOCK_MODE } from './mockData';
 // supabase/migrations/015_push_notifications.sql) whenever a notification
 // row is created — this file only registers the device and shows them.
 
+// No push in the web build or in Expo Go — and Expo Go on Android throws
+// the moment expo-notifications is even imported (push was removed from it
+// in SDK 53), so the module is only loaded where push can actually work.
+const PUSH_SUPPORTED = Platform.OS !== 'web' && !isRunningInExpoGo();
+
+export const Notifications: typeof NotificationsModule | null = PUSH_SUPPORTED
+  ? require('expo-notifications')
+  : null;
+
 // Show pushes as a banner even while the app is open; the in-app bell badge
 // alone is easy to miss for a new order.
-Notifications.setNotificationHandler({
+Notifications?.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
     shouldShowList: true,
@@ -29,7 +39,7 @@ function easProjectId(): string | undefined {
 // saves this device's Expo push token to the signed-in account. Never
 // throws: a device without push is still a perfectly usable app.
 export async function registerForPushNotifications(): Promise<void> {
-  if (MOCK_MODE) return;
+  if (MOCK_MODE || !Notifications) return;
   try {
     const projectId = easProjectId();
     if (!projectId) {
@@ -76,6 +86,7 @@ export async function unregisterForPushNotifications(): Promise<void> {
 }
 
 export async function setAppBadgeCount(count: number): Promise<void> {
+  if (!Notifications) return;
   try {
     await Notifications.setBadgeCountAsync(count);
   } catch {
