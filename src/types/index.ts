@@ -51,6 +51,10 @@ export interface Spot {
   hiddenGemVotes: number;
   ownerUserId: string | null;
   promotedUntil: string | null;
+  /** Only meaningful once a spot has an owner — an unclaimed community
+   * listing is always public regardless of this flag. A newly created
+   * business starts as an unpublished draft until the owner publishes it. */
+  published: boolean;
 }
 
 export interface Review {

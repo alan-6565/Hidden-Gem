@@ -6,9 +6,10 @@ export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList> | undefined;
   SpotProfile: { spotId: string };
   AddReview: { spotId: string };
-  Compose: { isStory?: boolean } | undefined;
+  Compose: { isStory?: boolean; spotId?: string } | undefined;
   SearchFilters: undefined;
   BusinessEdit: { spotId: string };
+  BusinessHub: { spotId: string };
   CreateBusiness: { lat: number; lng: number };
   ClaimBusiness: { spotId: string };
   VerificationStatus: undefined;

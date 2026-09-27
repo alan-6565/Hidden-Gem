@@ -102,20 +102,6 @@ export default function SettingsScreen({ navigation }: Props) {
       <Text style={styles.sectionLabel}>ACTIVITY</Text>
       <View style={styles.card}>
         <Row icon="bag-handle-outline" label="Orders" onPress={() => navigation.navigate('Orders')} />
-        <View style={styles.divider} />
-        <Row
-          icon="storefront-outline"
-          label="Add a business"
-          onPress={() =>
-            navigation.navigate('Tabs', { screen: 'Map', params: { startAddingBusiness: true } })
-          }
-        />
-        <View style={styles.divider} />
-        <Row
-          icon="document-text-outline"
-          label="My business applications"
-          onPress={() => navigation.navigate('VerificationStatus')}
-        />
         {isAdmin && (
           <>
             <View style={styles.divider} />

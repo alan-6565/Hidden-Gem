@@ -10,6 +10,7 @@ import {
   fetchBlockedUserIds,
   fetchCollections,
   fetchComments,
+  fetchFollowedSpotIds,
   fetchFollowingIds,
   fetchLikedPostIds,
   fetchLikedReviewIds,
@@ -39,6 +40,7 @@ import {
   setPostLiked,
   setPostSaved,
   setReviewLiked,
+  setSpotFollowed,
   setSpotHyped,
   setSpotSaved,
   SpotEditInput,
@@ -64,6 +66,7 @@ interface DataContextValue {
   unreadNotificationCount: number;
   collections: Collection[];
   savedSpotIds: string[];
+  followedSpotIds: string[];
   likedSpotIds: string[];
   likedPostIds: string[];
   savedPostIds: string[];
@@ -78,6 +81,8 @@ interface DataContextValue {
   refreshNotifications: () => Promise<void>;
   isSaved: (spotId: string) => boolean;
   toggleSaved: (spotId: string) => Promise<void>;
+  isFollowingSpot: (spotId: string) => boolean;
+  toggleFollowSpot: (spotId: string) => Promise<void>;
   isSpotHyped: (spotId: string) => boolean;
   toggleSpotHype: (spotId: string) => Promise<void>;
   isReviewLiked: (reviewId: string) => boolean;
@@ -122,6 +127,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [savedSpotIds, setSavedSpotIds] = useState<string[]>([]);
+  const [followedSpotIds, setFollowedSpotIds] = useState<string[]>([]);
   const [likedSpotIds, setLikedSpotIds] = useState<string[]>([]);
   const [likedReviewIds, setLikedReviewIds] = useState<string[]>([]);
   const [likedPostIds, setLikedPostIds] = useState<string[]>([]);
@@ -155,6 +161,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         notificationsData,
         collectionsData,
         savedData,
+        followedSpotData,
         likedSpotData,
         likedReviewData,
         likedData,
@@ -172,6 +179,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         fetchNotifications(user.id),
         fetchCollections(user.id),
         fetchSavedSpotIds(user.id),
+        fetchFollowedSpotIds(user.id),
         fetchLikedSpotIds(user.id),
         fetchLikedReviewIds(user.id),
         fetchLikedPostIds(user.id),
@@ -189,6 +197,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       setNotifications(notificationsData);
       setCollections(collectionsData);
       setSavedSpotIds(savedData);
+      setFollowedSpotIds(followedSpotData);
       setLikedSpotIds(likedSpotData);
       setLikedReviewIds(likedReviewData);
       setLikedPostIds(likedData);
@@ -248,6 +257,30 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       }
     },
     [user, savedSpotIds],
+  );
+
+  const isFollowingSpot = useCallback(
+    (spotId: string) => followedSpotIds.includes(spotId),
+    [followedSpotIds],
+  );
+
+  const toggleFollowSpot = useCallback(
+    async (spotId: string) => {
+      if (!user) return;
+      const currentlyFollowing = followedSpotIds.includes(spotId);
+      setFollowedSpotIds((prev) =>
+        currentlyFollowing ? prev.filter((id) => id !== spotId) : [...prev, spotId],
+      );
+      try {
+        await setSpotFollowed(user.id, spotId, !currentlyFollowing);
+      } catch (e) {
+        setFollowedSpotIds((prev) =>
+          currentlyFollowing ? [...prev, spotId] : prev.filter((id) => id !== spotId),
+        );
+        throw e;
+      }
+    },
+    [user, followedSpotIds],
   );
 
   const isSpotHyped = useCallback((spotId: string) => likedSpotIds.includes(spotId), [likedSpotIds]);
@@ -625,6 +658,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         unreadNotificationCount,
         collections,
         savedSpotIds,
+        followedSpotIds,
         likedSpotIds,
         likedPostIds,
         savedPostIds,
@@ -639,6 +673,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         refreshNotifications,
         isSaved,
         toggleSaved,
+        isFollowingSpot,
+        toggleFollowSpot,
         isSpotHyped,
         toggleSpotHype,
         isReviewLiked,

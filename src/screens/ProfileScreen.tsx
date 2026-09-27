@@ -7,6 +7,7 @@ import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { fetchFollowerCount } from '../lib/api';
 import Avatar from '../components/Avatar';
+import SwitchProfileSheet from '../components/SwitchProfileSheet';
 import RatingStars from '../components/RatingStars';
 import { formatDate } from '../utils/date';
 import { radius, spacing, ThemeColors } from '../theme';
@@ -27,6 +28,7 @@ export default function ProfileScreen({ navigation }: Props) {
   const { user } = useAuth();
   const [tab, setTab] = useState<ProfileTab>('posts');
   const [followerCount, setFollowerCount] = useState(0);
+  const [switcherVisible, setSwitcherVisible] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -58,11 +60,16 @@ export default function ProfileScreen({ navigation }: Props) {
         <Pressable hitSlop={8} onPress={() => navigation.navigate('Saved')}>
           <Ionicons name="bookmark-outline" size={22} color={colors.text} />
         </Pressable>
-        <Text style={styles.handle}>@{displayName}</Text>
+        <Pressable style={styles.handleButton} onPress={() => setSwitcherVisible(true)}>
+          <Text style={styles.handle}>@{displayName}</Text>
+          <Ionicons name="chevron-down" size={14} color={colors.text} />
+        </Pressable>
         <Pressable hitSlop={8} onPress={() => navigation.navigate('Settings')}>
           <Ionicons name="settings-outline" size={22} color={colors.text} />
         </Pressable>
       </View>
+
+      <SwitchProfileSheet visible={switcherVisible} onClose={() => setSwitcherVisible(false)} />
 
       <FlatList<Post | Review>
         data={tab === 'posts' ? myPosts : tab === 'reels' ? myReels : myReviews}
@@ -179,6 +186,11 @@ const makeStyles = (colors: ThemeColors) =>
       justifyContent: 'space-between',
       paddingHorizontal: spacing.md,
       paddingBottom: spacing.sm,
+    },
+    handleButton: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 3,
     },
     handle: {
       fontSize: 15,

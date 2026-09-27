@@ -45,10 +45,12 @@ export default function ComposeScreen({ navigation, route }: Props) {
   const { spots, addPost } = useAppData();
   const { user } = useAuth();
   const isStory = route.params?.isStory ?? false;
+  const initialSpotId = route.params?.spotId ?? null;
+  const initialSpot = spots.find((s) => s.id === initialSpotId) ?? null;
 
   const [media, setMedia] = useState<PickedMedia | null>(null);
-  const [caption, setCaption] = useState('');
-  const [taggedSpotId, setTaggedSpotId] = useState<string | null>(null);
+  const [caption, setCaption] = useState(initialSpot ? `@${initialSpot.name} ` : '');
+  const [taggedSpotId, setTaggedSpotId] = useState<string | null>(initialSpotId);
   const [submitting, setSubmitting] = useState(false);
 
   const mentionQuery = useMemo(() => {

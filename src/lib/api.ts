@@ -46,6 +46,7 @@ function mapSpot(row: any): Spot {
     hiddenGemVotes: row.hidden_gem_votes,
     ownerUserId: row.owner_user_id ?? null,
     promotedUntil: row.promoted_until ?? null,
+    published: row.published ?? true,
   };
 }
 
@@ -208,6 +209,49 @@ export async function setSpotSaved(userId: string, spotId: string, saved: boolea
       .eq('spot_id', spotId);
     if (error) throw error;
   }
+}
+
+export async function fetchFollowedSpotIds(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('business_follows')
+    .select('spot_id')
+    .eq('user_id', userId);
+  if (error) throw error;
+  return (data ?? []).map((row) => row.spot_id);
+}
+
+export async function setSpotFollowed(userId: string, spotId: string, followed: boolean): Promise<void> {
+  if (followed) {
+    const { error } = await supabase
+      .from('business_follows')
+      .upsert({ user_id: userId, spot_id: spotId });
+    if (error) throw error;
+  } else {
+    const { error } = await supabase
+      .from('business_follows')
+      .delete()
+      .eq('user_id', userId)
+      .eq('spot_id', spotId);
+    if (error) throw error;
+  }
+}
+
+export async function fetchSpotFollowerCount(spotId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('business_follows')
+    .select('*', { count: 'exact', head: true })
+    .eq('spot_id', spotId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+export async function fetchSpotSaveCount(spotId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from('saved_spots')
+    .select('*', { count: 'exact', head: true })
+    .eq('spot_id', spotId);
+  if (error) throw error;
+  return count ?? 0;
 }
 
 export async function fetchLikedSpotIds(userId: string): Promise<string[]> {
@@ -642,6 +686,7 @@ export interface SpotEditInput {
   tiktokUrl?: string | null;
   acceptingOrders?: boolean;
   prepTime?: string | null;
+  published?: boolean;
 }
 
 export async function updateSpot(spotId: string, input: SpotEditInput): Promise<Spot> {
@@ -662,6 +707,7 @@ export async function updateSpot(spotId: string, input: SpotEditInput): Promise<
   if (input.tiktokUrl !== undefined) payload.tiktok_url = input.tiktokUrl;
   if (input.acceptingOrders !== undefined) payload.accepting_orders = input.acceptingOrders;
   if (input.prepTime !== undefined) payload.prep_time = input.prepTime;
+  if (input.published !== undefined) payload.published = input.published;
 
   const { data, error } = await supabase
     .from('spots')
