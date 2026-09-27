@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { NavigationContainerRefWithCurrent } from '@react-navigation/native';
 import { useAppData } from '../context/DataContext';
@@ -13,19 +14,23 @@ type NavRef = NavigationContainerRefWithCurrent<RootStackParamList>;
 // right screen when a push is tapped (including the one that launched the
 // app), refreshes the in-app list when a push arrives while it's open, and
 // keeps the home-screen badge in sync with unread notifications.
+// Push doesn't exist in the web preview build.
+const PUSH_SUPPORTED = Platform.OS !== 'web';
+
 export function usePushNotifications(navigationRef: NavRef) {
   const { refreshNotifications, markNotificationRead, unreadNotificationCount } = useAppData();
   const handledResponseIds = useRef(new Set<string>());
 
   useEffect(() => {
-    registerForPushNotifications();
+    if (PUSH_SUPPORTED) registerForPushNotifications();
   }, []);
 
   useEffect(() => {
-    setAppBadgeCount(unreadNotificationCount);
+    if (PUSH_SUPPORTED) setAppBadgeCount(unreadNotificationCount);
   }, [unreadNotificationCount]);
 
   useEffect(() => {
+    if (!PUSH_SUPPORTED) return;
     const open = (response: Notifications.NotificationResponse) => {
       const id = response.notification.request.identifier;
       if (handledResponseIds.current.has(id)) return;

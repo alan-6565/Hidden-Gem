@@ -14,8 +14,13 @@
 // this file only fixes how the key would be wired in, not the key itself.
 const appJson = require('./app.json');
 
+// Sign in with Apple needs an entitlement the App ID must also have, so it's
+// only added once the feature is switched on (see src/lib/socialAuth.ts).
+const appleSignIn = process.env.EXPO_PUBLIC_APPLE_SIGN_IN === 'true';
+
 module.exports = () => ({
   ...appJson.expo,
+  plugins: [...appJson.expo.plugins, ...(appleSignIn ? ['expo-apple-authentication'] : [])],
   android: {
     ...appJson.expo.android,
     config: {

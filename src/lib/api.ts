@@ -1030,6 +1030,12 @@ function mapProfile(row: any): Profile {
   };
 }
 
+export async function isUsernameAvailable(username: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc('is_username_available', { username_param: username });
+  if (error) throw error;
+  return data === true;
+}
+
 export async function fetchMyProfile(): Promise<Profile | null> {
   const { data, error } = await supabase.rpc('ensure_my_profile');
   if (error) {
