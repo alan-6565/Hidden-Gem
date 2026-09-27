@@ -59,6 +59,8 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
     toggleReviewLike,
     deleteReview,
     replyToReview,
+    isAdmin,
+    removeSpot,
   } = useAppData();
   const { user } = useAuth();
   const userLocation = useUserLocation();
@@ -96,6 +98,28 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
       setSubmittingReply(false);
     }
   };
+  const confirmAdminRemove = () => {
+    Alert.alert(
+      'Remove this listing?',
+      'It will disappear from the app for everyone, including its owner. It can be restored from the database.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await removeSpot(spotId);
+              navigation.goBack();
+            } catch (e: any) {
+              Alert.alert("Couldn't remove listing", e?.message ?? 'Please try again.');
+            }
+          },
+        },
+      ],
+    );
+  };
+
   const pendingVerification = myVerifications.find(
     (v) => v.status === 'pending' && v.existingSpotId === spotId,
   );
@@ -206,6 +230,21 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             <Pressable style={styles.photoOverlayButton} onPress={handleShare}>
               <Ionicons name="share-social-outline" size={18} color="#fff" />
             </Pressable>
+            {!isSpotOwner && (
+              <View style={styles.photoOverlayButton}>
+                <ReportMenuButton
+                  targetType="spot"
+                  targetId={spot.id}
+                  color="#fff"
+                  size={18}
+                  extraActions={
+                    isAdmin
+                      ? [{ text: 'Remove listing (admin)', style: 'destructive', onPress: confirmAdminRemove }]
+                      : undefined
+                  }
+                />
+              </View>
+            )}
           </View>
         </View>
       </View>

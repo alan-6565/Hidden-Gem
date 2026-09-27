@@ -7,6 +7,14 @@ import { ReportTargetType } from '../types';
 import { useTheme } from '../context/ThemeContext';
 
 const REPORT_REASONS = ['Spam', 'Inappropriate', 'Harassment', 'Other'];
+// A listing gets reported for different reasons than a post or comment.
+const SPOT_REPORT_REASONS = ['Permanently closed', 'Fake or scam', 'Duplicate', 'Wrong info', 'Other'];
+
+interface ExtraAction {
+  text: string;
+  style?: 'default' | 'destructive';
+  onPress: () => void;
+}
 
 interface Props {
   targetType: ReportTargetType;
@@ -16,6 +24,8 @@ interface Props {
   color?: string;
   size?: number;
   onDelete?: () => Promise<void>;
+  // Shown above Cancel, e.g. admin-only actions.
+  extraActions?: ExtraAction[];
 }
 
 export default function ReportMenuButton({
@@ -26,6 +36,7 @@ export default function ReportMenuButton({
   color,
   size,
   onDelete,
+  extraActions,
 }: Props) {
   const { colors } = useTheme();
   const { user } = useAuth();
@@ -48,7 +59,7 @@ export default function ReportMenuButton({
       'Report',
       'Why are you reporting this?',
       [
-        ...REPORT_REASONS.map((reason) => ({ text: reason, onPress: () => doReport(reason) })),
+        ...(targetType === 'spot' ? SPOT_REPORT_REASONS : REPORT_REASONS).map((reason) => ({ text: reason, onPress: () => doReport(reason) })),
         { text: 'Cancel', style: 'cancel' as const },
       ],
     );
@@ -110,6 +121,7 @@ export default function ReportMenuButton({
         });
       }
     }
+    if (extraActions) buttons.push(...extraActions);
     buttons.push({ text: 'Cancel', style: 'cancel' });
     Alert.alert('More options', undefined, buttons);
   };

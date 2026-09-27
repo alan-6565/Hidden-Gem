@@ -1,10 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { checkIsAdmin } from '../lib/api';
 import { PRIVACY_URL, TERMS_URL } from '../constants/legal';
 import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
@@ -25,15 +24,9 @@ interface RowProps {
 export default function SettingsScreen({ navigation }: Props) {
   const { colors, preference, setPreference } = useTheme();
   const styles = useMemo(() => makeStyles(colors), [colors]);
-  const { deleteAccount } = useAppData();
-  const { user, signOut } = useAuth();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { deleteAccount, isAdmin } = useAppData();
+  const { signOut } = useAuth();
   const [deleting, setDeleting] = useState(false);
-
-  useEffect(() => {
-    if (!user) return;
-    checkIsAdmin(user.id).then(setIsAdmin).catch(() => setIsAdmin(false));
-  }, [user]);
 
   const Row = ({ icon, label, onPress, destructive, disabled }: RowProps) => (
     <Pressable style={styles.row} onPress={onPress} disabled={disabled}>
@@ -109,6 +102,12 @@ export default function SettingsScreen({ navigation }: Props) {
               icon="shield-checkmark-outline"
               label="Review applications"
               onPress={() => navigation.navigate('AdminReview')}
+            />
+            <View style={styles.divider} />
+            <Row
+              icon="flag-outline"
+              label="Reports"
+              onPress={() => navigation.navigate('AdminReports')}
             />
           </>
         )}
