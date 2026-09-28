@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import type { MenuSection, StoredStorefront } from '../types/storefront';
 import {
   AppNotification,
   BusinessVerification,
@@ -51,6 +52,9 @@ function mapSpot(row: any): Spot {
     ownerUserId: row.owner_user_id ?? null,
     promotedUntil: row.promoted_until ?? null,
     published: row.published ?? true,
+    storefront: row.storefront ?? null,
+    storefrontDraft: row.storefront_draft ?? null,
+    menuSections: row.menu_sections ?? [],
   };
 }
 
@@ -697,6 +701,9 @@ export interface SpotEditInput {
   acceptingOrders?: boolean;
   prepTime?: string | null;
   published?: boolean;
+  storefront?: StoredStorefront | null;
+  storefrontDraft?: StoredStorefront | null;
+  menuSections?: MenuSection[];
 }
 
 export async function updateSpot(spotId: string, input: SpotEditInput): Promise<Spot> {
@@ -718,6 +725,9 @@ export async function updateSpot(spotId: string, input: SpotEditInput): Promise<
   if (input.acceptingOrders !== undefined) payload.accepting_orders = input.acceptingOrders;
   if (input.prepTime !== undefined) payload.prep_time = input.prepTime;
   if (input.published !== undefined) payload.published = input.published;
+  if (input.storefront !== undefined) payload.storefront = input.storefront;
+  if (input.storefrontDraft !== undefined) payload.storefront_draft = input.storefrontDraft;
+  if (input.menuSections !== undefined) payload.menu_sections = input.menuSections;
 
   const { data, error } = await supabase
     .from('spots')

@@ -166,7 +166,7 @@ export default function RootNavigator() {
         component={AdminReportsScreen}
         options={{ title: 'Reports' }}
       />
-      <Stack.Screen name="Order" component={OrderScreen} options={{ title: 'Order Ahead' }} />
+      <Stack.Screen name="Order" component={OrderScreen} options={{ title: 'Checkout' }} />
       <Stack.Screen name="Orders" component={OrdersScreen} options={{ title: 'Orders' }} />
       <Stack.Screen
         name="Notifications"

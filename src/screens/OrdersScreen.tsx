@@ -152,9 +152,12 @@ export default function OrdersScreen({ navigation, route }: Props) {
                 <Text style={styles.statusPillText}>{STATUS_LABELS[item.status]}</Text>
               </View>
 
-              {item.items.map((line) => (
-                <Text key={line.menuItemId} style={styles.itemLine}>
+              {item.items.map((line, i) => (
+                // Same item twice with different options is two lines, so
+                // the id alone isn't a unique key.
+                <Text key={`${line.menuItemId}-${i}`} style={styles.itemLine}>
                   {line.quantity}× {line.name}
+                  {line.options?.length ? ` (${line.options.map((o) => o.name ?? o.choiceId).join(', ')})` : ''}
                 </Text>
               ))}
               <Text style={styles.total}>Total: ${item.total.toFixed(2)}</Text>

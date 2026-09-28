@@ -18,35 +18,46 @@ import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../navigation/types';
 import { getPickupSlots, isOpenNow, parsePrepMinutes } from '../utils/hours';
+import { cartTotals, useCart } from '../context/CartContext';
+import { imageSource } from '../utils/storefrontImages';
+import { resolveStorefront, storefrontPalette } from '../utils/storefrontTheme';
 
 const ASAP = 'ASAP';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Order'>;
 
 export default function OrderScreen({ route, navigation }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors: appColors } = useTheme();
   const { spotId } = route.params;
   const insets = useSafeAreaInsets();
   const { spots, placeOrder } = useAppData();
   const spot = spots.find((s) => s.id === spotId);
+  // Checkout keeps the shop's colors, so it still feels like their store.
+  const colors = useMemo(
+    () => storefrontPalette(resolveStorefront(spot?.storefront), appColors, !!spot?.storefront),
+    [spot?.storefront, appColors],
+  );
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { linesFor, setQuantity, clearCart } = useCart();
+  const lines = linesFor(spotId);
 
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [pickupTime, setPickupTime] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const orderItems: OrderItem[] = useMemo(() => {
-    if (!spot) return [];
-    return spot.menu
-      .filter((item) => (quantities[item.id] ?? 0) > 0)
-      .map((item) => ({
-        menuItemId: item.id,
-        name: item.name,
-        price: item.price,
-        quantity: quantities[item.id],
-      }));
-  }, [spot, quantities]);
+  // The server re-prices every line from the menu; these prices are what
+  // the customer was shown.
+  const orderItems: OrderItem[] = useMemo(
+    () =>
+      lines.map((l) => ({
+        menuItemId: l.menuItemId,
+        name: l.name,
+        price: l.unitPrice,
+        quantity: l.quantity,
+        options: l.options,
+      })),
+    [lines],
+  );
 
   // Computed once per visit — a slot list that shifts under your finger
   // while you're choosing is worse than one that's a minute stale.
@@ -64,7 +75,7 @@ export default function OrderScreen({ route, navigation }: Props) {
   const hasPickupOptions = pickup.openNow || pickup.days.length > 0;
   const selectedPickup = pickupTime ?? (pickup.openNow ? ASAP : pickup.days[0]?.slots[0] ?? null);
 
-  const total = orderItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const { total } = cartTotals(lines);
 
   if (!spot) {
     return (
@@ -73,14 +84,6 @@ export default function OrderScreen({ route, navigation }: Props) {
       </View>
     );
   }
-
-  const increment = (itemId: string) => {
-    setQuantities((prev) => ({ ...prev, [itemId]: (prev[itemId] ?? 0) + 1 }));
-  };
-
-  const decrement = (itemId: string) => {
-    setQuantities((prev) => ({ ...prev, [itemId]: Math.max(0, (prev[itemId] ?? 0) - 1) }));
-  };
 
   const handlePlaceOrder = async () => {
     if (orderItems.length === 0) {
@@ -100,6 +103,7 @@ export default function OrderScreen({ route, navigation }: Props) {
         note: note.trim() || undefined,
         pickupTime: selectedPickup,
       });
+      clearCart(spotId);
       Alert.alert(
         'Order placed!',
         `Your order has been sent to ${spot.name}. Pay in person when you pick it up.`,
@@ -115,36 +119,49 @@ export default function OrderScreen({ route, navigation }: Props) {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Order from {spot.name}</Text>
+        <Text style={styles.title}>Your order from {spot.name}</Text>
         <Text style={styles.hint}>
           Pay at pickup — this app doesn't collect payment yet, it just sends your order ahead.
         </Text>
 
-        {spot.menu.map((item) => {
-          const qty = quantities[item.id] ?? 0;
-          return (
-            <View key={item.id} style={styles.menuRow}>
-              {item.photo && <Image source={{ uri: item.photo }} style={styles.menuPhoto} />}
-              <View style={styles.menuInfo}>
-                <Text style={styles.menuName}>{item.name}</Text>
-                <Text style={styles.menuPrice}>${item.price.toFixed(2)}</Text>
+        {lines.length === 0 ? (
+          <View style={styles.emptyCart}>
+            <Ionicons name="bag-handle-outline" size={28} color={colors.textMuted} />
+            <Text style={styles.hint}>Your cart is empty.</Text>
+            <Pressable onPress={() => navigation.goBack()}>
+              <Text style={styles.backToMenu}>Back to the menu</Text>
+            </Pressable>
+          </View>
+        ) : (
+          lines.map((line) => {
+            const photo = imageSource(line.photo);
+            return (
+              <View key={line.key} style={styles.menuRow}>
+                {photo && <Image source={photo} style={styles.menuPhoto} />}
+                <View style={styles.menuInfo}>
+                  <Text style={styles.menuName}>{line.name}</Text>
+                  {line.optionLabels.length > 0 && (
+                    <Text style={styles.menuOptions}>{line.optionLabels.join(' · ')}</Text>
+                  )}
+                  <Text style={styles.menuPrice}>${(line.unitPrice * line.quantity).toFixed(2)}</Text>
+                </View>
+                <View style={styles.stepper}>
+                  <Pressable hitSlop={8} onPress={() => setQuantity(spotId, line.key, line.quantity - 1)}>
+                    <Ionicons
+                      name={line.quantity === 1 ? 'trash-outline' : 'remove-circle-outline'}
+                      size={22}
+                      color={colors.text}
+                    />
+                  </Pressable>
+                  <Text style={styles.qtyText}>{line.quantity}</Text>
+                  <Pressable hitSlop={8} onPress={() => setQuantity(spotId, line.key, line.quantity + 1)}>
+                    <Ionicons name="add-circle" size={24} color={colors.primary} />
+                  </Pressable>
+                </View>
               </View>
-              <View style={styles.stepper}>
-                <Pressable hitSlop={8} onPress={() => decrement(item.id)} disabled={qty === 0}>
-                  <Ionicons
-                    name="remove-circle-outline"
-                    size={24}
-                    color={qty === 0 ? colors.border : colors.text}
-                  />
-                </Pressable>
-                <Text style={styles.qtyText}>{qty}</Text>
-                <Pressable hitSlop={8} onPress={() => increment(item.id)}>
-                  <Ionicons name="add-circle" size={24} color={colors.primary} />
-                </Pressable>
-              </View>
-            </View>
-          );
-        })}
+            );
+          })
+        )}
 
         <Text style={styles.sectionLabel}>Pickup time</Text>
         {!hasPickupOptions ? (
@@ -273,6 +290,21 @@ const makeStyles = (colors: ThemeColors) =>
     fontSize: 14,
     fontWeight: '700',
     color: colors.text,
+  },
+  menuOptions: {
+    fontSize: 12,
+    color: colors.textMuted,
+    marginTop: 2,
+  },
+  emptyCart: {
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.lg,
+  },
+  backToMenu: {
+    color: colors.primary,
+    fontWeight: '700',
+    fontSize: 14,
   },
   menuPrice: {
     fontSize: 12,

@@ -6,6 +6,7 @@ import { useAppData } from '../context/DataContext';
 import { distanceMiles, formatDistance } from '../utils/geo';
 import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
+import { imageSource } from '../utils/storefrontImages';
 
 interface Props {
   spot: Spot;
@@ -23,7 +24,7 @@ export default function SpotDropCard({ spot, userCoords, onPress }: Props) {
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
-      <Image source={{ uri: spot.photos[0] }} style={styles.image} />
+      <Image source={imageSource(spot.photos[0]) ?? undefined} style={styles.image} />
       <Pressable
         style={styles.saveButton}
         hitSlop={8}

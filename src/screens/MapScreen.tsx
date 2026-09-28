@@ -17,6 +17,7 @@ import { useUserLocation } from '../utils/useUserLocation';
 import { useSearchFilters } from '../context/SearchFilterContext';
 import { applySearchFilters, hasActiveFilters } from '../utils/searchFilters';
 import { isPromoted } from '../utils/promotion';
+import { imageSource } from '../utils/storefrontImages';
 
 type Props = TabScreenProps<'Map'>;
 
@@ -277,7 +278,7 @@ export default function MapScreen({ navigation, route }: Props) {
                   );
                 }}
               >
-                <Image source={{ uri: item.photos[0] }} style={styles.trendingThumbImage} />
+                <Image source={imageSource(item.photos[0]) ?? undefined} style={styles.trendingThumbImage} />
               </Pressable>
             )}
           />

@@ -17,6 +17,7 @@ import { CATEGORY_LABELS } from '../constants/categories';
 import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../navigation/types';
+import { imageSource } from '../utils/storefrontImages';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Saved'>;
 
@@ -117,7 +118,7 @@ export default function SavedScreen({ navigation }: Props) {
               style={styles.placeRow}
               onPress={() => navigation.navigate('SpotProfile', { spotId: spot.id })}
             >
-              <Image source={{ uri: spot.photos[0] }} style={styles.placeThumb} />
+              <Image source={imageSource(spot.photos[0]) ?? undefined} style={styles.placeThumb} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.placeName} numberOfLines={1}>
                   {spot.name}

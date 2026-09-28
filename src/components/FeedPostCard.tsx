@@ -17,6 +17,7 @@ import Avatar from './Avatar';
 import { useAppData } from '../context/DataContext';
 import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
+import { imageSource } from '../utils/storefrontImages';
 
 interface Props {
   spot: Spot;
@@ -109,7 +110,7 @@ export default function FeedPostCard({ spot, reviews, onPress }: Props) {
           keyExtractor={(uri, i) => `${i}-${uri}`}
           renderItem={({ item }) => (
             <Pressable onPress={handleCardPress}>
-              <Image source={{ uri: item }} style={styles.carouselImage} />
+              <Image source={imageSource(item) ?? undefined} style={styles.carouselImage} />
             </Pressable>
           )}
           horizontal
@@ -120,7 +121,7 @@ export default function FeedPostCard({ spot, reviews, onPress }: Props) {
         />
       ) : (
         <Pressable onPress={handleCardPress}>
-          <Image source={{ uri: spot.photos[0] }} style={styles.image} />
+          <Image source={imageSource(spot.photos[0]) ?? undefined} style={styles.image} />
         </Pressable>
       )}
 

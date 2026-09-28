@@ -21,6 +21,7 @@ import CameraCapture from '../components/CameraCapture';
 import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../navigation/types';
+import { imageSource } from '../utils/storefrontImages';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Compose'>;
 
@@ -149,7 +150,7 @@ export default function ComposeScreen({ navigation, route }: Props) {
                 style={styles.suggestionRow}
                 onPress={() => handleSelectMention(s.id, s.name)}
               >
-                <Image source={{ uri: s.photos[0] }} style={styles.suggestionThumb} />
+                <Image source={imageSource(s.photos[0]) ?? undefined} style={styles.suggestionThumb} />
                 <Text style={styles.suggestionText}>{s.name}</Text>
               </Pressable>
             ))}

@@ -22,6 +22,7 @@ import { isPromoted } from '../utils/promotion';
 import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../navigation/types';
+import { imageSource } from '../utils/storefrontImages';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BusinessEdit'>;
 
@@ -439,7 +440,7 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
               disabled={uploadingItemPhotoId === item.id}
             >
               {item.photo ? (
-                <Image source={{ uri: item.photo }} style={styles.menuItemPhoto} />
+                <Image source={imageSource(item.photo) ?? undefined} style={styles.menuItemPhoto} />
               ) : (
                 <View style={styles.menuItemPhotoPlaceholder}>
                   <Ionicons

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -24,6 +24,13 @@ import RatingStars from '../components/RatingStars';
 import Avatar from '../components/Avatar';
 import KuppioScoreBadge from '../components/KuppioScoreBadge';
 import ReportMenuButton from '../components/ReportMenuButton';
+import StorefrontBackground from '../components/storefront/StorefrontBackground';
+import StorefrontHero, { HeroInfo } from '../components/storefront/StorefrontHero';
+import ItemSheet from '../components/storefront/ItemSheet';
+import { CartBar, FavoritesRow, MenuView } from '../components/storefront/StorefrontMenu';
+import { useCart } from '../context/CartContext';
+import { MenuItem } from '../types';
+import { headingFont, isSoldOut, resolveStorefront, storefrontPalette } from '../utils/storefrontTheme';
 import { getDisplayRating, getRatingDistribution, getReviewCount } from '../utils/rating';
 import { getStatusLabel, isOpenNow } from '../utils/hours';
 import { isPromoted } from '../utils/promotion';
@@ -36,13 +43,14 @@ import { distanceMiles, formatDistance } from '../utils/geo';
 import { useUserLocation } from '../utils/useUserLocation';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SpotProfile'>;
-type SpotTab = 'home' | 'reels' | 'menu' | 'reviews';
+type SpotTab = 'home' | 'menu' | 'reels' | 'reviews' | 'about';
+
+const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 const GRID_GAP = 2;
 
 export default function SpotProfileScreen({ route, navigation }: Props) {
-  const { colors } = useTheme();
-  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { colors: appColors } = useTheme();
   const { spotId } = route.params;
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -65,6 +73,20 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
   const { user } = useAuth();
   const userLocation = useUserLocation();
   const spot = spots.find((s) => s.id === spotId);
+  // The whole page draws from `colors`, so a custom storefront re-themes
+  // everything — reviews and tabs included — just by swapping the palette.
+  const theme = useMemo(() => resolveStorefront(spot?.storefront), [spot?.storefront]);
+  const colors = useMemo(
+    () => storefrontPalette(theme, appColors, !!spot?.storefront),
+    [theme, appColors, spot?.storefront],
+  );
+  const styles = useMemo(() => makeStyles(colors), [colors]);
+  const { linesFor, addToCart } = useCart();
+  const cartLines = linesFor(spotId);
+  const [openItem, setOpenItem] = useState<MenuItem | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const tabsY = useRef(0);
+  const [contentHeight, setContentHeight] = useState(0);
   const saved = isSaved(spotId);
   const following = isFollowingSpot(spotId);
   const isSpotOwner = !!spot && !!user && spot.ownerUserId === user.id;
@@ -194,276 +216,229 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
     }
   };
 
-  const TABS: { key: SpotTab; icon: keyof typeof Ionicons.glyphMap }[] = [
-    { key: 'home', icon: 'home-outline' },
-    { key: 'reels', icon: 'play-circle-outline' },
-    { key: 'menu', icon: 'restaurant-outline' },
-    { key: 'reviews', icon: 'star-outline' },
+  const TABS: { key: SpotTab; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+    { key: 'home', label: 'Home', icon: 'home-outline' },
+    { key: 'menu', label: 'Menu', icon: 'restaurant-outline' },
+    { key: 'reels', label: 'Reels', icon: 'play-circle-outline' },
+    { key: 'reviews', label: 'Reviews', icon: 'star-outline' },
+    { key: 'about', label: 'About', icon: 'information-circle-outline' },
   ];
 
+  const canOrder = !isSpotOwner && spot.acceptingOrders;
+  const heroInfo: HeroInfo = {
+    rating,
+    reviewCount,
+    open,
+    statusLabel: getStatusLabel(spot.hours),
+    cityLabel: cityOf(spot.isHomeBased ? spot.serviceArea : spot.address),
+    distanceLabel: distance,
+    prepTime: spot.prepTime,
+    following,
+    isOwner: isSpotOwner,
+    canOrder,
+  };
+
+  const favorites = (popularMenuItems.length > 0 ? popularMenuItems : spot.menu).slice(0, 8);
+  const heading = headingFont(theme);
+
+  const goToTab = (next: SpotTab) => {
+    setTab(next);
+    scrollRef.current?.scrollTo({ y: Math.max(0, tabsY.current - insets.top - 60), animated: true });
+  };
+
+  const quickAdd = (item: MenuItem) => {
+    if (!canOrder || isSoldOut(item)) return;
+    addToCart(spotId, item, [], 1);
+  };
+
+  const tabBar = (
+    <View
+      style={[styles.tabsRow, theme.hero.style !== 'cover' && styles.tabsCard]}
+      onLayout={(e) => {
+        tabsY.current = e.nativeEvent.layout.y;
+      }}
+    >
+      {TABS.map(({ key, label, icon }) => (
+        <Pressable key={key} style={styles.tab} onPress={() => setTab(key)}>
+          <Ionicons name={icon} size={19} color={tab === key ? colors.primary : colors.textMuted} />
+          <Text style={[styles.tabLabel, { color: tab === key ? colors.primary : colors.textMuted }]}>{label}</Text>
+          {tab === key && <View style={styles.tabUnderline} />}
+        </Pressable>
+      ))}
+    </View>
+  );
+
+  const background = theme.background;
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {isSpotOwner && !spot.published && (
-        <View style={[styles.draftBanner, { paddingTop: insets.top + spacing.sm }]}>
-          <Ionicons name="eye-off-outline" size={14} color="#fff" />
-          <Text style={styles.draftBannerText}>
-            Draft preview — only you can see this page. Publish it from Business Hub.
-          </Text>
-        </View>
-      )}
-      <View style={styles.photoWrapper}>
-        {spot.photos.length === 0 ? (
-          // No photos yet (e.g. a new business) — without this the overlay
-          // buttons and the name collided with the status bar.
-          <View style={[styles.photoPlaceholder, { height: 240, backgroundColor: CATEGORY_COLORS[spot.category] }]}>
-            <Ionicons name={CATEGORY_ICONS[spot.category]} size={56} color="rgba(255,255,255,0.9)" />
+    <View style={styles.container}>
+      {background?.fixedWhileScrolling && <StorefrontBackground background={background} />}
+      <ScrollView
+        ref={scrollRef}
+        style={styles.scroll}
+        contentContainerStyle={[styles.content, cartLines.length > 0 && styles.contentWithCart]}
+        onContentSizeChange={(_, h) => setContentHeight(h)}
+      >
+        {background && !background.fixedWhileScrolling && (
+          <StorefrontBackground background={background} height={contentHeight} />
+        )}
+        {isSpotOwner && !spot.published && (
+          <View style={[styles.draftBanner, { paddingTop: insets.top + spacing.sm }]}>
+            <Ionicons name="eye-off-outline" size={14} color={colors.background} />
+            <Text style={styles.draftBannerText}>
+              Draft preview — only you can see this page. Publish it from Business Hub.
+            </Text>
           </View>
-        ) : (
-          <FlatList
-            data={spot.photos}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(uri, i) => `${uri}-${i}`}
-            renderItem={({ item }) => (
-              <Image source={{ uri: item }} style={{ width, height: 240 }} />
-            )}
+        )}
+
+        <View>
+          <StorefrontHero
+            spot={spot}
+            theme={theme}
+            colors={colors}
+            info={heroInfo}
+            onPrimary={() => goToTab('menu')}
+            onSecondary={() => (theme.hero.secondaryAction === 'menu' ? goToTab('menu') : handleDirections())}
+            onFollow={() => toggleFollowSpot(spotId)}
+            footer={theme.hero.style === 'cover' ? tabBar : undefined}
           />
-        )}
-        <View style={[styles.photoOverlayRow, { top: insets.top + spacing.xs }]}>
-          <Pressable style={styles.photoOverlayButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-back" size={20} color="#fff" />
-          </Pressable>
-          <View style={styles.photoOverlayRight}>
-            <Pressable style={styles.photoOverlayButton} onPress={handleShare}>
-              <Ionicons name="share-social-outline" size={18} color="#fff" />
+          <View style={[styles.photoOverlayRow, { top: insets.top + spacing.xs }]}>
+            <Pressable style={styles.photoOverlayButton} onPress={() => navigation.goBack()}>
+              <Ionicons name="chevron-back" size={20} color="#fff" />
             </Pressable>
-            {!isSpotOwner && (
-              <View style={styles.photoOverlayButton}>
-                <ReportMenuButton
-                  targetType="spot"
-                  targetId={spot.id}
-                  color="#fff"
-                  size={18}
-                  extraActions={
-                    isAdmin
-                      ? [{ text: 'Remove listing (admin)', style: 'destructive', onPress: confirmAdminRemove }]
-                      : undefined
-                  }
-                />
-              </View>
-            )}
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.section}>
-        <View style={styles.nameRow}>
-          <View style={styles.nameWithBadge}>
-            <Text style={styles.name} numberOfLines={1}>
-              {spot.name}
-            </Text>
-            {spot.ownerUserId !== null && (
-              <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
-            )}
-          </View>
-          <View style={styles.scoreColumn}>
-            <KuppioScoreBadge score={spot.teaScore} variant="light" />
-            <Text style={styles.scoreCaption}>Kuppio Score</Text>
-          </View>
-        </View>
-        <View style={styles.ratingRow}>
-          <RatingStars rating={rating} size={15} />
-          <Text style={styles.ratingText}>
-            {reviewCount === 0 ? 'No reviews yet' : `${rating.toFixed(1)} (${reviewCount} reviews)`} · {CATEGORY_LABELS[spot.category]}
-          </Text>
-        </View>
-        <View style={styles.addressRow}>
-          <Text style={styles.address}>{spot.isHomeBased ? spot.serviceArea : spot.address}</Text>
-          <Text style={styles.distanceText}>{distance}</Text>
-        </View>
-        <Text style={[styles.status, { color: open ? colors.success : colors.textMuted }]}>
-          {getStatusLabel(spot.hours)} · {followerCount} {followerCount === 1 ? 'follower' : 'followers'}
-        </Text>
-
-        {(isHiddenGem || isTopRated || isPopularSpot) && (
-          <View style={styles.badgeRow}>
-            {isHiddenGem && (
-              <View style={[styles.achievementBadge, styles.hiddenGemBadge]}>
-                <Text style={styles.achievementBadgeText}>💎 Hidden Gem</Text>
-              </View>
-            )}
-            {isTopRated && (
-              <View style={[styles.achievementBadge, styles.topRatedBadge]}>
-                <Text style={styles.achievementBadgeText}>🏆 Top Rated</Text>
-              </View>
-            )}
-            {isPopularSpot && (
-              <View style={[styles.achievementBadge, styles.popularBadge]}>
-                <Text style={styles.achievementBadgeText}>🔥 Popular</Text>
-              </View>
-            )}
-          </View>
-        )}
-
-        {spot.ownerUserId === null && pendingVerification && (
-          <View style={styles.claimBanner}>
-            <Ionicons name="time-outline" size={18} color={colors.primaryDark} />
-            <Text style={styles.claimBannerText}>Your claim is pending review</Text>
-            <Pressable onPress={() => navigation.navigate('VerificationStatus')}>
-              <Text style={styles.claimBannerAction}>View status</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {spot.ownerUserId === null && !pendingVerification && (
-          <View style={styles.claimBanner}>
-            <Ionicons name="storefront-outline" size={18} color={colors.primaryDark} />
-            <Text style={styles.claimBannerText}>Is this your business?</Text>
-            <Pressable onPress={() => navigation.navigate('ClaimBusiness', { spotId })}>
-              <Text style={styles.claimBannerAction}>Claim it</Text>
-            </Pressable>
-          </View>
-        )}
-
-        {isSpotOwner && (
-          <Pressable
-            style={styles.manageBanner}
-            onPress={() => navigation.navigate('BusinessHub', { spotId })}
-          >
-            <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
-            <Text style={styles.manageBannerText}>You manage this business</Text>
-            <Text style={styles.manageBannerAction}>Manage</Text>
-          </Pressable>
-        )}
-
-        <View style={styles.actionRow}>
-          <Pressable
-            style={styles.actionItem}
-            onPress={() => toggleFollowSpot(spotId)}
-            disabled={isSpotOwner}
-          >
-            <Ionicons
-              name={following ? 'checkmark-circle' : 'add-circle-outline'}
-              size={20}
-              color={isSpotOwner ? colors.textMuted : following ? colors.primary : colors.text}
-            />
-            <Text
-              style={[
-                styles.actionLabel,
-                following && { color: colors.primary },
-                isSpotOwner && { color: colors.textMuted },
-              ]}
-            >
-              {following ? 'Following' : 'Follow'}
-            </Text>
-          </Pressable>
-          <Pressable style={styles.actionItem} onPress={handleCall}>
-            <Ionicons
-              name="call-outline"
-              size={20}
-              color={spot.phone ? colors.text : colors.textMuted}
-            />
-            <Text style={[styles.actionLabel, !spot.phone && { color: colors.textMuted }]}>
-              Call
-            </Text>
-          </Pressable>
-          <Pressable style={styles.actionItem} onPress={handleDirections}>
-            <Ionicons name="navigate-outline" size={20} color={colors.text} />
-            <Text style={styles.actionLabel}>Directions</Text>
-          </Pressable>
-          <Pressable style={styles.actionItem} onPress={() => toggleSaved(spotId)}>
-            <Ionicons
-              name={saved ? 'heart' : 'heart-outline'}
-              size={20}
-              color={saved ? colors.primary : colors.text}
-            />
-            <Text style={styles.actionLabel}>Save</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.tabsRow}>
-          {TABS.map(({ key, icon }) => (
-            <Pressable key={key} style={styles.tab} onPress={() => setTab(key)}>
-              <Ionicons name={icon} size={19} color={tab === key ? colors.primary : colors.textMuted} />
-              {tab === key && <View style={styles.tabUnderline} />}
-            </Pressable>
-          ))}
-        </View>
-      </View>
-
-      {tab === 'home' && (
-        <View style={styles.section}>
-          {spot.description && <Text style={styles.description}>{spot.description}</Text>}
-
-          {(spot.instagramUrl || spot.tiktokUrl) && (
-            <View style={styles.socialRow}>
-              {spot.instagramUrl && (
-                <Pressable
-                  style={styles.socialButton}
-                  onPress={() =>
-                    Linking.openURL(spot.instagramUrl!).catch(() =>
-                      Alert.alert("Couldn't open Instagram", 'Please try again.'),
-                    )
-                  }
-                >
-                  <Ionicons name="logo-instagram" size={16} color={colors.text} />
-                  <Text style={styles.socialButtonText}>Instagram</Text>
+            <View style={styles.photoOverlayRight}>
+              {theme.hero.style !== 'cover' && !isSpotOwner && (
+                <Pressable style={styles.photoOverlayButton} onPress={() => toggleFollowSpot(spotId)}>
+                  <Ionicons name={following ? 'heart' : 'heart-outline'} size={18} color="#fff" />
                 </Pressable>
               )}
-              {spot.tiktokUrl && (
-                <Pressable
-                  style={styles.socialButton}
-                  onPress={() =>
-                    Linking.openURL(spot.tiktokUrl!).catch(() =>
-                      Alert.alert("Couldn't open TikTok", 'Please try again.'),
-                    )
-                  }
-                >
-                  <Ionicons name="logo-tiktok" size={16} color={colors.text} />
-                  <Text style={styles.socialButtonText}>TikTok</Text>
-                </Pressable>
+              <Pressable style={styles.photoOverlayButton} onPress={() => toggleSaved(spotId)}>
+                <Ionicons name={saved ? 'bookmark' : 'bookmark-outline'} size={17} color="#fff" />
+              </Pressable>
+              <Pressable style={styles.photoOverlayButton} onPress={handleShare}>
+                <Ionicons name="share-social-outline" size={18} color="#fff" />
+              </Pressable>
+              {!isSpotOwner && (
+                <View style={styles.photoOverlayButton}>
+                  <ReportMenuButton
+                    targetType="spot"
+                    targetId={spot.id}
+                    color="#fff"
+                    size={18}
+                    extraActions={
+                      isAdmin
+                        ? [{ text: 'Remove listing (admin)', style: 'destructive', onPress: confirmAdminRemove }]
+                        : undefined
+                    }
+                  />
+                </View>
               )}
             </View>
-          )}
+          </View>
+        </View>
 
-          {spot.menu.length > 0 && (
-            <>
-              <View style={styles.homeMenuHeaderRow}>
-                <Text style={styles.sectionTitle}>Popular</Text>
-                <Pressable onPress={() => setTab('menu')}>
-                  <Text style={styles.seeAllLink}>Full menu →</Text>
-                </Pressable>
-              </View>
-              <FlatList
-                data={popularMenuItems.length > 0 ? popularMenuItems : spot.menu}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <View style={styles.menuItem}>
-                    {item.photo && (
-                      <View>
-                        <Image source={{ uri: item.photo }} style={styles.menuPhoto} />
-                        {item.soldOut && (
-                          <View style={styles.soldOutBadge}>
-                            <Text style={styles.soldOutBadgeText}>Sold out</Text>
-                          </View>
-                        )}
-                      </View>
-                    )}
-                    <Text style={styles.menuName} numberOfLines={1}>
-                      {item.name}
-                      {!item.photo && item.soldOut ? ' (Sold out)' : ''}
-                    </Text>
-                    <Text style={styles.menuPrice}>${item.price.toFixed(2)}</Text>
-                  </View>
-                )}
-              />
-            </>
+        <View style={styles.bannerArea}>
+          {spot.ownerUserId === null && pendingVerification && (
+            <View style={styles.claimBanner}>
+              <Ionicons name="time-outline" size={18} color={colors.primaryDark} />
+              <Text style={styles.claimBannerText}>Your claim is pending review</Text>
+              <Pressable onPress={() => navigation.navigate('VerificationStatus')}>
+                <Text style={styles.claimBannerAction}>View status</Text>
+              </Pressable>
+            </View>
+          )}
+          {spot.ownerUserId === null && !pendingVerification && (
+            <View style={styles.claimBanner}>
+              <Ionicons name="storefront-outline" size={18} color={colors.primaryDark} />
+              <Text style={styles.claimBannerText}>Is this your business?</Text>
+              <Pressable onPress={() => navigation.navigate('ClaimBusiness', { spotId })}>
+                <Text style={styles.claimBannerAction}>Claim it</Text>
+              </Pressable>
+            </View>
+          )}
+          {isSpotOwner && (
+            <Pressable style={styles.manageBanner} onPress={() => navigation.navigate('BusinessHub', { spotId })}>
+              <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
+              <Text style={styles.manageBannerText}>You manage this business</Text>
+              <Text style={styles.manageBannerAction}>Manage</Text>
+            </Pressable>
           )}
         </View>
-      )}
+
+        {theme.hero.style !== 'cover' && tabBar}
+
+        {tab === 'home' && (
+          <View>
+            {theme.hero.style === 'cover' && spot.description ? (
+              <View style={styles.aboutCard}>
+                <Text style={[styles.aboutCardTitle, { fontFamily: heading }]}>About {spot.name}</Text>
+                <Text style={styles.description}>{spot.description}</Text>
+              </View>
+            ) : null}
+            <FavoritesRow
+              theme={theme}
+              colors={colors}
+              items={favorites}
+              onOpen={setOpenItem}
+              onSeeAll={() => goToTab('menu')}
+            />
+            {theme.sections.showLatest && spotReels.length > 0 && (
+              <View style={styles.latestBlock}>
+                <View style={styles.homeMenuHeaderRow}>
+                  <Text style={[styles.sectionTitle, { fontFamily: heading }]}>Latest from {spot.name}</Text>
+                  <Pressable onPress={() => setTab('reels')}>
+                    <Text style={styles.seeAllLink}>See all</Text>
+                  </Pressable>
+                </View>
+                <Pressable
+                  style={styles.latestCard}
+                  onPress={() => navigation.navigate('Tabs', { screen: 'Reels' })}
+                >
+                  <Ionicons name="play-circle" size={44} color="#fff" />
+                </Pressable>
+              </View>
+            )}
+            {theme.hero.style !== 'cover' && spot.description ? (
+              <View style={styles.aboutCard}>
+                <Text style={[styles.aboutCardTitle, { fontFamily: heading }]}>Our story</Text>
+                <Text style={styles.description}>{spot.description}</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+
+        {tab === 'menu' && (
+          <View>
+            {spot.menu.length === 0 ? (
+              <View style={styles.emptyTabState}>
+                <Ionicons name="restaurant-outline" size={28} color={colors.textMuted} />
+                <Text style={styles.emptyTabText}>No menu yet.</Text>
+              </View>
+            ) : (
+              <>
+                <MenuView
+                  theme={theme}
+                  colors={colors}
+                  items={spot.menu}
+                  sections={spot.menuSections}
+                  canOrder={canOrder}
+                  onOpen={setOpenItem}
+                  onQuickAdd={quickAdd}
+                />
+                {!isSpotOwner && !spot.acceptingOrders && (
+                  <View style={[styles.orderButtonDisabled, styles.menuNotice]}>
+                    <Text style={styles.orderButtonDisabledText}>Not accepting orders right now</Text>
+                  </View>
+                )}
+                {isSpotOwner && (
+                  <Text style={[styles.prepTimeHint, styles.menuNotice]}>
+                    This is how customers see your menu. You can't order from your own business.
+                  </Text>
+                )}
+              </>
+            )}
+          </View>
+        )}
 
       {tab === 'reels' && (
         <View style={styles.reelsGrid}>
@@ -486,64 +461,6 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
                 </Pressable>
               ))}
             </View>
-          )}
-        </View>
-      )}
-
-      {tab === 'menu' && (
-        <View style={styles.section}>
-          {spot.menu.length === 0 ? (
-            <View style={styles.emptyTabState}>
-              <Ionicons name="restaurant-outline" size={28} color={colors.textMuted} />
-              <Text style={styles.emptyTabText}>No menu yet.</Text>
-            </View>
-          ) : (
-            <>
-              {spot.menu.map((item) => (
-                <View key={item.id} style={styles.menuRow}>
-                  {item.photo ? (
-                    <Image source={{ uri: item.photo }} style={styles.menuRowPhoto} />
-                  ) : (
-                    <View style={styles.menuRowPhotoPlaceholder}>
-                      <Ionicons name="cafe-outline" size={16} color={colors.textMuted} />
-                    </View>
-                  )}
-                  <View style={styles.menuRowBody}>
-                    <View style={styles.menuRowNameLine}>
-                      <Text style={styles.menuRowName} numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                      {item.isPopular && (
-                        <View style={styles.menuPopularBadge}>
-                          <Text style={styles.menuPopularBadgeText}>Popular</Text>
-                        </View>
-                      )}
-                    </View>
-                    {item.soldOut && <Text style={styles.menuSoldOutText}>Sold out</Text>}
-                  </View>
-                  <Text style={styles.menuRowPrice}>${item.price.toFixed(2)}</Text>
-                </View>
-              ))}
-              {!isSpotOwner &&
-                (spot.acceptingOrders ? (
-                  <>
-                    <Pressable
-                      style={styles.orderButton}
-                      onPress={() => navigation.navigate('Order', { spotId })}
-                    >
-                      <Ionicons name="bag-handle-outline" size={16} color="#fff" />
-                      <Text style={styles.orderButtonText}>Order ahead</Text>
-                    </Pressable>
-                    {spot.prepTime && (
-                      <Text style={styles.prepTimeHint}>Ready in {spot.prepTime}</Text>
-                    )}
-                  </>
-                ) : (
-                  <View style={styles.orderButtonDisabled}>
-                    <Text style={styles.orderButtonDisabledText}>Not accepting orders right now</Text>
-                  </View>
-                ))}
-            </>
           )}
         </View>
       )}
@@ -687,8 +604,134 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
           ))}
         </View>
       )}
-    </ScrollView>
+        {tab === 'about' && (
+          <View style={styles.section}>
+            {spot.description ? (
+              <View style={[styles.aboutCard, styles.aboutCardFlush]}>
+                <Text style={[styles.aboutCardTitle, { fontFamily: heading }]}>About {spot.name}</Text>
+                <Text style={styles.description}>{spot.description}</Text>
+              </View>
+            ) : null}
+
+            <View style={styles.scoreRow}>
+              <KuppioScoreBadge score={spot.teaScore} variant="light" />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.scoreRowTitle}>Kuppio Score</Text>
+                <Text style={styles.textMuted}>
+                  {reviewCount === 0 ? 'No reviews yet' : `${rating.toFixed(1)}★ from ${reviewCount} reviews`} · {followerCount}{' '}
+                  {followerCount === 1 ? 'follower' : 'followers'}
+                </Text>
+              </View>
+            </View>
+            {(isHiddenGem || isTopRated || isPopularSpot) && (
+              <View style={styles.badgeRow}>
+                {isHiddenGem && (
+                  <View style={[styles.achievementBadge, styles.hiddenGemBadge]}>
+                    <Text style={styles.achievementBadgeText}>💎 Hidden Gem</Text>
+                  </View>
+                )}
+                {isTopRated && (
+                  <View style={[styles.achievementBadge, styles.topRatedBadge]}>
+                    <Text style={styles.achievementBadgeText}>🏆 Top Rated</Text>
+                  </View>
+                )}
+                {isPopularSpot && (
+                  <View style={[styles.achievementBadge, styles.popularBadge]}>
+                    <Text style={styles.achievementBadgeText}>🔥 Popular</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            <Text style={[styles.sectionTitle, styles.aboutHeading]}>Hours</Text>
+            {spot.hours.length === 0 ? (
+              <Text style={styles.textMuted}>Hours not listed yet.</Text>
+            ) : (
+              DAY_ORDER.map((day) => {
+                const entry = spot.hours.find((h) => h.day === day);
+                return (
+                  <View key={day} style={styles.hoursRow}>
+                    <Text style={styles.hoursDay}>{day}</Text>
+                    <Text style={entry ? styles.hoursTime : styles.textMuted}>
+                      {entry ? `${entry.open} – ${entry.close}` : 'Closed'}
+                    </Text>
+                  </View>
+                );
+              })
+            )}
+            <Text style={[styles.status, { color: open ? colors.success : colors.textMuted }]}>
+              {getStatusLabel(spot.hours)}
+            </Text>
+
+            <Text style={[styles.sectionTitle, styles.aboutHeading]}>Find us</Text>
+            <Pressable style={styles.aboutRow} onPress={handleDirections}>
+              <Ionicons name="location-outline" size={18} color={colors.text} />
+              <Text style={styles.aboutRowText}>
+                {(spot.isHomeBased ? spot.serviceArea : spot.address) ?? 'Location not listed'} · {distance}
+              </Text>
+              <Ionicons name="navigate-outline" size={16} color={colors.primary} />
+            </Pressable>
+            <Pressable style={styles.aboutRow} onPress={handleCall}>
+              <Ionicons name="call-outline" size={18} color={spot.phone ? colors.text : colors.textMuted} />
+              <Text style={[styles.aboutRowText, !spot.phone && { color: colors.textMuted }]}>
+                {spot.phone ?? 'No phone number yet'}
+              </Text>
+            </Pressable>
+
+            {(spot.instagramUrl || spot.tiktokUrl) && (
+              <View style={styles.socialRow}>
+                {spot.instagramUrl && (
+                  <Pressable
+                    style={styles.socialButton}
+                    onPress={() =>
+                      Linking.openURL(spot.instagramUrl!).catch(() =>
+                        Alert.alert("Couldn't open Instagram", 'Please try again.'),
+                      )
+                    }
+                  >
+                    <Ionicons name="logo-instagram" size={16} color={colors.text} />
+                    <Text style={styles.socialButtonText}>Instagram</Text>
+                  </Pressable>
+                )}
+                {spot.tiktokUrl && (
+                  <Pressable
+                    style={styles.socialButton}
+                    onPress={() =>
+                      Linking.openURL(spot.tiktokUrl!).catch(() =>
+                        Alert.alert("Couldn't open TikTok", 'Please try again.'),
+                      )
+                    }
+                  >
+                    <Ionicons name="logo-tiktok" size={16} color={colors.text} />
+                    <Text style={styles.socialButtonText}>TikTok</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {!isSpotOwner && (
+        <CartBar colors={colors} lines={cartLines} onPress={() => navigation.navigate('Order', { spotId })} />
+      )}
+      <ItemSheet
+        item={openItem}
+        theme={theme}
+        colors={colors}
+        canOrder={canOrder}
+        onClose={() => setOpenItem(null)}
+        onAdd={(item, options, quantity) => addToCart(spotId, item, options, quantity)}
+      />
+    </View>
   );
+}
+
+// "150 Christine Dr, San Pablo, CA" → "San Pablo, CA"; short strings pass through.
+function cityOf(location?: string) {
+  if (!location) return 'Location not listed';
+  const parts = location.split(',').map((p) => p.trim()).filter(Boolean);
+  return parts.length >= 3 ? parts.slice(-2).join(', ') : location;
 }
 
 const makeStyles = (colors: ThemeColors) =>
@@ -696,9 +739,110 @@ const makeStyles = (colors: ThemeColors) =>
   container: {
     flex: 1,
     backgroundColor: colors.background,
+    overflow: 'hidden',
+  },
+  scroll: {
+    flex: 1,
+    backgroundColor: 'transparent',
   },
   content: {
     paddingBottom: spacing.xl,
+  },
+  contentWithCart: {
+    paddingBottom: 100,
+  },
+  bannerArea: {
+    paddingHorizontal: spacing.md,
+  },
+  tabsCard: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.xs,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    borderBottomWidth: 0,
+  },
+  tabLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  aboutCard: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: colors.card,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  aboutCardFlush: {
+    marginHorizontal: 0,
+    marginTop: 0,
+  },
+  aboutCardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+  latestBlock: {
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.lg,
+  },
+  latestCard: {
+    height: 170,
+    borderRadius: radius.md,
+    backgroundColor: colors.dark,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuNotice: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    textAlign: 'center',
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  scoreRowTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.text,
+  },
+  aboutHeading: {
+    marginTop: spacing.lg,
+    marginBottom: spacing.xs,
+  },
+  hoursRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 5,
+  },
+  hoursDay: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  hoursTime: {
+    fontSize: 14,
+    color: colors.text,
+  },
+  aboutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  aboutRowText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
   },
   draftBanner: {
     flexDirection: 'row',

@@ -42,6 +42,9 @@ export const mockSpots: Spot[] = [
     ownerUserId: null,
     promotedUntil: null,
     published: true,
+    storefront: null,
+    storefrontDraft: null,
+    menuSections: [],
   },
   {
     id: 'spot-2',
@@ -64,6 +67,9 @@ export const mockSpots: Spot[] = [
     ownerUserId: null,
     promotedUntil: null,
     published: true,
+    storefront: null,
+    storefrontDraft: null,
+    menuSections: [],
   },
   {
     id: 'spot-3',
@@ -86,6 +92,9 @@ export const mockSpots: Spot[] = [
     ownerUserId: null,
     promotedUntil: null,
     published: true,
+    storefront: null,
+    storefrontDraft: null,
+    menuSections: [],
   },
 ];
 
