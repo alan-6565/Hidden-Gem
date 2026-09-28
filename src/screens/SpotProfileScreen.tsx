@@ -269,6 +269,9 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
   );
 
   const background = theme.background;
+  // Over a patterned background, content sits on solid cards (the pattern
+  // only shows between them) so nothing is ever unreadable.
+  const surface = background ? styles.surface : null;
 
   return (
     <View style={styles.container}>
@@ -383,7 +386,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
               onSeeAll={() => goToTab('menu')}
             />
             {theme.sections.showLatest && spotReels.length > 0 && (
-              <View style={styles.latestBlock}>
+              <View style={[styles.latestBlock, surface]}>
                 <View style={styles.homeMenuHeaderRow}>
                   <Text style={[styles.sectionTitle, { fontFamily: heading }]}>Latest from {spot.name}</Text>
                   <Pressable onPress={() => setTab('reels')}>
@@ -408,7 +411,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         )}
 
         {tab === 'menu' && (
-          <View>
+          <View style={surface}>
             {spot.menu.length === 0 ? (
               <View style={styles.emptyTabState}>
                 <Ionicons name="restaurant-outline" size={28} color={colors.textMuted} />
@@ -441,7 +444,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         )}
 
       {tab === 'reels' && (
-        <View style={styles.reelsGrid}>
+        <View style={[styles.reelsGrid, surface]}>
           {spotReels.length === 0 ? (
             <View style={styles.emptyTabState}>
               <Ionicons name="play-circle-outline" size={28} color={colors.textMuted} />
@@ -466,7 +469,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
       )}
 
       {tab === 'reviews' && (
-        <View style={styles.section}>
+        <View style={[styles.section, surface]}>
           {recommendPercent !== null && (
             <View style={styles.recommendRow}>
               <Ionicons name="thumbs-up" size={14} color={colors.success} />
@@ -605,7 +608,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         </View>
       )}
         {tab === 'about' && (
-          <View style={styles.section}>
+          <View style={[styles.section, surface, surface && styles.surfacePadded]}>
             {spot.description ? (
               <View style={[styles.aboutCard, styles.aboutCardFlush]}>
                 <Text style={[styles.aboutCardTitle, { fontFamily: heading }]}>About {spot.name}</Text>
@@ -750,6 +753,16 @@ const makeStyles = (colors: ThemeColors) =>
   },
   contentWithCart: {
     paddingBottom: 100,
+  },
+  surface: {
+    marginHorizontal: spacing.sm,
+    marginTop: spacing.md,
+    paddingVertical: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.card,
+  },
+  surfacePadded: {
+    paddingHorizontal: spacing.md,
   },
   bannerArea: {
     paddingHorizontal: spacing.md,

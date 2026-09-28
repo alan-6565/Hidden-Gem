@@ -99,7 +99,13 @@ function CoverHero(props: Props) {
     <View>
       <View style={{ height: coverHeight }}>
         {cover ? (
-          <Image source={cover} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          <Image
+            source={cover}
+            // With a pattern behind the page, the photo is inset so the
+            // pattern frames it; otherwise it runs edge to edge.
+            style={theme.background ? [styles.coverInset, { top: insets.top + 44 }] : StyleSheet.absoluteFill}
+            resizeMode="cover"
+          />
         ) : theme.background ? null : (
           <View style={[StyleSheet.absoluteFill, styles.coverPlaceholder, { backgroundColor: CATEGORY_COLORS[spot.category] }]}>
             <Ionicons name={CATEGORY_ICONS[spot.category]} size={52} color="rgba(255,255,255,0.9)" />
@@ -185,6 +191,11 @@ function TitleHero(props: Props) {
   const accent = accentFont(theme);
   return (
     <View style={{ paddingTop: insets.top + 52 }}>
+      <LinearGradient
+        colors={[colors.blush, colors.background]}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
       <View style={styles.titleBlock}>
         <DecoratedTitle theme={theme} placement="title-sides">
           <Text style={[styles.titleName, { color: colors.text, fontFamily: headingFont(theme, 'extraBold') }]}>
@@ -195,9 +206,7 @@ function TitleHero(props: Props) {
           <Text style={[styles.titleTagline, { color: colors.primary, fontFamily: accent }]}>{theme.hero.tagline}</Text>
         )}
         {theme.hero.subtext && (
-          <Text style={[styles.titleSubtext, { color: colors.text, fontFamily: headingFont(theme) ? 'PlayfairDisplay_700Bold' : undefined }]}>
-            {theme.hero.subtext}
-          </Text>
+          <Text style={[styles.titleSubtext, { color: colors.text }]}>{theme.hero.subtext}</Text>
         )}
       </View>
       {photo && (
@@ -295,6 +304,13 @@ export function InfoStrip({ colors, info }: Props) {
 }
 
 const styles = StyleSheet.create({
+  coverInset: {
+    position: 'absolute',
+    left: spacing.sm,
+    right: spacing.sm,
+    bottom: 10,
+    borderRadius: radius.lg,
+  },
   coverPlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -439,11 +455,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   titleSubtext: {
-    fontSize: 15,
-    lineHeight: 21,
+    fontSize: 14,
+    lineHeight: 20,
     textAlign: 'center',
     marginTop: spacing.sm,
-    fontWeight: '500',
+    maxWidth: 290,
   },
   titlePhotoFadeTop: {
     position: 'absolute',

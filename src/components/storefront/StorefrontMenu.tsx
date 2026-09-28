@@ -54,8 +54,11 @@ export function FavoritesRow({
   if (items.length === 0) return null;
   const heading = headingFont(theme);
   const showDescriptions = theme.hero.style === 'cover';
+  // Over a patterned background every section sits on a solid card, so
+  // titles and prices never land directly on the pattern.
+  const carded = !!theme.background;
   return (
-    <View style={styles.favorites}>
+    <View style={[styles.favorites, carded && [styles.surface, { backgroundColor: colors.card }]]}>
       <View style={styles.sectionHeader}>
         <View style={styles.sectionTitleWrap}>
           <DecoratedTitle theme={theme} placement="section-title-sides">
@@ -298,6 +301,12 @@ const styles = StyleSheet.create({
   },
   favorites: {
     marginTop: spacing.lg,
+  },
+  surface: {
+    marginHorizontal: spacing.sm,
+    marginTop: spacing.md,
+    paddingVertical: spacing.md,
+    borderRadius: radius.lg,
   },
   sectionHeader: {
     flexDirection: 'row',
