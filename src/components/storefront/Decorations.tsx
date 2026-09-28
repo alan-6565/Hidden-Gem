@@ -3,7 +3,7 @@ import { Image, StyleSheet, Text, View, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Decoration, DecorationPlacement, StorefrontTheme } from '../../types/storefront';
 import { imageSource } from '../../utils/storefrontImages';
-import { accentFont } from '../../utils/storefrontTheme';
+import { accentFont, withAlpha } from '../../utils/storefrontTheme';
 
 const CORNERS: Partial<Record<DecorationPlacement, ViewStyle>> = {
   'hero-top-left': { top: 8, left: 12 },
@@ -27,7 +27,7 @@ function DecorationView({ decoration, theme }: { decoration: Decoration; theme: 
     const source = imageSource(decoration.image);
     return source ? <Image source={source} style={{ width: size, height: size }} resizeMode="contain" /> : null;
   }
-  return (
+  const text = (
     <Text
       style={{
         fontFamily: accentFont(theme) ?? 'DancingScript_700Bold',
@@ -36,10 +36,20 @@ function DecorationView({ decoration, theme }: { decoration: Decoration; theme: 
         color: decoration.color ?? theme.colors.primary,
         textAlign: 'right',
         transform: [{ rotate: '-8deg' }],
+        // Soft outline in the page color so script stays readable on busy
+        // patterns and photos.
+        textShadowColor: theme.background ? theme.colors.background : 'rgba(0,0,0,0.35)',
+        textShadowRadius: theme.background ? 6 : 4,
       }}
     >
       {decoration.text}
     </Text>
+  );
+  // On a busy pattern, script needs a soft backdrop to stay readable.
+  return theme.background ? (
+    <View style={[styles.textBackdrop, { backgroundColor: withAlpha(theme.colors.background, 0.85) }]}>{text}</View>
+  ) : (
+    text
   );
 }
 
@@ -82,6 +92,11 @@ export function DecoratedTitle({
 }
 
 const styles = StyleSheet.create({
+  textBackdrop: {
+    borderRadius: 22,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+  },
   corner: {
     position: 'absolute',
     maxWidth: '45%',

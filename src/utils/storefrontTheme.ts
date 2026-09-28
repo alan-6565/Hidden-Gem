@@ -31,6 +31,7 @@ export function resolveStorefront(stored: StoredStorefront | null | undefined): 
     fonts: { ...d.fonts, ...(s.fonts ?? {}) },
     background: s.background ? { ...BACKGROUND_DEFAULTS, ...s.background } : null,
     cards: s.cards ?? d.cards,
+    layout: s.layout ?? d.layout,
     hero: { ...d.hero, ...(s.hero ?? {}) },
     decorations: (s.decorations as StorefrontTheme['decorations']) ?? d.decorations,
     sections: { ...d.sections, ...(s.sections ?? {}) },

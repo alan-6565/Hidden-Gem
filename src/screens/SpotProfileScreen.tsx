@@ -271,7 +271,9 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
   const background = theme.background;
   // Over a patterned background, content sits on solid cards (the pattern
   // only shows between them) so nothing is ever unreadable.
-  const surface = background ? styles.surface : null;
+  const panel = !!background && theme.layout === 'panel';
+  const surface = background && !panel ? styles.surface : null;
+  const flatCard = panel ? styles.aboutCardFlat : null;
 
   return (
     <View style={styles.container}>
@@ -279,7 +281,11 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
       <ScrollView
         ref={scrollRef}
         style={styles.scroll}
-        contentContainerStyle={[styles.content, cartLines.length > 0 && styles.contentWithCart]}
+        contentContainerStyle={[
+          styles.content,
+          cartLines.length > 0 && styles.contentWithCart,
+          panel && styles.contentPanel,
+        ]}
         onContentSizeChange={(_, h) => setContentHeight(h)}
       >
         {background && !background.fixedWhileScrolling && (
@@ -340,6 +346,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
           </View>
         </View>
 
+        <View style={panel ? [styles.panel, cartLines.length > 0 && styles.contentWithCart] : undefined}>
         <View style={styles.bannerArea}>
           {spot.ownerUserId === null && pendingVerification && (
             <View style={styles.claimBanner}>
@@ -373,7 +380,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         {tab === 'home' && (
           <View>
             {theme.hero.style === 'cover' && spot.description ? (
-              <View style={styles.aboutCard}>
+              <View style={[styles.aboutCard, flatCard]}>
                 <Text style={[styles.aboutCardTitle, { fontFamily: heading }]}>About {spot.name}</Text>
                 <Text style={styles.description}>{spot.description}</Text>
               </View>
@@ -402,7 +409,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
               </View>
             )}
             {theme.hero.style !== 'cover' && spot.description ? (
-              <View style={styles.aboutCard}>
+              <View style={[styles.aboutCard, flatCard]}>
                 <Text style={[styles.aboutCardTitle, { fontFamily: heading }]}>Our story</Text>
                 <Text style={styles.description}>{spot.description}</Text>
               </View>
@@ -713,6 +720,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             )}
           </View>
         )}
+        </View>
       </ScrollView>
 
       {!isSpotOwner && (
@@ -753,6 +761,22 @@ const makeStyles = (colors: ThemeColors) =>
   },
   contentWithCart: {
     paddingBottom: 100,
+  },
+  contentPanel: {
+    flexGrow: 1,
+    paddingBottom: 0,
+  },
+  panel: {
+    flexGrow: 1,
+    marginHorizontal: spacing.sm,
+    backgroundColor: colors.card,
+    paddingBottom: spacing.xl,
+  },
+  aboutCardFlat: {
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    marginTop: spacing.xs,
+    paddingBottom: 0,
   },
   surface: {
     marginHorizontal: spacing.sm,

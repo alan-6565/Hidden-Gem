@@ -89,7 +89,10 @@ function ctaButtons(props: Props, variant: 'row' | 'stack' | 'onPhoto') {
 function CoverHero(props: Props) {
   const { spot, theme, colors, info } = props;
   const insets = useSafeAreaInsets();
-  const coverSrc = theme.hero.image ?? spot.photos[0] ?? null;
+  // A shop with a background pattern uses the pattern as its cover unless
+  // it picks a hero photo; otherwise fall back to its first photo.
+  const coverSrc = theme.hero.image ?? (theme.background ? null : spot.photos[0] ?? null);
+  const panel = !!theme.background && theme.layout === 'panel';
   const cover = imageSource(coverSrc);
   const logo = imageSource(theme.hero.logo);
   const coverHeight = 170 + insets.top;
@@ -116,7 +119,14 @@ function CoverHero(props: Props) {
         </View>
       </View>
 
-      <View style={[styles.coverCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.coverCard,
+          { backgroundColor: colors.card, borderColor: colors.border },
+          // In panel layout the page continues straight on from this card.
+          panel && styles.coverCardPanel,
+        ]}
+      >
         <View style={styles.coverNameRow}>
           {logo ? (
             <Image source={logo} style={[styles.logo, { borderColor: colors.card }]} />
@@ -314,6 +324,11 @@ const styles = StyleSheet.create({
   coverPlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  coverCardPanel: {
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+    borderWidth: 0,
   },
   coverCard: {
     marginTop: -26,

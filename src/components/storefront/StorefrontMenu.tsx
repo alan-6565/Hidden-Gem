@@ -56,7 +56,7 @@ export function FavoritesRow({
   const showDescriptions = theme.hero.style === 'cover';
   // Over a patterned background every section sits on a solid card, so
   // titles and prices never land directly on the pattern.
-  const carded = !!theme.background;
+  const carded = !!theme.background && theme.layout === 'cards';
   return (
     <View style={[styles.favorites, carded && [styles.surface, { backgroundColor: colors.card }]]}>
       <View style={styles.sectionHeader}>

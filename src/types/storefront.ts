@@ -77,6 +77,10 @@ export interface StorefrontTheme {
   };
   background: StorefrontBackground | null;
   cards: 'solid' | 'glass';
+  // Over a background pattern: 'cards' puts each section on its own card
+  // with the pattern showing between them; 'panel' puts everything on one
+  // continuous panel, so the pattern only frames the edges.
+  layout: 'cards' | 'panel';
   hero: StorefrontHero;
   decorations: Decoration[];
   sections: {
@@ -99,6 +103,7 @@ export const DEFAULT_STOREFRONT: StorefrontTheme = {
   fonts: { heading: 'system', accent: 'none' },
   background: null,
   cards: 'solid',
+  layout: 'cards',
   hero: {
     style: 'cover',
     image: null,
