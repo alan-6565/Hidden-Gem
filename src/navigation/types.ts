@@ -4,12 +4,14 @@ import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
 export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList> | undefined;
-  SpotProfile: { spotId: string };
+  // preview: show the owner's unpublished draft design (Customize storefront).
+  SpotProfile: { spotId: string; preview?: boolean };
   AddReview: { spotId: string };
   Compose: { isStory?: boolean; spotId?: string } | undefined;
   SearchFilters: undefined;
   BusinessEdit: { spotId: string };
   BusinessHub: { spotId: string };
+  CustomizeStorefront: { spotId: string };
   CreateBusiness: { lat: number; lng: number };
   ClaimBusiness: { spotId: string };
   VerificationStatus: undefined;

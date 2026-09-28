@@ -51,7 +51,7 @@ const GRID_GAP = 2;
 
 export default function SpotProfileScreen({ route, navigation }: Props) {
   const { colors: appColors } = useTheme();
-  const { spotId } = route.params;
+  const { spotId, preview } = route.params;
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const {
@@ -69,17 +69,21 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
     replyToReview,
     isAdmin,
     removeSpot,
+    updateSpot,
   } = useAppData();
   const { user } = useAuth();
   const userLocation = useUserLocation();
   const spot = spots.find((s) => s.id === spotId);
   // The whole page draws from `colors`, so a custom storefront re-themes
   // everything — reviews and tabs included — just by swapping the palette.
-  const theme = useMemo(() => resolveStorefront(spot?.storefront), [spot?.storefront]);
+  // Preview (from Customize storefront) shows the owner's unpublished draft.
+  const shownStorefront = preview ? spot?.storefrontDraft ?? spot?.storefront : spot?.storefront;
+  const theme = useMemo(() => resolveStorefront(shownStorefront), [shownStorefront]);
   const colors = useMemo(
-    () => storefrontPalette(theme, appColors, !!spot?.storefront),
-    [theme, appColors, spot?.storefront],
+    () => storefrontPalette(theme, appColors, !!shownStorefront),
+    [theme, appColors, shownStorefront],
   );
+  const [publishing, setPublishing] = useState(false);
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { linesFor, addToCart } = useCart();
   const cartLines = linesFor(spotId);
@@ -269,6 +273,19 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
   );
 
   const background = theme.background;
+
+  const publishDraft = async () => {
+    if (!spot?.storefrontDraft) return;
+    setPublishing(true);
+    try {
+      await updateSpot(spotId, { storefront: spot.storefrontDraft });
+      navigation.goBack();
+    } catch (e: any) {
+      Alert.alert("Couldn't publish", e?.message ?? 'Please try again.');
+    } finally {
+      setPublishing(false);
+    }
+  };
   // Over a patterned background, content sits on solid cards (the pattern
   // only shows between them) so nothing is ever unreadable.
   const panel = !!background && theme.layout === 'panel';
@@ -291,7 +308,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         {background && !background.fixedWhileScrolling && (
           <StorefrontBackground background={background} height={contentHeight} />
         )}
-        {isSpotOwner && !spot.published && (
+        {isSpotOwner && !spot.published && !preview && (
           <View style={[styles.draftBanner, { paddingTop: insets.top + spacing.sm }]}>
             <Ionicons name="eye-off-outline" size={14} color={colors.background} />
             <Text style={styles.draftBannerText}>
@@ -311,6 +328,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             onFollow={() => toggleFollowSpot(spotId)}
             footer={theme.hero.style === 'cover' ? tabBar : undefined}
           />
+          {!preview && (
           <View style={[styles.photoOverlayRow, { top: insets.top + spacing.xs }]}>
             <Pressable style={styles.photoOverlayButton} onPress={() => navigation.goBack()}>
               <Ionicons name="chevron-back" size={20} color="#fff" />
@@ -344,6 +362,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
               )}
             </View>
           </View>
+          )}
         </View>
 
         <View style={panel ? [styles.panel, cartLines.length > 0 && styles.contentWithCart] : undefined}>
@@ -723,7 +742,22 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         </View>
       </ScrollView>
 
-      {!isSpotOwner && (
+      {preview && (
+        <View style={[styles.previewBar, { paddingTop: insets.top + 4 }]}>
+          <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
+            <Text style={styles.previewBarClose}>Close</Text>
+          </Pressable>
+          <Text style={styles.previewBarTitle}>Customer preview</Text>
+          <Pressable
+            style={[styles.previewBarPublish, publishing && { opacity: 0.6 }]}
+            onPress={publishDraft}
+            disabled={publishing}
+          >
+            <Text style={styles.previewBarPublishText}>{publishing ? 'Publishing…' : 'Publish'}</Text>
+          </Pressable>
+        </View>
+      )}
+      {!isSpotOwner && !preview && (
         <CartBar colors={colors} lines={cartLines} onPress={() => navigation.navigate('Order', { spotId })} />
       )}
       <ItemSheet
@@ -761,6 +795,41 @@ const makeStyles = (colors: ThemeColors) =>
   },
   contentWithCart: {
     paddingBottom: 100,
+  },
+  previewBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(0,0,0,0.1)',
+  },
+  previewBarClose: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#241F1B',
+  },
+  previewBarTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#241F1B',
+  },
+  previewBarPublish: {
+    backgroundColor: colors.primary,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  previewBarPublishText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 13,
   },
   contentPanel: {
     flexGrow: 1,
