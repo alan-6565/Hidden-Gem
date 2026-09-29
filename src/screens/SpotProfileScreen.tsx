@@ -28,9 +28,13 @@ import StorefrontBackground from '../components/storefront/StorefrontBackground'
 import StorefrontHero, { HeroInfo } from '../components/storefront/StorefrontHero';
 import ItemSheet from '../components/storefront/ItemSheet';
 import { CartBar, FavoritesRow, MenuView } from '../components/storefront/StorefrontMenu';
+import EditorSheets from '../components/storefront/editor/EditorSheets';
+import { useStorefrontEditor } from '../components/storefront/editor/useStorefrontEditor';
 import { useCart } from '../context/CartContext';
 import { MenuItem } from '../types';
-import { headingFont, isSoldOut, resolveStorefront, storefrontPalette } from '../utils/storefrontTheme';
+import { headingFont, homeBlocks, isSoldOut, resolveStorefront, storefrontPalette } from '../utils/storefrontTheme';
+import { Block, BLOCK_LABELS } from '../types/storefront';
+import { imageSource } from '../utils/storefrontImages';
 import { getDisplayRating, getRatingDistribution, getReviewCount } from '../utils/rating';
 import { getStatusLabel, isOpenNow } from '../utils/hours';
 import { isPromoted } from '../utils/promotion';
@@ -51,7 +55,7 @@ const GRID_GAP = 2;
 
 export default function SpotProfileScreen({ route, navigation }: Props) {
   const { colors: appColors } = useTheme();
-  const { spotId, preview } = route.params;
+  const { spotId, edit } = route.params;
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const {
@@ -76,14 +80,20 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
   const spot = spots.find((s) => s.id === spotId);
   // The whole page draws from `colors`, so a custom storefront re-themes
   // everything — reviews and tabs included — just by swapping the palette.
-  // Preview (from Customize storefront) shows the owner's unpublished draft.
-  const shownStorefront = preview ? spot?.storefrontDraft ?? spot?.storefront : spot?.storefront;
-  const theme = useMemo(() => resolveStorefront(shownStorefront), [shownStorefront]);
+  const shownStorefront = spot?.storefront;
+  const savedTheme = useMemo(() => resolveStorefront(shownStorefront), [shownStorefront]);
+  // Edit mode: the page is the editor. It draws the draft being edited, so
+  // every change shows up here instantly.
+  const canEdit = !!spot && !!user && (spot.ownerUserId === user.id || isAdmin);
+  const ed = useStorefrontEditor(spot, !!edit && canEdit);
+  // "Preview" inside edit mode hides the pencils without leaving the editor.
+  const [peek, setPeek] = useState(false);
+  const editing = !!ed && !peek;
+  const theme = ed ? ed.theme : savedTheme;
   const colors = useMemo(
-    () => storefrontPalette(theme, appColors, !!shownStorefront),
-    [theme, appColors, shownStorefront],
+    () => storefrontPalette(theme, appColors, !!ed || !!shownStorefront),
+    [theme, appColors, ed, shownStorefront],
   );
-  const [publishing, setPublishing] = useState(false);
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { linesFor, addToCart } = useCart();
   const cartLines = linesFor(spotId);
@@ -274,18 +284,179 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
 
   const background = theme.background;
 
-  const publishDraft = async () => {
-    if (!spot?.storefrontDraft) return;
-    setPublishing(true);
-    try {
-      await updateSpot(spotId, { storefront: spot.storefrontDraft });
-      navigation.goBack();
-    } catch (e: any) {
-      Alert.alert("Couldn't publish", e?.message ?? 'Please try again.');
-    } finally {
-      setPublishing(false);
+  const editItem = editing && ed ? (item: MenuItem) => ed.openSheet({ kind: 'item', itemId: item.id }) : undefined;
+
+  // One Home-tab section's content, or null when it has nothing to show yet
+  // (no reels, no photos, no text).
+  const renderBlockContent = (block: Block) => {
+    const title = block.title || BLOCK_LABELS[block.type].defaultTitle;
+    switch (block.type) {
+      case 'favorites':
+        return (
+          <FavoritesRow
+            key={block.id}
+            theme={theme}
+            colors={colors}
+            title={title}
+            items={favorites}
+            onOpen={setOpenItem}
+            onSeeAll={() => goToTab('menu')}
+            onEditItem={editItem}
+          />
+        );
+      case 'menuCategory': {
+        const items = spot.menu.filter((m) => m.sectionId === block.sectionId);
+        if (items.length === 0) return null;
+        return (
+          <FavoritesRow
+            key={block.id}
+            theme={theme}
+            colors={colors}
+            title={title}
+            items={items}
+            onOpen={setOpenItem}
+            onSeeAll={() => goToTab('menu')}
+            onEditItem={editItem}
+          />
+        );
+      }
+      case 'latest':
+        if (spotReels.length === 0) return null;
+        return (
+          <View key={block.id} style={[styles.latestBlock, surface]}>
+            <View style={styles.homeMenuHeaderRow}>
+              <Text style={[styles.sectionTitle, { fontFamily: heading }]}>{title}</Text>
+              <Pressable onPress={() => setTab('reels')}>
+                <Text style={styles.seeAllLink}>See all</Text>
+              </Pressable>
+            </View>
+            <Pressable style={styles.latestCard} onPress={() => navigation.navigate('Tabs', { screen: 'Reels' })}>
+              <Ionicons name="play-circle" size={44} color="#fff" />
+            </Pressable>
+          </View>
+        );
+      case 'story': {
+        const text = block.text || spot.description;
+        if (!text) return null;
+        return (
+          <View key={block.id} style={[styles.aboutCard, flatCard]}>
+            <Text style={[styles.aboutCardTitle, { fontFamily: heading }]}>{title}</Text>
+            <Text style={styles.description}>{text}</Text>
+          </View>
+        );
+      }
+      case 'offer':
+        if (!block.text) return null;
+        return (
+          <View key={block.id} style={[styles.aboutCard, styles.offerCard, flatCard]}>
+            <Text style={[styles.aboutCardTitle, { fontFamily: heading, color: colors.primary }]}>{title}</Text>
+            <Text style={styles.offerText}>{block.text}</Text>
+          </View>
+        );
+      case 'hours':
+        return (
+          <View key={block.id} style={[styles.aboutCard, flatCard]}>
+            <Text style={[styles.aboutCardTitle, { fontFamily: heading }]}>{title}</Text>
+            {DAY_ORDER.map((day) => {
+              const entry = spot.hours.find((h) => h.day === day);
+              return (
+                <View key={day} style={styles.hoursRow}>
+                  <Text style={styles.hoursDay}>{day}</Text>
+                  <Text style={entry ? styles.hoursTime : styles.textMuted}>
+                    {entry ? `${entry.open} – ${entry.close}` : 'Closed'}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        );
+      case 'gallery':
+        if (spot.photos.length === 0) return null;
+        return (
+          <View key={block.id} style={[styles.galleryBlock, surface]}>
+            <Text style={[styles.sectionTitle, styles.galleryTitle, { fontFamily: heading }]}>{title}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryRow}>
+              {spot.photos.map((photo, i) => {
+                const src = imageSource(photo);
+                return src ? <Image key={`${photo}-${i}`} source={src} style={styles.galleryPhoto} /> : null;
+              })}
+            </ScrollView>
+          </View>
+        );
     }
   };
+
+  // What an empty section says in edit mode, so owners can still see and
+  // edit it before it has content.
+  const EMPTY_HINT: Record<Block['type'], string> = {
+    favorites: 'Mark menu items as Popular to show them here.',
+    menuCategory: 'Pick which menu section to show.',
+    latest: 'Shows your newest reel once you post one.',
+    story: 'Tap the pencil to write a few lines about you.',
+    offer: 'Tap the pencil to add a deal or stamp card.',
+    hours: '',
+    gallery: 'Shows your business photos once you add some.',
+  };
+
+  const addSectionButton = (index: number) =>
+    ed ? (
+      <Pressable
+        key={`add-${index}`}
+        style={styles.addSection}
+        onPress={() => ed.openSheet({ kind: 'add', index })}
+        accessibilityLabel="Add a section here"
+      >
+        <Ionicons name="add-circle" size={16} color={appColors.primary} />
+        <Text style={[styles.addSectionText, { color: appColors.primary }]}>Add section</Text>
+      </Pressable>
+    ) : null;
+
+  // A Home section: as-is for customers; in edit mode, framed with its own
+  // bar (arrange, edit, hide, duplicate, delete) and an "Add section" below.
+  const renderBlock = (block: Block, index: number) => {
+    if (!editing || !ed) return block.hidden ? null : renderBlockContent(block);
+    const title = block.title || BLOCK_LABELS[block.type].defaultTitle;
+    const content = renderBlockContent(block) ?? (
+      <View style={[styles.aboutCard, flatCard, styles.placeholderCard]}>
+        <Text style={[styles.aboutCardTitle, { fontFamily: heading }]}>{title}</Text>
+        <Text style={styles.textMuted}>{EMPTY_HINT[block.type]}</Text>
+      </View>
+    );
+    const barButton = (icon: keyof typeof Ionicons.glyphMap, label: string, onPress: () => void) => (
+      <Pressable onPress={onPress} hitSlop={6} style={styles.blockBarButton} accessibilityLabel={label}>
+        <Ionicons name={icon} size={15} color="#5E4B52" />
+      </Pressable>
+    );
+    return (
+      <View key={block.id}>
+        <View style={[styles.blockFrame, block.hidden && styles.blockHidden]}>
+          <View style={styles.blockBar}>
+            {barButton('reorder-three-outline', 'Arrange sections', () => ed.openSheet({ kind: 'arrange' }))}
+            {barButton('pencil', `Edit ${title}`, () => ed.openSheet({ kind: 'block', id: block.id }))}
+            {barButton(block.hidden ? 'eye-off-outline' : 'eye-outline', block.hidden ? 'Show section' : 'Hide section', () =>
+              ed.toggleHidden(block.id),
+            )}
+            {barButton('copy-outline', 'Duplicate section', () => ed.duplicateBlock(block.id))}
+            {barButton('trash-outline', 'Delete section', () =>
+              Alert.alert(`Delete "${title}"?`, 'You can add it back any time.', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Delete', style: 'destructive', onPress: () => ed.removeBlock(block.id) },
+              ]),
+            )}
+          </View>
+          {block.hidden && (
+            <View style={styles.hiddenTag}>
+              <Text style={styles.hiddenTagText}>Hidden from customers</Text>
+            </View>
+          )}
+          {content}
+        </View>
+        {addSectionButton(index + 1)}
+      </View>
+    );
+  };
+
+
   // Over a patterned background, content sits on solid cards (the pattern
   // only shows between them) so nothing is ever unreadable.
   const panel = !!background && theme.layout === 'panel';
@@ -305,10 +476,12 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         ]}
         onContentSizeChange={(_, h) => setContentHeight(h)}
       >
+        {/* Edit mode zooms the page out a little under the toolbar. */}
+        <View style={editing ? [styles.zoomed, { marginTop: insets.top + 50 }] : undefined}>
         {background && !background.fixedWhileScrolling && (
           <StorefrontBackground background={background} height={contentHeight} />
         )}
-        {isSpotOwner && !spot.published && !preview && (
+        {isSpotOwner && !spot.published && !ed && (
           <View style={[styles.draftBanner, { paddingTop: insets.top + spacing.sm }]}>
             <Ionicons name="eye-off-outline" size={14} color={colors.background} />
             <Text style={styles.draftBannerText}>
@@ -327,8 +500,10 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             onSecondary={() => (theme.hero.secondaryAction === 'menu' ? goToTab('menu') : handleDirections())}
             onFollow={() => toggleFollowSpot(spotId)}
             footer={theme.hero.style === 'cover' ? tabBar : undefined}
+            onEditHeader={editing && ed ? () => ed.openSheet({ kind: 'header' }) : undefined}
+            onEditDetails={editing ? () => navigation.navigate('BusinessEdit', { spotId }) : undefined}
           />
-          {!preview && (
+          {!ed && (
           <View style={[styles.photoOverlayRow, { top: insets.top + spacing.xs }]}>
             <Pressable style={styles.photoOverlayButton} onPress={() => navigation.goBack()}>
               <Ionicons name="chevron-back" size={20} color="#fff" />
@@ -385,11 +560,14 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
               </Pressable>
             </View>
           )}
-          {isSpotOwner && (
+          {isSpotOwner && !ed && (
             <Pressable style={styles.manageBanner} onPress={() => navigation.navigate('BusinessHub', { spotId })}>
               <Ionicons name="checkmark-circle" size={18} color={colors.primary} />
               <Text style={styles.manageBannerText}>You manage this business</Text>
-              <Text style={styles.manageBannerAction}>Manage</Text>
+              <Pressable onPress={() => navigation.navigate('SpotProfile', { spotId, edit: true })} hitSlop={6}>
+                <Text style={styles.manageBannerAction}>Edit page</Text>
+              </Pressable>
+              <Text style={[styles.manageBannerAction, styles.manageSecondAction]}>Manage</Text>
             </Pressable>
           )}
         </View>
@@ -398,41 +576,8 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
 
         {tab === 'home' && (
           <View>
-            {theme.hero.style === 'cover' && spot.description ? (
-              <View style={[styles.aboutCard, flatCard]}>
-                <Text style={[styles.aboutCardTitle, { fontFamily: heading }]}>About {spot.name}</Text>
-                <Text style={styles.description}>{spot.description}</Text>
-              </View>
-            ) : null}
-            <FavoritesRow
-              theme={theme}
-              colors={colors}
-              items={favorites}
-              onOpen={setOpenItem}
-              onSeeAll={() => goToTab('menu')}
-            />
-            {theme.sections.showLatest && spotReels.length > 0 && (
-              <View style={[styles.latestBlock, surface]}>
-                <View style={styles.homeMenuHeaderRow}>
-                  <Text style={[styles.sectionTitle, { fontFamily: heading }]}>Latest from {spot.name}</Text>
-                  <Pressable onPress={() => setTab('reels')}>
-                    <Text style={styles.seeAllLink}>See all</Text>
-                  </Pressable>
-                </View>
-                <Pressable
-                  style={styles.latestCard}
-                  onPress={() => navigation.navigate('Tabs', { screen: 'Reels' })}
-                >
-                  <Ionicons name="play-circle" size={44} color="#fff" />
-                </Pressable>
-              </View>
-            )}
-            {theme.hero.style !== 'cover' && spot.description ? (
-              <View style={[styles.aboutCard, flatCard]}>
-                <Text style={[styles.aboutCardTitle, { fontFamily: heading }]}>Our story</Text>
-                <Text style={styles.description}>{spot.description}</Text>
-              </View>
-            ) : null}
+            {editing && addSectionButton(0)}
+            {homeBlocks(theme, spot.name).map((block, i) => renderBlock(block, i))}
           </View>
         )}
 
@@ -453,6 +598,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
                   canOrder={canOrder}
                   onOpen={setOpenItem}
                   onQuickAdd={quickAdd}
+                  onEditItem={editItem}
                 />
                 {!isSpotOwner && !spot.acceptingOrders && (
                   <View style={[styles.orderButtonDisabled, styles.menuNotice]}>
@@ -740,24 +886,66 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
           </View>
         )}
         </View>
+        </View>
       </ScrollView>
 
-      {preview && (
-        <View style={[styles.previewBar, { paddingTop: insets.top + 4 }]}>
-          <Pressable onPress={() => navigation.goBack()} hitSlop={8}>
-            <Text style={styles.previewBarClose}>Close</Text>
-          </Pressable>
-          <Text style={styles.previewBarTitle}>Customer preview</Text>
+      {ed && !peek && (
+        <View style={[styles.editBar, { paddingTop: insets.top + 4 }]}>
           <Pressable
-            style={[styles.previewBarPublish, publishing && { opacity: 0.6 }]}
-            onPress={publishDraft}
-            disabled={publishing}
+            style={styles.editBarButton}
+            onPress={() => {
+              ed.flushDraft().catch(() => {});
+              navigation.goBack();
+            }}
           >
-            <Text style={styles.previewBarPublishText}>{publishing ? 'Publishing…' : 'Publish'}</Text>
+            <Text style={styles.editBarButtonText}>Done</Text>
+          </Pressable>
+          <View style={styles.editBarTitle}>
+            <Text style={styles.editBarTitleText}>Editing</Text>
+            <Text
+              style={[
+                styles.editBarSaved,
+                ed.saveState === 'error' && { color: appColors.danger },
+              ]}
+            >
+              {ed.saveState === 'saving' ? 'Saving…' : ed.saveState === 'error' ? 'Not saved' : '✓ Saved'}
+            </Text>
+          </View>
+          <Pressable style={styles.editBarButton} onPress={() => ed.openSheet({ kind: 'design' })}>
+            <Ionicons name="color-palette-outline" size={14} color="#1D1A21" />
+            <Text style={styles.editBarButtonText}>Design</Text>
+          </Pressable>
+          <Pressable style={styles.editBarButton} onPress={() => setPeek(true)}>
+            <Text style={styles.editBarButtonText}>Preview</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.editBarPublish, (!ed.unpublished || ed.publishing) && { opacity: 0.5 }]}
+            disabled={!ed.unpublished || ed.publishing}
+            onPress={() =>
+              Alert.alert('Publish your storefront?', 'Customers will see these changes right away.', [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Publish',
+                  onPress: async () => {
+                    if (await ed.publish()) Alert.alert('Published!', 'Customers see your new storefront now.');
+                  },
+                },
+              ])
+            }
+          >
+            <Text style={styles.editBarPublishText}>{ed.publishing ? '…' : 'Publish'}</Text>
           </Pressable>
         </View>
       )}
-      {!isSpotOwner && !preview && (
+      {ed && peek && (
+        <Pressable style={[styles.peekBack, { top: insets.top + 8 }]} onPress={() => setPeek(false)}>
+          <Ionicons name="pencil" size={13} color="#fff" />
+          <Text style={styles.peekBackText}>Back to editing</Text>
+        </Pressable>
+      )}
+      {ed && <EditorSheets ed={ed} />}
+
+      {!isSpotOwner && !ed && (
         <CartBar colors={colors} lines={cartLines} onPress={() => navigation.navigate('Order', { spotId })} />
       )}
       <ItemSheet
@@ -796,40 +984,154 @@ const makeStyles = (colors: ThemeColors) =>
   contentWithCart: {
     paddingBottom: 100,
   },
-  previewBar: {
+  zoomed: {
+    transform: [{ scale: 0.92 }],
+    borderRadius: radius.lg,
+    overflow: 'hidden',
+  },
+  editBar: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
+    gap: 6,
+    paddingHorizontal: spacing.sm,
     paddingBottom: spacing.sm,
-    backgroundColor: 'rgba(255,255,255,0.94)',
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(0,0,0,0.1)',
+    borderBottomColor: 'rgba(0,0,0,0.12)',
   },
-  previewBarClose: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#241F1B',
+  editBarTitle: {
+    flex: 1,
+    alignItems: 'center',
   },
-  previewBarTitle: {
-    fontSize: 15,
+  editBarTitleText: {
+    fontSize: 13,
     fontWeight: '800',
-    color: '#241F1B',
+    color: '#1D1A21',
   },
-  previewBarPublish: {
-    backgroundColor: colors.primary,
+  editBarSaved: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#2E9E5B',
+  },
+  editBarButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    borderWidth: 1,
+    borderColor: '#E3DFE6',
     borderRadius: 999,
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  editBarButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1D1A21',
+  },
+  editBarPublish: {
+    backgroundColor: '#EE4C6A',
+    borderRadius: 999,
+    paddingHorizontal: 12,
     paddingVertical: 7,
   },
-  previewBarPublishText: {
-    color: '#fff',
+  editBarPublishText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  peekBack: {
+    position: 'absolute',
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1D1A21',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  peekBackText: {
+    color: '#FFFFFF',
     fontWeight: '800',
     fontSize: 13,
+  },
+  blockFrame: {
+    marginTop: spacing.sm,
+    marginHorizontal: 4,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xs,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(238,76,106,0.55)',
+  },
+  blockHidden: {
+    opacity: 0.45,
+  },
+  blockBar: {
+    position: 'absolute',
+    top: -14,
+    right: 10,
+    zIndex: 6,
+    flexDirection: 'row',
+    gap: 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#EAD9DC',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  blockBarButton: {
+    padding: 5,
+  },
+  hiddenTag: {
+    position: 'absolute',
+    top: -12,
+    left: 10,
+    zIndex: 6,
+    backgroundColor: '#1D1A21',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  hiddenTagText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  placeholderCard: {
+    borderStyle: 'dashed',
+  },
+  addSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    paddingVertical: 8,
+    borderRadius: radius.md,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(238,76,106,0.45)',
+    backgroundColor: 'rgba(255,255,255,0.7)',
+  },
+  addSectionText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  manageSecondAction: {
+    marginLeft: spacing.sm,
   },
   contentPanel: {
     flexGrow: 1,
@@ -846,6 +1148,30 @@ const makeStyles = (colors: ThemeColors) =>
     backgroundColor: 'transparent',
     marginTop: spacing.xs,
     paddingBottom: 0,
+  },
+  offerCard: {
+    borderColor: colors.primary,
+  },
+  offerText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  galleryBlock: {
+    marginTop: spacing.lg,
+  },
+  galleryTitle: {
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  galleryRow: {
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+  },
+  galleryPhoto: {
+    width: 150,
+    height: 150,
+    borderRadius: radius.md,
   },
   surface: {
     marginHorizontal: spacing.sm,

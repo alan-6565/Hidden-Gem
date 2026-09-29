@@ -5,6 +5,7 @@ import { DancingScript_700Bold } from '@expo-google-fonts/dancing-script/700Bold
 import { Caveat_600SemiBold } from '@expo-google-fonts/caveat/600SemiBold';
 import { ThemeColors, lightColors } from '../theme';
 import {
+  Block,
   DEFAULT_STOREFRONT,
   StoredStorefront,
   StorefrontTheme,
@@ -34,6 +35,7 @@ export function resolveStorefront(stored: StoredStorefront | null | undefined): 
     layout: s.layout ?? d.layout,
     hero: { ...d.hero, ...(s.hero ?? {}) },
     decorations: (s.decorations as StorefrontTheme['decorations']) ?? d.decorations,
+    blocks: (s.blocks as StorefrontTheme['blocks']) ?? null,
     sections: { ...d.sections, ...(s.sections ?? {}) },
   };
 }
@@ -45,6 +47,21 @@ const BACKGROUND_DEFAULTS = {
   strength: 40,
   fixedWhileScrolling: true,
 };
+
+// The Home tab's sections, in order. Themes saved before sections existed
+// get the layout they always had: cover pages open with "About", the
+// others lead with favorites and end with the story.
+export function homeBlocks(theme: StorefrontTheme, businessName: string): Block[] {
+  if (theme.blocks) return theme.blocks;
+  const about: Block = {
+    id: 'story',
+    type: 'story',
+    title: theme.hero.style === 'cover' ? `About ${businessName}` : 'Our story',
+  };
+  const favorites: Block = { id: 'favorites', type: 'favorites', title: theme.sections.favoritesTitle };
+  const latest: Block = { id: 'latest', type: 'latest', title: `Latest from ${businessName}`, hidden: !theme.sections.showLatest };
+  return theme.hero.style === 'cover' ? [about, favorites, latest] : [favorites, latest, about];
+}
 
 // ── Fonts ───────────────────────────────────────────────────────────────
 
@@ -98,9 +115,11 @@ export function contrastRatio(a: string, b: string) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-// White or near-black, whichever reads better on `bg` (button labels).
+// Label color for a button filled with `bg`. White wherever it's readable
+// for bold button text (3:1, the large/bold text standard) — that's the look
+// brand buttons are designed for — and near-black only on light fills.
 export function onColor(bg: string) {
-  return contrastRatio('#FFFFFF', bg) >= contrastRatio('#1A1A1A', bg) ? '#FFFFFF' : '#1A1A1A';
+  return contrastRatio('#FFFFFF', bg) >= 3 ? '#FFFFFF' : '#1A1A1A';
 }
 
 // The whole spot page is drawn from a ThemeColors palette, so a storefront

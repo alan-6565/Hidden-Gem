@@ -234,9 +234,9 @@ export default function BusinessHubScreen({ route, navigation }: Props) {
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
         </Pressable>
         <View style={styles.divider} />
-        <Pressable style={styles.row} onPress={() => navigation.navigate('CustomizeStorefront', { spotId })}>
+        <Pressable style={styles.row} onPress={() => navigation.navigate('SpotProfile', { spotId, edit: true })}>
           <Ionicons name="color-palette-outline" size={20} color={colors.text} />
-          <Text style={styles.rowText}>Customize storefront</Text>
+          <Text style={styles.rowText}>Edit storefront</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
         </Pressable>
         <View style={styles.divider} />

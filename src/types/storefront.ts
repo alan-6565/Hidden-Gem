@@ -64,6 +64,33 @@ export interface StorefrontHero {
   secondaryAction: 'directions' | 'menu';
 }
 
+// The Home tab is an ordered list of sections the owner can reorder, hide,
+// duplicate and add to. Other tabs (Menu, Reels, Reviews, About) are fixed.
+export type BlockType = 'favorites' | 'latest' | 'story' | 'hours' | 'offer' | 'gallery' | 'menuCategory';
+
+export interface Block {
+  id: string;
+  type: BlockType;
+  // Section heading; each type has a sensible default.
+  title?: string;
+  // Body text for 'story' and 'offer'. A story without text shows the
+  // business description.
+  text?: string;
+  // 'menuCategory' shows the items of this menu section.
+  sectionId?: string;
+  hidden?: boolean;
+}
+
+export const BLOCK_LABELS: Record<BlockType, { name: string; hint: string; defaultTitle: string }> = {
+  favorites: { name: 'Favorites row', hint: 'Your best sellers', defaultTitle: 'Popular today' },
+  latest: { name: 'Latest reel', hint: 'Your newest video', defaultTitle: 'Latest from us' },
+  story: { name: 'Our story', hint: 'A few lines about you', defaultTitle: 'Our story' },
+  hours: { name: 'Hours', hint: 'When you’re open', defaultTitle: 'Hours' },
+  offer: { name: 'Offer banner', hint: 'A deal or stamp card', defaultTitle: 'This week' },
+  gallery: { name: 'Photo gallery', hint: 'Drinks, space, people', defaultTitle: 'Gallery' },
+  menuCategory: { name: 'Menu category', hint: 'e.g. Matcha, Refreshers', defaultTitle: 'From our menu' },
+};
+
 export interface StorefrontTheme {
   version: 1;
   colors: {
@@ -83,6 +110,8 @@ export interface StorefrontTheme {
   layout: 'cards' | 'panel';
   hero: StorefrontHero;
   decorations: Decoration[];
+  // null until the owner arranges sections; defaultBlocks() fills in.
+  blocks: Block[] | null;
   sections: {
     favoritesTitle: string;
     showLatest: boolean;
@@ -117,6 +146,7 @@ export const DEFAULT_STOREFRONT: StorefrontTheme = {
     secondaryAction: 'directions',
   },
   decorations: [],
+  blocks: null,
   sections: { favoritesTitle: 'Popular today', showLatest: true, menuLayout: 'grid' },
 };
 

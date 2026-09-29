@@ -4,14 +4,13 @@ import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
 export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList> | undefined;
-  // preview: show the owner's unpublished draft design (Customize storefront).
-  SpotProfile: { spotId: string; preview?: boolean };
+  // edit: open the page in edit mode (owner only).
+  SpotProfile: { spotId: string; edit?: boolean };
   AddReview: { spotId: string };
   Compose: { isStory?: boolean; spotId?: string } | undefined;
   SearchFilters: undefined;
   BusinessEdit: { spotId: string };
   BusinessHub: { spotId: string };
-  CustomizeStorefront: { spotId: string };
   CreateBusiness: { lat: number; lng: number };
   ClaimBusiness: { spotId: string };
   VerificationStatus: undefined;

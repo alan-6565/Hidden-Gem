@@ -10,6 +10,7 @@ import { CATEGORY_COLORS, CATEGORY_ICONS, CATEGORY_LABELS } from '../../constant
 import { imageSource } from '../../utils/storefrontImages';
 import { accentFont, headingFont, onColor } from '../../utils/storefrontTheme';
 import { CornerDecorations, DecoratedTitle } from './Decorations';
+import EditPen from './editor/EditPen';
 
 export interface HeroInfo {
   rating: number;
@@ -35,6 +36,10 @@ interface Props {
   // Rendered at the bottom of the name card (the cover style keeps the page
   // tabs inside it, like the mockups).
   footer?: React.ReactNode;
+  // Edit mode: pencils on the header's text, photo and buttons, and on the
+  // info strip.
+  onEditHeader?: () => void;
+  onEditDetails?: () => void;
 }
 
 export default function StorefrontHero(props: Props) {
@@ -57,6 +62,7 @@ function ctaButtons(props: Props, variant: 'row' | 'stack' | 'onPhoto') {
   const outlineColor = variant === 'onPhoto' ? '#FFFFFF' : colors.text;
   return (
     <View style={variant === 'row' ? styles.ctaRow : styles.ctaStack}>
+      {props.onEditHeader && <EditPen onPress={props.onEditHeader} style={styles.penCtas} label="Edit buttons" />}
       <Pressable
         style={[styles.cta, { backgroundColor: primaryBg }, variant !== 'row' && styles.ctaStackItem]}
         onPress={props.onPrimary}
@@ -117,6 +123,9 @@ function CoverHero(props: Props) {
         <View style={{ position: 'absolute', top: insets.top + 36, left: 0, right: 0, bottom: 30 }}>
           <CornerDecorations theme={theme} />
         </View>
+        {props.onEditHeader && (
+          <EditPen onPress={props.onEditHeader} style={{ right: 16, bottom: 40 }} label="Edit header photo" />
+        )}
       </View>
 
       <View
@@ -136,6 +145,7 @@ function CoverHero(props: Props) {
             </View>
           )}
           <View style={styles.coverNameText}>
+            {props.onEditHeader && <EditPen onPress={props.onEditHeader} style={styles.penName} label="Edit name and logo" />}
             <View style={styles.nameLine}>
               <Text style={[styles.coverName, { color: colors.text, fontFamily: heading }]} numberOfLines={1}>
                 {theme.hero.headline ?? spot.name}
@@ -207,6 +217,7 @@ function TitleHero(props: Props) {
         pointerEvents="none"
       />
       <View style={styles.titleBlock}>
+        {props.onEditHeader && <EditPen onPress={props.onEditHeader} style={styles.penTitle} label="Edit name and tagline" />}
         <DecoratedTitle theme={theme} placement="title-sides">
           <Text style={[styles.titleName, { color: colors.text, fontFamily: headingFont(theme, 'extraBold') }]}>
             {theme.hero.headline ?? spot.name}
@@ -233,6 +244,7 @@ function TitleHero(props: Props) {
             pointerEvents="none"
           />
           <CornerDecorations theme={theme} />
+          {props.onEditHeader && <EditPen onPress={props.onEditHeader} style={{ top: 12, right: 16 }} label="Edit header photo" />}
         </View>
       )}
       <View style={styles.titleCtas}>{ctaButtons(props, 'row')}</View>
@@ -259,6 +271,9 @@ function PhotoHero(props: Props) {
         <View style={{ position: 'absolute', top: insets.top + 44, left: 0, right: 0, bottom: 0 }}>
           <CornerDecorations theme={theme} />
         </View>
+        {props.onEditHeader && (
+          <EditPen onPress={props.onEditHeader} style={{ top: insets.top + 60, left: 16 }} label="Edit header photo" />
+        )}
         <View style={styles.photoCopy}>
           {theme.hero.eyebrow && <Text style={styles.photoEyebrow}>{theme.hero.eyebrow}</Text>}
           <Text style={[styles.photoHeadline, { fontFamily: headingFont(theme, 'extraBold') }]}>
@@ -280,10 +295,11 @@ function shortStatus(label: string) {
 }
 
 // Open / location / pickup strip under the title and photo heroes.
-export function InfoStrip({ colors, info }: Props) {
+export function InfoStrip({ colors, info, onEditDetails }: Props) {
   const [state, detail] = info.statusLabel.split(' · ');
   return (
     <View style={[styles.infoStrip, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      {onEditDetails && <EditPen onPress={onEditDetails} style={styles.penInfo} label="Edit hours and details" />}
       <View style={styles.infoCell}>
         <View style={[styles.dot, { backgroundColor: info.open ? colors.success : colors.textMuted }]} />
         <View style={styles.infoText}>
@@ -320,6 +336,22 @@ const styles = StyleSheet.create({
     right: spacing.sm,
     bottom: 10,
     borderRadius: radius.lg,
+  },
+  penCtas: {
+    top: -12,
+    left: -8,
+  },
+  penName: {
+    top: -4,
+    right: 0,
+  },
+  penTitle: {
+    top: -6,
+    left: 8,
+  },
+  penInfo: {
+    top: -12,
+    left: -8,
   },
   coverPlaceholder: {
     alignItems: 'center',

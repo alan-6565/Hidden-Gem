@@ -18,6 +18,7 @@ import { imageSource } from '../../utils/storefrontImages';
 import { formatPrice, fromPrice, headingFont, isSoldOut, onColor } from '../../utils/storefrontTheme';
 import { cartTotals, CartLine } from '../../context/CartContext';
 import { DecoratedTitle } from './Decorations';
+import EditPen from './editor/EditPen';
 
 interface Common {
   theme: StorefrontTheme;
@@ -47,10 +48,19 @@ function SoldOutTag({ colors }: { colors: ThemeColors }) {
 export function FavoritesRow({
   theme,
   colors,
+  title,
   items,
   onOpen,
   onSeeAll,
-}: Common & { items: MenuItem[]; onOpen: (item: MenuItem) => void; onSeeAll: () => void }) {
+  onEditItem,
+}: Common & {
+  title?: string;
+  items: MenuItem[];
+  onOpen: (item: MenuItem) => void;
+  onSeeAll: () => void;
+  // Edit mode: shows a pencil on each card.
+  onEditItem?: (item: MenuItem) => void;
+}) {
   if (items.length === 0) return null;
   const heading = headingFont(theme);
   const showDescriptions = theme.hero.style === 'cover';
@@ -63,7 +73,7 @@ export function FavoritesRow({
         <View style={styles.sectionTitleWrap}>
           <DecoratedTitle theme={theme} placement="section-title-sides">
             <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: heading }, heading && styles.sectionTitleSerif]}>
-              {theme.sections.favoritesTitle}
+              {title ?? theme.sections.favoritesTitle}
             </Text>
           </DecoratedTitle>
         </View>
@@ -85,6 +95,7 @@ export function FavoritesRow({
             <View>
               <Photo src={item.photo} style={styles.favPhoto} />
               {isSoldOut(item) && <SoldOutTag colors={colors} />}
+              {onEditItem && <EditPen onPress={() => onEditItem(item)} style={styles.cardPen} label={`Edit ${item.name}`} />}
             </View>
             <View style={styles.favBody}>
               <Text style={[styles.favName, { color: colors.text, fontFamily: heading }]} numberOfLines={2}>
@@ -115,12 +126,14 @@ export function MenuView({
   canOrder,
   onOpen,
   onQuickAdd,
+  onEditItem,
 }: Common & {
   items: MenuItem[];
   sections: MenuSection[];
   canOrder: boolean;
   onOpen: (item: MenuItem) => void;
   onQuickAdd: (item: MenuItem) => void;
+  onEditItem?: (item: MenuItem) => void;
 }) {
   const { width } = useWindowDimensions();
   // Only sections that have something in them; items with no (or a stale)
@@ -209,6 +222,7 @@ export function MenuView({
             >
               <View>
                 <Photo src={item.photo} style={styles.listPhoto} />
+                {onEditItem && <EditPen onPress={() => onEditItem(item)} style={styles.cardPen} label={`Edit ${item.name}`} />}
               </View>
               <View style={styles.listBody}>
                 <Text style={[styles.listName, { color: colors.text, fontFamily: heading }]}>{item.name}</Text>
@@ -240,6 +254,7 @@ export function MenuView({
               <View>
                 <Photo src={item.photo} style={[styles.gridPhoto, { height: gridWidth * 0.78 }]} />
                 {isSoldOut(item) && <SoldOutTag colors={colors} />}
+                {onEditItem && <EditPen onPress={() => onEditItem(item)} style={styles.cardPen} label={`Edit ${item.name}`} />}
               </View>
               <View style={styles.gridBody}>
                 <Text style={[styles.gridName, { color: colors.text, fontFamily: heading }]} numberOfLines={2}>
@@ -286,6 +301,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.06)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  cardPen: {
+    top: 6,
+    right: 6,
   },
   soldOutTag: {
     position: 'absolute',
