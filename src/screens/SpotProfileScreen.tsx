@@ -570,6 +570,14 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
               <Text style={[styles.manageBannerAction, styles.manageSecondAction]}>Manage</Text>
             </Pressable>
           )}
+          {/* Admins can edit any storefront (e.g. the showcase shops). */}
+          {!isSpotOwner && canEdit && !ed && (
+            <Pressable style={styles.manageBanner} onPress={() => navigation.navigate('SpotProfile', { spotId, edit: true })}>
+              <Ionicons name="shield-checkmark-outline" size={18} color={colors.primary} />
+              <Text style={styles.manageBannerText}>Admin</Text>
+              <Text style={styles.manageBannerAction}>Edit page</Text>
+            </Pressable>
+          )}
         </View>
 
         {theme.hero.style !== 'cover' && tabBar}
