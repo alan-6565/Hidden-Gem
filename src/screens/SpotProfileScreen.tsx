@@ -500,7 +500,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             onSecondary={() => (theme.hero.secondaryAction === 'menu' ? goToTab('menu') : handleDirections())}
             onFollow={() => toggleFollowSpot(spotId)}
             footer={theme.hero.style === 'cover' ? tabBar : undefined}
-            onEditHeader={editing && ed ? () => ed.openSheet({ kind: 'header' }) : undefined}
+            onEditHeader={editing && ed ? (focus) => ed.openSheet({ kind: 'header', focus }) : undefined}
             onEditDetails={editing ? () => navigation.navigate('BusinessEdit', { spotId }) : undefined}
           />
           {!ed && (

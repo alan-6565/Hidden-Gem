@@ -10,7 +10,7 @@ import { buildDecor, DecorChoices, readDecor } from './decor';
 
 export type EditorSheet =
   | { kind: 'design' }
-  | { kind: 'header' }
+  | { kind: 'header'; focus: 'text' | 'photo' | 'buttons' }
   | { kind: 'block'; id: string }
   | { kind: 'add'; index: number }
   | { kind: 'arrange' }

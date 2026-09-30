@@ -20,6 +20,8 @@ import { cartTotals, CartLine } from '../../context/CartContext';
 import { DecoratedTitle } from './Decorations';
 import EditPen from './editor/EditPen';
 
+const ALL = '__all';
+
 interface Common {
   theme: StorefrontTheme;
   colors: ThemeColors;
@@ -146,18 +148,25 @@ export function MenuView({
     }
     return list;
   }, [sections, items]);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const active = usable.find((s) => s.id === activeId) ?? usable[0];
-  const shown = items.filter((i) =>
-    active?.id === '__more'
-      ? !i.sectionId || !sections.some((s) => s.id === i.sectionId)
-      : i.sectionId === active?.id,
-  );
+  // "All" is the default so customers see the whole menu first (starting on
+  // one section made shops look like they only had a few items). Items stay
+  // grouped under their section headings either way.
+  const [activeId, setActiveId] = useState<string>(ALL);
+  const itemsOf = (sectionId: string) =>
+    items.filter((i) =>
+      sectionId === '__more'
+        ? !i.sectionId || !sections.some((s) => s.id === i.sectionId)
+        : i.sectionId === sectionId,
+    );
+  const activeSection = usable.find((s) => s.id === activeId);
+  const groups = (activeSection ? [activeSection] : usable).map((section) => ({ section, items: itemsOf(section.id) }));
+  const pills = usable.length > 1 ? [{ id: ALL, name: 'All' } as MenuSection, ...usable] : [];
   const heading = headingFont(theme);
   const addText = onColor(colors.primary);
 
   const addButton = (item: MenuItem, full: boolean) => {
-    const disabled = !canOrder || isSoldOut(item);
+    const soldOut = isSoldOut(item);
+    const disabled = !canOrder || soldOut;
     return (
       <Pressable
         style={[
@@ -169,8 +178,8 @@ export function MenuView({
         onPress={() => (item.options?.length ? onOpen(item) : onQuickAdd(item))}
         hitSlop={6}
       >
-        <Text style={[styles.addLabel, { color: addText }]}>Add</Text>
-        {full && <Ionicons name="add" size={15} color={addText} />}
+        <Text style={[styles.addLabel, { color: addText }]}>{soldOut ? 'Sold out' : 'Add'}</Text>
+        {full && !soldOut && <Ionicons name="add" size={15} color={addText} />}
       </Pressable>
     );
   };
@@ -179,14 +188,14 @@ export function MenuView({
 
   return (
     <View>
-      {usable.length > 1 && (
+      {pills.length > 0 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.pills}
         >
-          {usable.map((s) => {
-            const on = s.id === active?.id;
+          {pills.map((s) => {
+            const on = s.id === (activeSection ? activeSection.id : ALL);
             return (
               <Pressable
                 key={s.id}
@@ -203,70 +212,81 @@ export function MenuView({
         </ScrollView>
       )}
 
-      {theme.sections.menuLayout === 'list' && active && (
-        <View style={styles.sectionIntro}>
-          <Text style={[styles.sectionIntroTitle, { color: colors.text, fontFamily: heading }]}>{active.name}</Text>
-          {active.description ? (
-            <Text style={[styles.sectionIntroText, { color: colors.textMuted }]}>{active.description}</Text>
-          ) : null}
+      {groups.map(({ section, items: groupItems }) => (
+        <View key={section.id} style={styles.group}>
+          {/* A lone "Menu" catch-all doesn't need a heading. */}
+          {!(usable.length === 1 && section.id === '__more') && (
+            <View style={styles.sectionIntro}>
+              <Text
+                style={[
+                  theme.sections.menuLayout === 'list' ? styles.sectionIntroTitle : styles.sectionHeading,
+                  { color: colors.text, fontFamily: heading },
+                ]}
+              >
+                {section.name}
+              </Text>
+              {section.description ? (
+                <Text style={[styles.sectionIntroText, { color: colors.textMuted }]}>{section.description}</Text>
+              ) : null}
+            </View>
+          )}
+          {theme.sections.menuLayout === 'list' ? (
+            <View style={styles.list}>
+              {groupItems.map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={[styles.listRow, { backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => onOpen(item)}
+                >
+                  <View>
+                    <Photo src={item.photo} style={styles.listPhoto} />
+                    {onEditItem && <EditPen onPress={() => onEditItem(item)} style={styles.cardPen} label={`Edit ${item.name}`} />}
+                  </View>
+                  <View style={styles.listBody}>
+                    <Text style={[styles.listName, { color: colors.text, fontFamily: heading }]}>{item.name}</Text>
+                    {item.description ? (
+                      <Text style={[styles.listDescription, { color: colors.textMuted }]} numberOfLines={2}>
+                        {item.description}
+                      </Text>
+                    ) : null}
+                    <View style={styles.listFooter}>
+                      <Text style={[styles.listPrice, { color: colors.text }]}>{formatPrice(fromPrice(item))}</Text>
+                      {isSoldOut(item) ? (
+                        <Text style={[styles.soldOutInline, { color: colors.danger }]}>Sold out today</Text>
+                      ) : (
+                        addButton(item, false)
+                      )}
+                    </View>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.grid}>
+              {groupItems.map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={[styles.gridCard, { width: gridWidth, backgroundColor: colors.card, borderColor: colors.border }]}
+                  onPress={() => onOpen(item)}
+                >
+                  <View>
+                    <Photo src={item.photo} style={[styles.gridPhoto, { height: gridWidth * 0.78 }]} />
+                    {isSoldOut(item) && <SoldOutTag colors={colors} />}
+                    {onEditItem && <EditPen onPress={() => onEditItem(item)} style={styles.cardPen} label={`Edit ${item.name}`} />}
+                  </View>
+                  <View style={styles.gridBody}>
+                    <Text style={[styles.gridName, { color: colors.text, fontFamily: heading }]} numberOfLines={2}>
+                      {item.name}
+                    </Text>
+                    <Text style={[styles.gridPrice, { color: colors.text }]}>{formatPrice(fromPrice(item))}</Text>
+                    {addButton(item, true)}
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          )}
         </View>
-      )}
-
-      {theme.sections.menuLayout === 'list' ? (
-        <View style={styles.list}>
-          {shown.map((item) => (
-            <Pressable
-              key={item.id}
-              style={[styles.listRow, { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => onOpen(item)}
-            >
-              <View>
-                <Photo src={item.photo} style={styles.listPhoto} />
-                {onEditItem && <EditPen onPress={() => onEditItem(item)} style={styles.cardPen} label={`Edit ${item.name}`} />}
-              </View>
-              <View style={styles.listBody}>
-                <Text style={[styles.listName, { color: colors.text, fontFamily: heading }]}>{item.name}</Text>
-                {item.description ? (
-                  <Text style={[styles.listDescription, { color: colors.textMuted }]} numberOfLines={2}>
-                    {item.description}
-                  </Text>
-                ) : null}
-                <View style={styles.listFooter}>
-                  <Text style={[styles.listPrice, { color: colors.text }]}>{formatPrice(fromPrice(item))}</Text>
-                  {isSoldOut(item) ? (
-                    <Text style={[styles.soldOutInline, { color: colors.danger }]}>Sold out today</Text>
-                  ) : (
-                    addButton(item, false)
-                  )}
-                </View>
-              </View>
-            </Pressable>
-          ))}
-        </View>
-      ) : (
-        <View style={styles.grid}>
-          {shown.map((item) => (
-            <Pressable
-              key={item.id}
-              style={[styles.gridCard, { width: gridWidth, backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => onOpen(item)}
-            >
-              <View>
-                <Photo src={item.photo} style={[styles.gridPhoto, { height: gridWidth * 0.78 }]} />
-                {isSoldOut(item) && <SoldOutTag colors={colors} />}
-                {onEditItem && <EditPen onPress={() => onEditItem(item)} style={styles.cardPen} label={`Edit ${item.name}`} />}
-              </View>
-              <View style={styles.gridBody}>
-                <Text style={[styles.gridName, { color: colors.text, fontFamily: heading }]} numberOfLines={2}>
-                  {item.name}
-                </Text>
-                <Text style={[styles.gridPrice, { color: colors.text }]}>{formatPrice(fromPrice(item))}</Text>
-                {addButton(item, true)}
-              </View>
-            </Pressable>
-          ))}
-        </View>
-      )}
+      ))}
     </View>
   );
 }
@@ -393,6 +413,13 @@ const styles = StyleSheet.create({
   pillText: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  group: {
+    marginBottom: spacing.sm,
+  },
+  sectionHeading: {
+    fontSize: 18,
+    fontWeight: '800',
   },
   sectionIntro: {
     paddingHorizontal: spacing.md,

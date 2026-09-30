@@ -39,7 +39,11 @@ export default function EditorSheets({ ed }: { ed: StorefrontEditor }) {
     sheet.kind === 'design'
       ? 'Design'
       : sheet.kind === 'header'
-        ? 'Edit header'
+        ? sheet.focus === 'photo'
+          ? 'Header photo & style'
+          : sheet.focus === 'buttons'
+            ? 'Edit buttons'
+            : 'Name & tagline'
         : sheet.kind === 'add'
           ? 'Add a section'
           : sheet.kind === 'arrange'
@@ -63,7 +67,7 @@ export default function EditorSheets({ ed }: { ed: StorefrontEditor }) {
             </View>
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={frame.body}>
               {sheet.kind === 'design' && <DesignPanel ed={ed} />}
-              {sheet.kind === 'header' && <HeaderPanel ed={ed} />}
+              {sheet.kind === 'header' && <HeaderPanel ed={ed} focus={sheet.focus} />}
               {sheet.kind === 'block' && (
                 <View style={frame.padded}>
                   <BlockPanel ed={ed} id={sheet.id} />
@@ -327,98 +331,112 @@ function DesignPanel({ ed }: { ed: StorefrontEditor }) {
 }
 
 // ── Header: photo, logo, words, buttons ───────────────────────────────────
-function HeaderPanel({ ed }: { ed: StorefrontEditor }) {
+type HeaderFocus = 'text' | 'photo' | 'buttons';
+
+// Each header pencil opens only what it points at: the name/tagline, the
+// photo (and logo and header style), or the buttons.
+function HeaderPanel({ ed, focus }: { ed: StorefrontEditor; focus: HeaderFocus }) {
   const { styles } = useUI();
   const { theme, setHero, upload, uploading, spot } = ed;
   const bg = theme.background;
-  return (
-    <>
-  {/* ── Header ── */}
-  <Section icon="browsers-outline" title="Header">
-    <Segmented
-      options={[
-        { id: 'cover', label: 'Cover' },
-        { id: 'title', label: 'Big title' },
-        { id: 'photo', label: 'Full photo' },
-      ]}
-      value={theme.hero.style}
-      onChange={(style) => setHero({ style })}
-    />
-    <Text style={styles.hint}>
-      {theme.hero.style === 'cover'
-        ? 'A cover image with your logo and name underneath.'
-        : theme.hero.style === 'title'
-          ? 'Your name and tagline in big type, above a feature photo.'
-          : 'A full-screen photo with your headline written over it.'}
-    </Text>
-    <ImagePickerRow
-      label="Header photo"
-      hint={bg?.image && theme.hero.style === 'cover' ? 'Leave empty to use your background as the cover.' : undefined}
-      value={theme.hero.image}
-      busy={uploading === 'hero'}
-      disabled={uploading !== null}
-      onPick={() => upload('hero', (url) => setHero({ image: url }))}
-      onRemove={() => setHero({ image: null })}
-    />
-    <ImagePickerRow
-      label="Logo"
-      value={theme.hero.logo}
-      busy={uploading === 'logo'}
-      disabled={uploading !== null}
-      onPick={() => upload('logo', (url) => setHero({ logo: url }))}
-      onRemove={() => setHero({ logo: null })}
-    />
-    <Field
-      label="Headline"
-      value={theme.hero.headline ?? ''}
-      onChange={(v) => setHero({ headline: v || null })}
-      placeholder={spot.name}
-    />
-    {theme.hero.style === 'photo' && (
-      <Field
-        label="Small label above the headline"
-        value={theme.hero.eyebrow ?? ''}
-        onChange={(v) => setHero({ eyebrow: v || null })}
-        placeholder="CAFÉ CON RAÍCES"
-      />
-    )}
-    {theme.hero.style !== 'photo' && (
-      <Field
-        label="Tagline"
-        value={theme.hero.tagline ?? ''}
-        onChange={(v) => setHero({ tagline: v || null })}
-        placeholder="Coffee with a little chisme"
-      />
-    )}
-    {theme.hero.style !== 'cover' && (
-      <Field
-        label="Intro"
-        value={theme.hero.subtext ?? ''}
-        onChange={(v) => setHero({ subtext: v || null })}
-        placeholder="Specialty drinks, good vibes…"
-        multiline
-      />
-    )}
-    <View style={styles.twoCol}>
-      <View style={{ flex: 1 }}>
-        <Field label="Main button" value={theme.hero.primaryCta} onChange={(v) => setHero({ primaryCta: v || 'Order ahead' })} />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Field label="Second button" value={theme.hero.secondaryCta} onChange={(v) => setHero({ secondaryCta: v || 'Directions' })} />
-      </View>
-    </View>
-    <Text style={styles.fieldLabel}>Second button opens</Text>
-    <Segmented
-      options={[
-        { id: 'directions', label: 'Directions' },
-        { id: 'menu', label: 'Menu' },
-      ]}
-      value={theme.hero.secondaryAction}
-      onChange={(secondaryAction) => setHero({ secondaryAction })}
-    />
-  </Section>
+  const pad = { paddingHorizontal: spacing.md };
 
-    </>
+  if (focus === 'photo') {
+    return (
+      <View style={pad}>
+        <Text style={styles.fieldLabel}>Header style</Text>
+        <Segmented
+          options={[
+            { id: 'cover', label: 'Cover' },
+            { id: 'title', label: 'Big title' },
+            { id: 'photo', label: 'Full photo' },
+          ]}
+          value={theme.hero.style}
+          onChange={(style) => setHero({ style })}
+        />
+        <Text style={styles.hint}>
+          {theme.hero.style === 'cover'
+            ? 'A cover image with your logo and name underneath.'
+            : theme.hero.style === 'title'
+              ? 'Your name and tagline in big type, above a feature photo.'
+              : 'A full-screen photo with your headline written over it.'}
+        </Text>
+        <ImagePickerRow
+          label="Header photo"
+          hint={bg?.image && theme.hero.style === 'cover' ? 'Leave empty to use your background as the cover.' : undefined}
+          value={theme.hero.image}
+          busy={uploading === 'hero'}
+          disabled={uploading !== null}
+          onPick={() => upload('hero', (url) => setHero({ image: url }))}
+          onRemove={() => setHero({ image: null })}
+        />
+        <ImagePickerRow
+          label="Logo"
+          value={theme.hero.logo}
+          busy={uploading === 'logo'}
+          disabled={uploading !== null}
+          onPick={() => upload('logo', (url) => setHero({ logo: url }))}
+          onRemove={() => setHero({ logo: null })}
+        />
+      </View>
+    );
+  }
+
+  if (focus === 'buttons') {
+    return (
+      <View style={pad}>
+        <Field label="Main button (opens your menu)" value={theme.hero.primaryCta} onChange={(v) => setHero({ primaryCta: v || 'Order ahead' })} />
+        <Field label="Second button" value={theme.hero.secondaryCta} onChange={(v) => setHero({ secondaryCta: v || 'Directions' })} />
+        <Text style={[styles.fieldLabel, styles.gapTop]}>Second button opens</Text>
+        <Segmented
+          options={[
+            { id: 'directions', label: 'Directions' },
+            { id: 'menu', label: 'Menu' },
+          ]}
+          value={theme.hero.secondaryAction}
+          onChange={(secondaryAction) => setHero({ secondaryAction })}
+        />
+        {theme.hero.secondaryAction === 'menu' && (
+          <Text style={styles.hint}>Both buttons will open your menu. Directions is usually more useful here.</Text>
+        )}
+      </View>
+    );
+  }
+
+  return (
+    <View style={pad}>
+      <Field
+        label="Name"
+        value={theme.hero.headline ?? ''}
+        onChange={(v) => setHero({ headline: v || null })}
+        placeholder={spot.name}
+      />
+      {theme.hero.style === 'photo' && (
+        <Field
+          label="Small label above the headline"
+          value={theme.hero.eyebrow ?? ''}
+          onChange={(v) => setHero({ eyebrow: v || null })}
+          placeholder="CAFÉ CON RAÍCES"
+        />
+      )}
+      {theme.hero.style !== 'photo' && (
+        <Field
+          label="Tagline"
+          value={theme.hero.tagline ?? ''}
+          onChange={(v) => setHero({ tagline: v || null })}
+          placeholder="Coffee with a little chisme"
+        />
+      )}
+      {theme.hero.style !== 'cover' && (
+        <Field
+          label="Intro"
+          value={theme.hero.subtext ?? ''}
+          onChange={(v) => setHero({ subtext: v || null })}
+          placeholder="Specialty drinks, good vibes…"
+          multiline
+        />
+      )}
+    </View>
   );
 }
 

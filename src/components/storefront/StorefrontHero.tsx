@@ -38,7 +38,7 @@ interface Props {
   footer?: React.ReactNode;
   // Edit mode: pencils on the header's text, photo and buttons, and on the
   // info strip.
-  onEditHeader?: () => void;
+  onEditHeader?: (focus: 'text' | 'photo' | 'buttons') => void;
   onEditDetails?: () => void;
 }
 
@@ -62,7 +62,7 @@ function ctaButtons(props: Props, variant: 'row' | 'stack' | 'onPhoto') {
   const outlineColor = variant === 'onPhoto' ? '#FFFFFF' : colors.text;
   return (
     <View style={variant === 'row' ? styles.ctaRow : styles.ctaStack}>
-      {props.onEditHeader && <EditPen onPress={props.onEditHeader} style={styles.penCtas} label="Edit buttons" />}
+      {props.onEditHeader && <EditPen onPress={() => props.onEditHeader?.('buttons')} style={styles.penCtas} label="Edit buttons" />}
       <Pressable
         style={[styles.cta, { backgroundColor: primaryBg }, variant !== 'row' && styles.ctaStackItem]}
         onPress={props.onPrimary}
@@ -124,7 +124,7 @@ function CoverHero(props: Props) {
           <CornerDecorations theme={theme} />
         </View>
         {props.onEditHeader && (
-          <EditPen onPress={props.onEditHeader} style={{ right: 16, bottom: 40 }} label="Edit header photo" />
+          <EditPen onPress={() => props.onEditHeader?.('photo')} style={{ right: 16, bottom: 40 }} label="Edit header photo" />
         )}
       </View>
 
@@ -145,7 +145,7 @@ function CoverHero(props: Props) {
             </View>
           )}
           <View style={styles.coverNameText}>
-            {props.onEditHeader && <EditPen onPress={props.onEditHeader} style={styles.penName} label="Edit name and logo" />}
+            {props.onEditHeader && <EditPen onPress={() => props.onEditHeader?.('text')} style={styles.penName} label="Edit name" />}
             <View style={styles.nameLine}>
               <Text style={[styles.coverName, { color: colors.text, fontFamily: heading }]} numberOfLines={1}>
                 {theme.hero.headline ?? spot.name}
@@ -217,7 +217,7 @@ function TitleHero(props: Props) {
         pointerEvents="none"
       />
       <View style={styles.titleBlock}>
-        {props.onEditHeader && <EditPen onPress={props.onEditHeader} style={styles.penTitle} label="Edit name and tagline" />}
+        {props.onEditHeader && <EditPen onPress={() => props.onEditHeader?.('text')} style={styles.penTitle} label="Edit name and tagline" />}
         <DecoratedTitle theme={theme} placement="title-sides">
           <Text style={[styles.titleName, { color: colors.text, fontFamily: headingFont(theme, 'extraBold') }]}>
             {theme.hero.headline ?? spot.name}
@@ -244,7 +244,7 @@ function TitleHero(props: Props) {
             pointerEvents="none"
           />
           <CornerDecorations theme={theme} />
-          {props.onEditHeader && <EditPen onPress={props.onEditHeader} style={{ top: 12, right: 16 }} label="Edit header photo" />}
+          {props.onEditHeader && <EditPen onPress={() => props.onEditHeader?.('photo')} style={{ top: 12, right: 16 }} label="Edit header photo" />}
         </View>
       )}
       <View style={styles.titleCtas}>{ctaButtons(props, 'row')}</View>
@@ -272,9 +272,12 @@ function PhotoHero(props: Props) {
           <CornerDecorations theme={theme} />
         </View>
         {props.onEditHeader && (
-          <EditPen onPress={props.onEditHeader} style={{ top: insets.top + 60, left: 16 }} label="Edit header photo" />
+          <EditPen onPress={() => props.onEditHeader?.('photo')} style={{ top: insets.top + 60, left: 16 }} label="Edit header photo" />
         )}
         <View style={styles.photoCopy}>
+          {props.onEditHeader && (
+            <EditPen onPress={() => props.onEditHeader?.('text')} style={{ top: -14, right: 0 }} label="Edit headline" />
+          )}
           {theme.hero.eyebrow && <Text style={styles.photoEyebrow}>{theme.hero.eyebrow}</Text>}
           <Text style={[styles.photoHeadline, { fontFamily: headingFont(theme, 'extraBold') }]}>
             {theme.hero.headline ?? spot.name}
