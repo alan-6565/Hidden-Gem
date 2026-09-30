@@ -3,14 +3,17 @@ import { Alert } from 'react-native';
 import { useAppData } from '../../../context/DataContext';
 import { useAuth } from '../../../context/AuthContext';
 import { Spot } from '../../../types';
-import { Block, BlockType, StorefrontTheme } from '../../../types/storefront';
+import { Block, BlockType, CanvasItem, ElementStyle, StorefrontTheme } from '../../../types/storefront';
+import { canvasItems as currentItems } from '../../../utils/headerLayout';
 import { homeBlocks, resolveStorefront } from '../../../utils/storefrontTheme';
 import { pickMediaFromLibrary, uploadMedia } from '../../../lib/mediaUpload';
 import { buildDecor, DecorChoices, readDecor } from './decor';
 
 export type EditorSheet =
-  | { kind: 'design' }
-  | { kind: 'header'; focus: 'text' | 'photo' | 'buttons' }
+  // Page-wide settings (background, header style, layout, looks).
+  | { kind: 'page' }
+  // One element: a header element id, a canvas item id, 'photo' or 'logo'.
+  | { kind: 'element'; id: string }
   | { kind: 'block'; id: string }
   | { kind: 'add'; index: number }
   | { kind: 'arrange' }
@@ -33,6 +36,9 @@ export function useStorefrontEditor(spot: Spot | undefined, enabled: boolean) {
   const [uploading, setUploading] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [sheet, setSheet] = useState<EditorSheet | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // True while an element is being dragged (the page stops scrolling).
+  const [dragging, setDragging] = useState(false);
 
   const theme = useMemo<StorefrontTheme>(() => ({ ...base, decorations: buildDecor(decor, base) }), [base, decor]);
   const latest = useRef(theme);
@@ -118,6 +124,40 @@ export function useStorefrontEditor(spot: Spot | undefined, enabled: boolean) {
     return block;
   };
 
+  // ── Individual elements ───────────────────────────────────────────────
+  const setElement = (id: string, patch: Partial<ElementStyle>) =>
+    setBase((t) => ({ ...t, elements: { ...t.elements, [id]: { ...(t.elements[id] ?? {}), ...patch } } }));
+  const resetElement = (id: string, keys: (keyof ElementStyle)[]) =>
+    setBase((t) => {
+      const current = { ...(t.elements[id] ?? {}) };
+      for (const k of keys) delete current[k];
+      return { ...t, elements: { ...t.elements, [id]: current } };
+    });
+
+  // Header text/stickers the owner adds. The first edit turns any old
+  // text/sticker decorations into real items, and drops them from the
+  // decoration choices so they aren't drawn twice.
+  const setItems = (fn: (items: CanvasItem[]) => CanvasItem[]) => {
+    setBase((t) => ({ ...t, canvasItems: fn(currentItems(t)) }));
+    setDecor((d) => (d.note || d.sticker ? { ...d, note: '', sticker: null } : d));
+  };
+  const addItem = (item: Omit<CanvasItem, 'id'>) => {
+    const id = `item-${newBlockId()}`;
+    setItems((items) => [...items, { ...item, id }]);
+    setSelectedId(id);
+    return id;
+  };
+  const updateItem = (id: string, patch: Partial<CanvasItem>) =>
+    setItems((items) => items.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+  const isItem = (id: string) => currentItems(base).some((i) => i.id === id);
+  // Trash on the canvas: owner-added items are deleted, built-in elements
+  // (name, tagline, buttons…) are hidden and can be shown again from Page.
+  const removeElement = (id: string) => {
+    if (isItem(id)) setItems((items) => items.filter((i) => i.id !== id));
+    else setElement(id, { hidden: true });
+    setSelectedId(null);
+  };
+
   // ── Uploads ────────────────────────────────────────────────────────────
   const upload = async (key: string, apply: (url: string) => void) => {
     if (!user) return;
@@ -184,6 +224,16 @@ export function useStorefrontEditor(spot: Spot | undefined, enabled: boolean) {
     sheet,
     openSheet: setSheet,
     closeSheet: () => setSheet(null),
+    selectedId,
+    setSelectedId,
+    dragging,
+    setDragging,
+    setElement,
+    resetElement,
+    addItem,
+    updateItem,
+    isItem,
+    removeElement,
   };
 }
 

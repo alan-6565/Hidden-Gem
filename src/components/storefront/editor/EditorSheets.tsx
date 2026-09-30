@@ -16,7 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAppData } from '../../../context/DataContext';
 import { MenuItem } from '../../../types';
-import { BLOCK_LABELS, BlockType } from '../../../types/storefront';
+import { BLOCK_LABELS, BlockType, ElementFont, ElementStyle } from '../../../types/storefront';
+import { canvasItems as canvasItemsOf, defaultItem, FONT_LABELS, fontFamily, resolveElement } from '../../../utils/headerLayout';
 import { PRESETS, SWATCHES, TITLE_ACCENTS } from '../../../constants/storefrontPresets';
 import { contrastRatio, onColor } from '../../../utils/storefrontTheme';
 import { radius, spacing, ThemeColors } from '../../../theme';
@@ -38,14 +39,14 @@ export default function EditorSheets({ ed }: { ed: StorefrontEditor }) {
   if (!sheet) return null;
 
   const title =
-    sheet.kind === 'design'
-      ? 'Design'
-      : sheet.kind === 'header'
-        ? sheet.focus === 'photo'
-          ? 'Header photo & style'
-          : sheet.focus === 'buttons'
-            ? 'Edit buttons'
-            : 'Name & tagline'
+    sheet.kind === 'page'
+      ? 'Page'
+      : sheet.kind === 'element'
+        ? sheet.id === 'photo'
+          ? 'Header photo'
+          : sheet.id === 'logo'
+            ? 'Logo'
+            : `Edit ${ELEMENT_NAMES[sheet.id]?.toLowerCase() ?? (ed.isItem(sheet.id) ? 'text' : 'element')}`
         : sheet.kind === 'add'
           ? 'Add a section'
           : sheet.kind === 'arrange'
@@ -68,8 +69,8 @@ export default function EditorSheets({ ed }: { ed: StorefrontEditor }) {
               </Pressable>
             </View>
             <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={frame.body} scrollEnabled={!scrollLocked}>
-              {sheet.kind === 'design' && <DesignPanel ed={ed} />}
-              {sheet.kind === 'header' && <HeaderPanel ed={ed} focus={sheet.focus} />}
+              {sheet.kind === 'page' && <PagePanel ed={ed} />}
+              {sheet.kind === 'element' && <ElementPanel ed={ed} id={sheet.id} />}
               {sheet.kind === 'block' && (
                 <View style={frame.padded}>
                   <BlockPanel ed={ed} id={sheet.id} />
@@ -90,8 +91,10 @@ export default function EditorSheets({ ed }: { ed: StorefrontEditor }) {
   );
 }
 
-// ── Design: the whole-page look ──────────────────────────────────────────
-function DesignPanel({ ed }: { ed: StorefrontEditor }) {
+// ── Page: settings that really are page-wide ────────────────────────────
+// Everything that belongs to one element (text, color, size, position)
+// lives on that element's own pencil instead.
+function PagePanel({ ed }: { ed: StorefrontEditor }) {
   const { styles, colors } = useUI();
   const { theme, setBase, decor, setDecor, set, setColors, setBackground, setSections, upload, uploading } = ed;
   const bg = theme.background;
@@ -101,6 +104,9 @@ function DesignPanel({ ed }: { ed: StorefrontEditor }) {
   // Presets are the whole first screen: tap one, see it on the page, done.
   // Everything granular waits behind "Customize further" (from #34).
   const [advanced, setAdvanced] = React.useState(false);
+  const hiddenIds = Object.entries(theme.elements)
+    .filter(([id, el]) => el.hidden && id in ELEMENT_NAMES)
+    .map(([id]) => id);
   const activePreset = PRESETS.find(
     (p) =>
       p.look.colors.primary.toUpperCase() === theme.colors.primary.toUpperCase() &&
@@ -150,13 +156,76 @@ function DesignPanel({ ed }: { ed: StorefrontEditor }) {
         })}
       </View>
 
+      <Section icon="add-circle-outline" title="Add to your header">
+        <Text style={styles.hint}>Drag it where you want it, then tap it to change the text, font, size or color.</Text>
+        <View style={styles.imageButtons}>
+          <Pressable
+            style={styles.smallButton}
+            onPress={() => {
+              ed.addItem({ kind: 'text', text: 'Good coffee, better days' });
+              ed.closeSheet();
+            }}
+          >
+            <Ionicons name="text-outline" size={14} color={colors.primary} />
+            <Text style={styles.smallButtonText}>Text</Text>
+          </Pressable>
+          <Pressable
+            style={styles.smallButton}
+            disabled={uploading !== null}
+            onPress={() =>
+              upload('sticker', (url) => {
+                ed.addItem({ kind: 'sticker', image: url });
+                ed.closeSheet();
+              })
+            }
+          >
+            <Ionicons name="happy-outline" size={14} color={colors.primary} />
+            <Text style={styles.smallButtonText}>{uploading === 'sticker' ? 'Uploading…' : 'Sticker'}</Text>
+          </Pressable>
+        </View>
+        <Text style={styles.hint}>Stickers: a PNG with a transparent background works best.</Text>
+      </Section>
+
+      {hiddenIds.length > 0 && (
+        <Section icon="eye-off-outline" title="Hidden from your page">
+          {hiddenIds.map((id) => (
+            <View key={id} style={styles.switchRow}>
+              <Text style={[styles.fieldLabel, { flex: 1 }]}>{ELEMENT_NAMES[id] ?? id}</Text>
+              <Pressable style={styles.smallButton} onPress={() => ed.setElement(id, { hidden: false })}>
+                <Ionicons name="eye-outline" size={14} color={colors.primary} />
+                <Text style={styles.smallButtonText}>Show</Text>
+              </Pressable>
+            </View>
+          ))}
+        </Section>
+      )}
+
+      <Section icon="browsers-outline" title="Header style">
+        <Segmented
+          options={[
+            { id: 'cover', label: 'Cover' },
+            { id: 'title', label: 'Big title' },
+            { id: 'photo', label: 'Full photo' },
+          ]}
+          value={theme.hero.style}
+          onChange={(style) => ed.setHero({ style })}
+        />
+        <Text style={styles.hint}>
+          {theme.hero.style === 'cover'
+            ? 'A cover image with your logo and name card underneath.'
+            : theme.hero.style === 'title'
+              ? 'Your name and tagline in big type above a photo. Drag anything anywhere.'
+              : 'A full-screen photo with your words on top. Drag anything anywhere.'}
+        </Text>
+      </Section>
+
       <Pressable style={styles.moreToggle} onPress={() => setAdvanced((v) => !v)} accessibilityRole="button">
         <Ionicons name="options-outline" size={16} color={colors.text} />
         <Text style={styles.moreToggleText}>{advanced ? 'Hide extra options' : 'Customize further'}</Text>
         <Ionicons name={advanced ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textMuted} />
       </Pressable>
       {!advanced && (
-        <Text style={[styles.hint, styles.presetIntro]}>Colors, background pattern, fonts, layout and decorations.</Text>
+        <Text style={[styles.hint, styles.presetIntro]}>Page background and pattern, accent color, layout and title decorations.</Text>
       )}
 
       {advanced && (
@@ -169,9 +238,9 @@ function DesignPanel({ ed }: { ed: StorefrontEditor }) {
       </View>
   {/* ── Colors ── */}
   <Section icon="brush-outline" title="Colors">
-    <ColorRow label="Brand color" value={theme.colors.primary} swatches={SWATCHES.primary} onChange={(c) => setColors({ primary: c })} />
-    <ColorRow label="Background" value={theme.colors.background} swatches={SWATCHES.background} onChange={(c) => setColors({ background: c })} />
-    <ColorRow label="Text" value={theme.colors.text} swatches={SWATCHES.text} onChange={(c) => setColors({ text: c })} />
+    <ColorRow label="Accent: buttons, prices, tabs" value={theme.colors.primary} swatches={SWATCHES.primary} onChange={(c) => setColors({ primary: c })} />
+    <ColorRow label="Page background" value={theme.colors.background} swatches={SWATCHES.background} onChange={(c) => setColors({ background: c })} />
+    <ColorRow label="Body text: menus, reviews" value={theme.colors.text} swatches={SWATCHES.text} onChange={(c) => setColors({ text: c })} />
   </Section>
 
   {/* ── Background ── */}
@@ -321,21 +390,6 @@ function DesignPanel({ ed }: { ed: StorefrontEditor }) {
         <Switch value={decor.corners} onValueChange={(corners) => setDecor((d) => ({ ...d, corners }))} />
       </View>
     )}
-    <Field
-      label="Handwritten note in the header"
-      value={decor.note}
-      onChange={(note) => setDecor((d) => ({ ...d, note }))}
-      placeholder="Good Coffee, Brighter Days"
-    />
-    <ImagePickerRow
-      label="Sticker"
-      hint="A mascot or illustration. PNG with a transparent background works best."
-      value={decor.sticker}
-      busy={uploading === 'sticker'}
-      disabled={uploading !== null}
-      onPick={() => upload('sticker', (url) => setDecor((d) => ({ ...d, sticker: url })))}
-      onRemove={() => setDecor((d) => ({ ...d, sticker: null }))}
-    />
   </Section>
 
       </>
@@ -364,113 +418,209 @@ function DesignPanel({ ed }: { ed: StorefrontEditor }) {
 }
 
 // ── Header: photo, logo, words, buttons ───────────────────────────────────
-type HeaderFocus = 'text' | 'photo' | 'buttons';
+const ELEMENT_NAMES: Record<string, string> = {
+  eyebrow: 'Small label',
+  name: 'Name',
+  tagline: 'Tagline',
+  intro: 'Intro',
+  primaryButton: 'Main button',
+  secondaryButton: 'Second button',
+};
 
-// Each header pencil opens only what it points at: the name/tagline, the
-// photo (and logo and header style), or the buttons.
-function HeaderPanel({ ed, focus }: { ed: StorefrontEditor; focus: HeaderFocus }) {
-  const { styles } = useUI();
+// Size slider runs 0–100; map it to 10–64pt text.
+const toSlider = (size: number) => Math.round(((size - 10) / 54) * 100);
+const fromSlider = (v: number) => Math.round(10 + (v / 100) * 54);
+
+// ── One element: everything about just this thing ─────────────────────────
+function ElementPanel({ ed, id }: { ed: StorefrontEditor; id: string }) {
+  const { styles, colors } = useUI();
   const { theme, setHero, upload, uploading, spot } = ed;
-  const bg = theme.background;
   const pad = { paddingHorizontal: spacing.md };
+  const palette = [theme.colors.primary, theme.colors.text, '#FFFFFF', ...SWATCHES.primary.slice(0, 8)];
 
-  if (focus === 'photo') {
+  if (id === 'photo' || id === 'logo') {
+    const photo = id === 'photo';
     return (
       <View style={pad}>
-        <Text style={styles.fieldLabel}>Header style</Text>
-        <Segmented
-          options={[
-            { id: 'cover', label: 'Cover' },
-            { id: 'title', label: 'Big title' },
-            { id: 'photo', label: 'Full photo' },
-          ]}
-          value={theme.hero.style}
-          onChange={(style) => setHero({ style })}
+        <ImagePickerRow
+          label={photo ? 'Header photo' : 'Logo'}
+          hint={photo && theme.background && theme.hero.style === 'cover' ? 'Leave empty to use your background pattern as the cover.' : undefined}
+          value={photo ? theme.hero.image : theme.hero.logo}
+          busy={uploading === id}
+          disabled={uploading !== null}
+          onPick={() => upload(id, (url) => setHero(photo ? { image: url } : { logo: url }))}
+          onRemove={() => setHero(photo ? { image: null } : { logo: null })}
         />
-        <Text style={styles.hint}>
-          {theme.hero.style === 'cover'
-            ? 'A cover image with your logo and name underneath.'
-            : theme.hero.style === 'title'
-              ? 'Your name and tagline in big type, above a feature photo.'
-              : 'A full-screen photo with your headline written over it.'}
+      </View>
+    );
+  }
+
+  const item = currentItemsOf(ed).find((i) => i.id === id);
+  const index = currentItemsOf(ed).findIndex((i) => i.id === id);
+  const el = item ? resolveElement(theme, id, defaultItem(theme, item, index)) : resolveElement(theme, id);
+  const set = (patch: Partial<ElementStyle>) => ed.setElement(id, patch);
+  const isButton = id === 'primaryButton' || id === 'secondaryButton';
+  const canMove = theme.hero.style !== 'cover' || !!item;
+
+  const common = (
+    <>
+      {canMove && (
+        <Pressable style={[styles.smallButton, styles.gapTop]} onPress={() => ed.resetElement(id, ['x', 'y', 'w'])}>
+          <Ionicons name="refresh-outline" size={14} color={colors.primary} />
+          <Text style={styles.smallButtonText}>Reset position</Text>
+        </Pressable>
+      )}
+      <Pressable
+        style={[styles.smallButton, styles.gapTop]}
+        onPress={() => {
+          ed.removeElement(id);
+          ed.closeSheet();
+        }}
+      >
+        <Ionicons name={item ? 'trash-outline' : 'eye-off-outline'} size={14} color={colors.danger} />
+        <Text style={[styles.smallButtonText, { color: colors.danger }]}>
+          {item ? 'Delete' : 'Hide (show it again from Page)'}
         </Text>
-        <ImagePickerRow
-          label="Header photo"
-          hint={bg?.image && theme.hero.style === 'cover' ? 'Leave empty to use your background as the cover.' : undefined}
-          value={theme.hero.image}
-          busy={uploading === 'hero'}
-          disabled={uploading !== null}
-          onPick={() => upload('hero', (url) => setHero({ image: url }))}
-          onRemove={() => setHero({ image: null })}
-        />
-        <ImagePickerRow
-          label="Logo"
-          value={theme.hero.logo}
-          busy={uploading === 'logo'}
-          disabled={uploading !== null}
-          onPick={() => upload('logo', (url) => setHero({ logo: url }))}
-          onRemove={() => setHero({ logo: null })}
-        />
-      </View>
-    );
-  }
+      </Pressable>
+    </>
+  );
 
-  if (focus === 'buttons') {
+  if (item?.kind === 'sticker') {
     return (
       <View style={pad}>
-        <Field label="Main button (opens your menu)" value={theme.hero.primaryCta} onChange={(v) => setHero({ primaryCta: v || 'Order ahead' })} />
-        <Field label="Second button" value={theme.hero.secondaryCta} onChange={(v) => setHero({ secondaryCta: v || 'Directions' })} />
-        <Text style={[styles.fieldLabel, styles.gapTop]}>Second button opens</Text>
-        <Segmented
-          options={[
-            { id: 'directions', label: 'Directions' },
-            { id: 'menu', label: 'Menu' },
-          ]}
-          value={theme.hero.secondaryAction}
-          onChange={(secondaryAction) => setHero({ secondaryAction })}
+        <ImagePickerRow
+          label="Sticker"
+          value={item.image ?? null}
+          busy={uploading === 'sticker'}
+          disabled={uploading !== null}
+          onPick={() => upload('sticker', (url) => ed.updateItem(id, { image: url }))}
+          onRemove={() => ed.removeElement(id)}
         />
-        {theme.hero.secondaryAction === 'menu' && (
-          <Text style={styles.hint}>Both buttons will open your menu. Directions is usually more useful here.</Text>
-        )}
+        <ValueSlider label="Size" value={el.w ?? 30} min={8} onChange={(w) => set({ w })} colors={colors} />
+        {common}
       </View>
     );
   }
 
+  if (isButton) {
+    const primary = id === 'primaryButton';
+    return (
+      <View style={pad}>
+        <Field
+          label="Button text"
+          value={primary ? theme.hero.primaryCta : theme.hero.secondaryCta}
+          onChange={(v) => setHero(primary ? { primaryCta: v || 'Order ahead' } : { secondaryCta: v || 'Directions' })}
+        />
+        {!primary && (
+          <>
+            <Text style={[styles.fieldLabel, styles.gapTop]}>Opens</Text>
+            <Segmented
+              options={[
+                { id: 'directions', label: 'Directions' },
+                { id: 'menu', label: 'Menu' },
+              ]}
+              value={theme.hero.secondaryAction}
+              onChange={(secondaryAction) => setHero({ secondaryAction })}
+            />
+          </>
+        )}
+        {primary && <Text style={styles.hint}>Opens your menu.</Text>}
+        <Text style={[styles.fieldLabel, styles.gapTop]}>Style</Text>
+        <Segmented
+          options={[
+            { id: 'filled', label: 'Filled' },
+            { id: 'outline', label: 'Outline' },
+          ]}
+          value={el.variant ?? 'filled'}
+          onChange={(variant) => set({ variant })}
+        />
+        <View style={styles.gapTop}>
+          <ColorRow
+            label={el.variant === 'outline' ? 'Border' : 'Fill'}
+            value={el.fill ?? theme.colors.primary}
+            swatches={palette}
+            onChange={(fill) => set({ fill })}
+          />
+          <ColorRow
+            label="Text"
+            value={el.textColor ?? (el.variant === 'outline' ? theme.colors.text : onColor(el.fill ?? theme.colors.primary))}
+            swatches={palette}
+            onChange={(textColor) => set({ textColor })}
+          />
+        </View>
+        {theme.hero.style !== 'cover' && (
+          <ValueSlider label="Width" value={el.w ?? 44} min={20} onChange={(w) => set({ w })} colors={colors} />
+        )}
+        {common}
+      </View>
+    );
+  }
+
+  // Text: built-in (name, tagline, intro, label) or an added text item.
+  const textValue = item
+    ? item.text ?? ''
+    : id === 'name'
+      ? theme.hero.headline ?? ''
+      : id === 'tagline'
+        ? theme.hero.tagline ?? ''
+        : id === 'intro'
+          ? theme.hero.subtext ?? ''
+          : theme.hero.eyebrow ?? '';
+  const setText = (v: string) => {
+    if (item) ed.updateItem(id, { text: v });
+    else if (id === 'name') setHero({ headline: v || null });
+    else if (id === 'tagline') setHero({ tagline: v || null });
+    else if (id === 'intro') setHero({ subtext: v || null });
+    else setHero({ eyebrow: v || null });
+  };
   return (
     <View style={pad}>
       <Field
-        label="Name"
-        value={theme.hero.headline ?? ''}
-        onChange={(v) => setHero({ headline: v || null })}
-        placeholder={spot.name}
+        label="Text"
+        value={textValue}
+        onChange={setText}
+        placeholder={id === 'name' ? spot.name : 'Type something'}
+        multiline={id === 'intro' || !!item}
       />
-      {theme.hero.style === 'photo' && (
-        <Field
-          label="Small label above the headline"
-          value={theme.hero.eyebrow ?? ''}
-          onChange={(v) => setHero({ eyebrow: v || null })}
-          placeholder="CAFÉ CON RAÍCES"
-        />
+      <Text style={[styles.fieldLabel, styles.gapTop]}>Font</Text>
+      <View style={styles.accentRow}>
+        {(Object.keys(FONT_LABELS) as ElementFont[]).map((f) => (
+          <Pressable key={f} style={[styles.accentChip, el.font === f && styles.accentChipOn]} onPress={() => set({ font: f })}>
+            <Text style={[styles.accentLabel, { fontFamily: fontFamily(f) }]}>{FONT_LABELS[f]}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <ValueSlider
+        label={`Size · ${el.size ?? 16}pt`}
+        value={toSlider(el.size ?? 16)}
+        onChange={(v) => set({ size: fromSlider(v) })}
+        colors={colors}
+      />
+      <View style={styles.gapTop}>
+        <ColorRow label="Color" value={el.color && el.color.startsWith('#') ? el.color : theme.colors.text} swatches={palette} onChange={(color) => set({ color })} />
+      </View>
+      {canMove && (
+        <>
+          <Text style={styles.fieldLabel}>Align</Text>
+          <Segmented
+            options={[
+              { id: 'left', label: 'Left' },
+              { id: 'center', label: 'Center' },
+              { id: 'right', label: 'Right' },
+            ]}
+            value={el.align ?? 'center'}
+            onChange={(align) => set({ align })}
+          />
+          <ValueSlider label="Box width" value={el.w ?? 60} min={15} onChange={(w) => set({ w })} colors={colors} />
+        </>
       )}
-      {theme.hero.style !== 'photo' && (
-        <Field
-          label="Tagline"
-          value={theme.hero.tagline ?? ''}
-          onChange={(v) => setHero({ tagline: v || null })}
-          placeholder="Coffee with a little chisme"
-        />
-      )}
-      {theme.hero.style !== 'cover' && (
-        <Field
-          label="Intro"
-          value={theme.hero.subtext ?? ''}
-          onChange={(v) => setHero({ subtext: v || null })}
-          placeholder="Specialty drinks, good vibes…"
-          multiline
-        />
-      )}
+      {common}
     </View>
   );
+}
+
+function currentItemsOf(ed: StorefrontEditor) {
+  return canvasItemsOf(ed.theme);
 }
 
 // ── One section: title and text ───────────────────────────────────────────
@@ -489,6 +639,7 @@ function BlockPanel({ ed, id }: { ed: StorefrontEditor; id: string }) {
         placeholder={label.defaultTitle}
         onChange={(title) => ed.updateBlock(id, { title })}
       />
+      <BlockTitleStyle ed={ed} id={id} />
       {(block.type === 'story' || block.type === 'offer') && (
         <Field
           label={block.type === 'offer' ? 'Offer' : 'Text'}
@@ -520,6 +671,46 @@ function BlockPanel({ ed, id }: { ed: StorefrontEditor; id: string }) {
           {block.type === 'hours' ? 'Shows the hours from Edit business.' : 'Shows your business photos.'}
         </Text>
       )}
+    </>
+  );
+}
+
+// Just this section's title: font, size, color, alignment.
+function BlockTitleStyle({ ed, id }: { ed: StorefrontEditor; id: string }) {
+  const { styles, colors } = useUI();
+  const key = `block:${id}`;
+  const el = ed.theme.elements[key] ?? {};
+  const set = (patch: Partial<ElementStyle>) => ed.setElement(key, patch);
+  const palette = [ed.theme.colors.text, ed.theme.colors.primary, ...SWATCHES.primary.slice(0, 8)];
+  return (
+    <>
+      <Text style={[styles.fieldLabel, styles.gapTop]}>Title font</Text>
+      <View style={styles.accentRow}>
+        {(Object.keys(FONT_LABELS) as ElementFont[]).map((f) => (
+          <Pressable key={f} style={[styles.accentChip, el.font === f && styles.accentChipOn]} onPress={() => set({ font: f })}>
+            <Text style={[styles.accentLabel, { fontFamily: fontFamily(f) }]}>{FONT_LABELS[f]}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <ValueSlider
+        label={`Title size · ${el.size ?? 20}pt`}
+        value={toSlider(el.size ?? 20)}
+        onChange={(v) => set({ size: fromSlider(v) })}
+        colors={colors}
+      />
+      <View style={styles.gapTop}>
+        <ColorRow label="Title color" value={el.color ?? ed.theme.colors.text} swatches={palette} onChange={(color) => set({ color })} />
+      </View>
+      <Text style={styles.fieldLabel}>Title alignment</Text>
+      <Segmented
+        options={[
+          { id: 'left', label: 'Left' },
+          { id: 'center', label: 'Center' },
+          { id: 'right', label: 'Right' },
+        ]}
+        value={el.align ?? 'left'}
+        onChange={(align) => set({ align })}
+      />
     </>
   );
 }

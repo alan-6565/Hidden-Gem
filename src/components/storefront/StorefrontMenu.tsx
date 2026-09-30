@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextStyle,
   View,
   useWindowDimensions,
 } from 'react-native';
@@ -51,12 +52,15 @@ export function FavoritesRow({
   theme,
   colors,
   title,
+  titleStyle,
   items,
   onOpen,
   onSeeAll,
   onEditItem,
 }: Common & {
   title?: string;
+  // Per-section title look set in edit mode (font, size, color, alignment).
+  titleStyle?: TextStyle;
   items: MenuItem[];
   onOpen: (item: MenuItem) => void;
   onSeeAll: () => void;
@@ -74,7 +78,7 @@ export function FavoritesRow({
       <View style={styles.sectionHeader}>
         <View style={styles.sectionTitleWrap}>
           <DecoratedTitle theme={theme} placement="section-title-sides">
-            <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: heading }, heading && styles.sectionTitleSerif]}>
+            <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: heading }, heading && styles.sectionTitleSerif, titleStyle]}>
               {title ?? theme.sections.favoritesTitle}
             </Text>
           </DecoratedTitle>

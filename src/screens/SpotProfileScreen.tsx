@@ -35,6 +35,7 @@ import { MenuItem } from '../types';
 import { headingFont, homeBlocks, isSoldOut, resolveStorefront, storefrontPalette } from '../utils/storefrontTheme';
 import { Block, BLOCK_LABELS } from '../types/storefront';
 import { imageSource } from '../utils/storefrontImages';
+import { fontFamily } from '../utils/headerLayout';
 import { getDisplayRating, getRatingDistribution, getReviewCount } from '../utils/rating';
 import { getStatusLabel, isOpenNow } from '../utils/hours';
 import { isPromoted } from '../utils/promotion';
@@ -52,6 +53,8 @@ type SpotTab = 'home' | 'menu' | 'reels' | 'reviews' | 'about';
 const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 const GRID_GAP = 2;
+// Edit mode shows the page slightly zoomed out.
+const ZOOM = 0.92;
 
 export default function SpotProfileScreen({ route, navigation }: Props) {
   const { colors: appColors } = useTheme();
@@ -290,6 +293,14 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
   // (no reels, no photos, no text).
   const renderBlockContent = (block: Block) => {
     const title = block.title || BLOCK_LABELS[block.type].defaultTitle;
+    // This section's own title look (edit mode → section pencil).
+    const ts = theme.elements[`block:${block.id}`] ?? {};
+    const titleStyle = {
+      ...(ts.color ? { color: ts.color } : {}),
+      ...(ts.size ? { fontSize: ts.size, lineHeight: ts.size * 1.2 } : {}),
+      ...(ts.font ? { fontFamily: fontFamily(ts.font), fontWeight: fontFamily(ts.font) ? undefined : ('800' as const) } : {}),
+      ...(ts.align ? { textAlign: ts.align, alignSelf: 'stretch' as const } : {}),
+    };
     switch (block.type) {
       case 'favorites':
         return (
@@ -298,6 +309,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             theme={theme}
             colors={colors}
             title={title}
+            titleStyle={titleStyle}
             items={favorites}
             onOpen={setOpenItem}
             onSeeAll={() => goToTab('menu')}
@@ -313,6 +325,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             theme={theme}
             colors={colors}
             title={title}
+            titleStyle={titleStyle}
             items={items}
             onOpen={setOpenItem}
             onSeeAll={() => goToTab('menu')}
@@ -325,7 +338,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         return (
           <View key={block.id} style={[styles.latestBlock, surface]}>
             <View style={styles.homeMenuHeaderRow}>
-              <Text style={[styles.sectionTitle, { fontFamily: heading }]}>{title}</Text>
+              <Text style={[styles.sectionTitle, { fontFamily: heading }, titleStyle]}>{title}</Text>
               <Pressable onPress={() => setTab('reels')}>
                 <Text style={styles.seeAllLink}>See all</Text>
               </Pressable>
@@ -340,7 +353,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         if (!text) return null;
         return (
           <View key={block.id} style={[styles.aboutCard, flatCard]}>
-            <Text style={[styles.aboutCardTitle, { fontFamily: heading }]}>{title}</Text>
+            <Text style={[styles.aboutCardTitle, { fontFamily: heading }, titleStyle]}>{title}</Text>
             <Text style={styles.description}>{text}</Text>
           </View>
         );
@@ -349,14 +362,14 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         if (!block.text) return null;
         return (
           <View key={block.id} style={[styles.aboutCard, styles.offerCard, flatCard]}>
-            <Text style={[styles.aboutCardTitle, { fontFamily: heading, color: colors.primary }]}>{title}</Text>
+            <Text style={[styles.aboutCardTitle, { fontFamily: heading, color: colors.primary }, titleStyle]}>{title}</Text>
             <Text style={styles.offerText}>{block.text}</Text>
           </View>
         );
       case 'hours':
         return (
           <View key={block.id} style={[styles.aboutCard, flatCard]}>
-            <Text style={[styles.aboutCardTitle, { fontFamily: heading }]}>{title}</Text>
+            <Text style={[styles.aboutCardTitle, { fontFamily: heading }, titleStyle]}>{title}</Text>
             {DAY_ORDER.map((day) => {
               const entry = spot.hours.find((h) => h.day === day);
               return (
@@ -374,7 +387,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         if (spot.photos.length === 0) return null;
         return (
           <View key={block.id} style={[styles.galleryBlock, surface]}>
-            <Text style={[styles.sectionTitle, styles.galleryTitle, { fontFamily: heading }]}>{title}</Text>
+            <Text style={[styles.sectionTitle, styles.galleryTitle, { fontFamily: heading }, titleStyle]}>{title}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryRow}>
               {spot.photos.map((photo, i) => {
                 const src = imageSource(photo);
@@ -469,6 +482,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
       <ScrollView
         ref={scrollRef}
         style={styles.scroll}
+        scrollEnabled={!ed?.dragging}
         contentContainerStyle={[
           styles.content,
           cartLines.length > 0 && styles.contentWithCart,
@@ -500,7 +514,19 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             onSecondary={() => (theme.hero.secondaryAction === 'menu' ? goToTab('menu') : handleDirections())}
             onFollow={() => toggleFollowSpot(spotId)}
             footer={theme.hero.style === 'cover' ? tabBar : undefined}
-            onEditHeader={editing && ed ? (focus) => ed.openSheet({ kind: 'header', focus }) : undefined}
+            canvas={
+              editing && ed
+                ? {
+                    selectedId: ed.selectedId,
+                    zoom: ZOOM,
+                    onSelect: ed.setSelectedId,
+                    onMove: (id, patch) => ed.setElement(id, patch),
+                    onEdit: (id) => ed.openSheet({ kind: 'element', id }),
+                    onHide: ed.removeElement,
+                    onDragChange: ed.setDragging,
+                  }
+                : undefined
+            }
             onEditDetails={editing ? () => navigation.navigate('BusinessEdit', { spotId }) : undefined}
           />
           {!ed && (
@@ -919,10 +945,6 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
               {ed.saveState === 'saving' ? 'Saving…' : ed.saveState === 'error' ? 'Not saved' : '✓ Saved'}
             </Text>
           </View>
-          <Pressable style={styles.editBarButton} onPress={() => ed.openSheet({ kind: 'design' })}>
-            <Ionicons name="color-palette-outline" size={14} color="#1D1A21" />
-            <Text style={styles.editBarButtonText}>Design</Text>
-          </Pressable>
           <Pressable style={styles.editBarButton} onPress={() => setPeek(true)}>
             <Text style={styles.editBarButtonText}>Preview</Text>
           </Pressable>
@@ -944,6 +966,17 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             <Text style={styles.editBarPublishText}>{ed.publishing ? '…' : 'Publish'}</Text>
           </Pressable>
         </View>
+      )}
+      {ed && !peek && (
+        // Page-wide settings live on the page itself, not in the top bar.
+        <Pressable
+          style={[styles.pageButton, { bottom: insets.bottom + spacing.md }]}
+          onPress={() => ed.openSheet({ kind: 'page' })}
+          accessibilityLabel="Page settings: background, header style, layout"
+        >
+          <Ionicons name="pencil" size={13} color="#EE4C6A" />
+          <Text style={styles.pageButtonText}>Page</Text>
+        </Pressable>
       )}
       {ed && peek && (
         <Pressable style={[styles.peekBack, { top: insets.top + 8 }]} onPress={() => setPeek(false)}>
@@ -993,7 +1026,7 @@ const makeStyles = (colors: ThemeColors) =>
     paddingBottom: 100,
   },
   zoomed: {
-    transform: [{ scale: 0.92 }],
+    transform: [{ scale: ZOOM }],
     borderRadius: radius.lg,
     overflow: 'hidden',
   },
@@ -1050,6 +1083,29 @@ const makeStyles = (colors: ThemeColors) =>
     fontSize: 12,
     fontWeight: '800',
     color: '#FFFFFF',
+  },
+  pageButton: {
+    position: 'absolute',
+    left: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#EE4C6A',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 5,
+  },
+  pageButtonText: {
+    color: '#EE4C6A',
+    fontWeight: '800',
+    fontSize: 13,
   },
   peekBack: {
     position: 'absolute',

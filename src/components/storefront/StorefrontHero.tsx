@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -8,9 +8,10 @@ import { StorefrontTheme } from '../../types/storefront';
 import { radius, spacing, ThemeColors } from '../../theme';
 import { CATEGORY_COLORS, CATEGORY_ICONS, CATEGORY_LABELS } from '../../constants/categories';
 import { imageSource } from '../../utils/storefrontImages';
-import { accentFont, headingFont, onColor } from '../../utils/storefrontTheme';
-import { CornerDecorations, DecoratedTitle } from './Decorations';
+import { fontFamily, resolveElement } from '../../utils/headerLayout';
+import { CornerDecorations } from './Decorations';
 import EditPen from './editor/EditPen';
+import HeaderCanvas, { CanvasEditing, CoverCanvasItems, ElementButton } from './HeaderCanvas';
 
 export interface HeroInfo {
   rating: number;
@@ -36,64 +37,34 @@ interface Props {
   // Rendered at the bottom of the name card (the cover style keeps the page
   // tabs inside it, like the mockups).
   footer?: React.ReactNode;
-  // Edit mode: pencils on the header's text, photo and buttons, and on the
-  // info strip.
-  onEditHeader?: (focus: 'text' | 'photo' | 'buttons') => void;
+  // Edit mode: select, drag and edit individual header elements.
+  canvas?: CanvasEditing;
   onEditDetails?: () => void;
 }
 
 export default function StorefrontHero(props: Props) {
-  switch (props.theme.hero.style) {
-    case 'title':
-      return <TitleHero {...props} />;
-    case 'photo':
-      return <PhotoHero {...props} />;
-    default:
-      return <CoverHero {...props} />;
-  }
-}
-
-function ctaButtons(props: Props, variant: 'row' | 'stack' | 'onPhoto') {
-  const { theme, colors } = props;
-  const primaryBg = colors.primary;
-  const primaryText = onColor(primaryBg);
-  const primaryLabel = theme.hero.primaryCta;
-  const secondaryLabel = theme.hero.secondaryCta;
-  const outlineColor = variant === 'onPhoto' ? '#FFFFFF' : colors.text;
+  if (props.theme.hero.style === 'cover') return <CoverHero {...props} />;
+  // Big title and Full photo headers are a free-form canvas.
   return (
-    <View style={variant === 'row' ? styles.ctaRow : styles.ctaStack}>
-      {props.onEditHeader && <EditPen onPress={() => props.onEditHeader?.('buttons')} style={styles.penCtas} label="Edit buttons" />}
-      <Pressable
-        style={[styles.cta, { backgroundColor: primaryBg }, variant !== 'row' && styles.ctaStackItem]}
-        onPress={props.onPrimary}
-      >
-        {variant === 'row' && theme.hero.style === 'cover' && (
-          <Ionicons name="bag-handle-outline" size={16} color={primaryText} />
-        )}
-        <Text style={[styles.ctaText, { color: primaryText }]}>{primaryLabel}</Text>
-        {variant === 'onPhoto' && <Ionicons name="arrow-forward" size={15} color={primaryText} />}
-      </Pressable>
-      <Pressable
-        style={[
-          styles.cta,
-          styles.ctaOutline,
-          { borderColor: variant === 'onPhoto' ? '#FFFFFF' : colors.border, backgroundColor: variant === 'onPhoto' ? 'rgba(0,0,0,0.15)' : colors.card },
-          variant !== 'row' && styles.ctaStackItem,
-        ]}
-        onPress={props.onSecondary}
-      >
-        {theme.hero.style !== 'title' && (
-          <Ionicons name={variant === 'onPhoto' ? 'location-outline' : 'navigate-outline'} size={15} color={outlineColor} />
-        )}
-        <Text style={[styles.ctaText, { color: outlineColor }]}>{secondaryLabel}</Text>
-      </Pressable>
+    <View>
+      <HeaderCanvas
+        spot={props.spot}
+        theme={props.theme}
+        colors={props.colors}
+        editing={props.canvas}
+        onPrimary={props.onPrimary}
+        onSecondary={props.onSecondary}
+      />
+      <InfoStrip {...props} />
     </View>
   );
 }
 
 // ── Cover: image band, overlapping logo, name card (Kuppio default) ──────
+// The name card stays a tidy card; its name and buttons are still styled
+// one by one, and the cover band above holds draggable text and stickers.
 function CoverHero(props: Props) {
-  const { spot, theme, colors, info } = props;
+  const { spot, theme, colors, info, canvas } = props;
   const insets = useSafeAreaInsets();
   // A shop with a background pattern uses the pattern as its cover unless
   // it picks a hero photo; otherwise fall back to its first photo.
@@ -102,11 +73,16 @@ function CoverHero(props: Props) {
   const cover = imageSource(coverSrc);
   const logo = imageSource(theme.hero.logo);
   const coverHeight = 170 + insets.top;
-  const heading = headingFont(theme);
+  const iconsOnly = { ...theme, decorations: theme.decorations.filter((d) => d.kind === 'icon') };
+  const nameEl = resolveElement(theme, 'name');
+  const primaryEl = resolveElement(theme, 'primaryButton');
+  const secondaryEl = resolveElement(theme, 'secondaryButton');
+  const nameFamily = fontFamily(nameEl.font);
 
   return (
     <View>
       <View style={{ height: coverHeight }}>
+        {canvas && <Pressable style={StyleSheet.absoluteFill} onPress={() => canvas.onSelect(null)} />}
         {cover ? (
           <Image
             source={cover}
@@ -116,16 +92,18 @@ function CoverHero(props: Props) {
             resizeMode="cover"
           />
         ) : theme.background ? null : (
-          <View style={[StyleSheet.absoluteFill, styles.coverPlaceholder, { backgroundColor: CATEGORY_COLORS[spot.category] }]}>
+          <View
+            pointerEvents="none"
+            style={[StyleSheet.absoluteFill, styles.coverPlaceholder, { backgroundColor: CATEGORY_COLORS[spot.category] }]}
+          >
             <Ionicons name={CATEGORY_ICONS[spot.category]} size={52} color="rgba(255,255,255,0.9)" />
           </View>
         )}
-        <View style={{ position: 'absolute', top: insets.top + 36, left: 0, right: 0, bottom: 30 }}>
-          <CornerDecorations theme={theme} />
+        <View pointerEvents="none" style={{ position: 'absolute', top: insets.top + 36, left: 0, right: 0, bottom: 30 }}>
+          <CornerDecorations theme={iconsOnly} />
         </View>
-        {props.onEditHeader && (
-          <EditPen onPress={() => props.onEditHeader?.('photo')} style={{ right: 16, bottom: 40 }} label="Edit header photo" />
-        )}
+        <CoverCanvasItems theme={theme} top={insets.top + 36} height={coverHeight - insets.top - 66} editing={canvas} />
+        {canvas && <EditPen onPress={() => canvas.onEdit('photo')} style={{ right: 16, bottom: 40 }} label="Change cover photo" />}
       </View>
 
       <View
@@ -144,14 +122,29 @@ function CoverHero(props: Props) {
               <Text style={[styles.logoInitial, { color: colors.primary }]}>{spot.name.charAt(0)}</Text>
             </View>
           )}
+          {canvas && <EditPen onPress={() => canvas.onEdit('logo')} style={styles.penLogo} label="Change logo" />}
           <View style={styles.coverNameText}>
-            {props.onEditHeader && <EditPen onPress={() => props.onEditHeader?.('text')} style={styles.penName} label="Edit name" />}
-            <View style={styles.nameLine}>
-              <Text style={[styles.coverName, { color: colors.text, fontFamily: heading }]} numberOfLines={1}>
-                {theme.hero.headline ?? spot.name}
-              </Text>
-              {spot.ownerUserId !== null && <Ionicons name="checkmark-circle" size={17} color={colors.primary} />}
-            </View>
+            {canvas && <EditPen onPress={() => canvas.onEdit('name')} style={styles.penName} label="Edit name" />}
+            {!nameEl.hidden && (
+              <View style={styles.nameLine}>
+                <Text
+                  style={[
+                    styles.coverName,
+                    {
+                      color: nameEl.color ?? colors.text,
+                      fontFamily: nameFamily,
+                      fontWeight: nameFamily ? undefined : '800',
+                      // Cover names sit in a card row; cap the size so it fits.
+                      fontSize: Math.min(nameEl.size ? nameEl.size * 0.66 : 21, 28),
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {theme.hero.headline ?? spot.name}
+                </Text>
+                {spot.ownerUserId !== null && <Ionicons name="checkmark-circle" size={17} color={colors.primary} />}
+              </View>
+            )}
             <View style={styles.metaLine}>
               <Ionicons name="location-outline" size={12} color={colors.textMuted} />
               <Text style={[styles.metaText, { color: colors.textMuted }]} numberOfLines={1}>
@@ -195,98 +188,28 @@ function CoverHero(props: Props) {
           </View>
         </View>
 
-        {ctaButtons(props, 'row')}
+        <View style={styles.ctaRow}>
+          {!primaryEl.hidden && (
+            <View style={styles.ctaSlot}>
+              <ElementButton el={primaryEl} label={theme.hero.primaryCta} icon="bag-handle-outline" colors={colors} onPress={canvas ? undefined : props.onPrimary} />
+              {canvas && <EditPen onPress={() => canvas.onEdit('primaryButton')} style={styles.penCtas} label="Edit main button" />}
+            </View>
+          )}
+          {!secondaryEl.hidden && (
+            <View style={styles.ctaSlot}>
+              <ElementButton
+                el={secondaryEl}
+                label={theme.hero.secondaryCta}
+                icon={theme.hero.secondaryAction === 'directions' ? 'navigate-outline' : undefined}
+                colors={colors}
+                onPress={canvas ? undefined : props.onSecondary}
+              />
+              {canvas && <EditPen onPress={() => canvas.onEdit('secondaryButton')} style={styles.penCtas} label="Edit second button" />}
+            </View>
+          )}
+        </View>
         {props.footer}
       </View>
-    </View>
-  );
-}
-
-// ── Title: decorated name + tagline above a feature photo (Chismesito) ───
-function TitleHero(props: Props) {
-  const { spot, theme, colors } = props;
-  const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const photo = imageSource(theme.hero.image ?? spot.photos[0] ?? null);
-  const accent = accentFont(theme);
-  return (
-    <View style={{ paddingTop: insets.top + 52 }}>
-      <LinearGradient
-        colors={[colors.blush, colors.background]}
-        style={StyleSheet.absoluteFill}
-        pointerEvents="none"
-      />
-      <View style={styles.titleBlock}>
-        {props.onEditHeader && <EditPen onPress={() => props.onEditHeader?.('text')} style={styles.penTitle} label="Edit name and tagline" />}
-        <DecoratedTitle theme={theme} placement="title-sides">
-          <Text style={[styles.titleName, { color: colors.text, fontFamily: headingFont(theme, 'extraBold') }]}>
-            {theme.hero.headline ?? spot.name}
-          </Text>
-        </DecoratedTitle>
-        {theme.hero.tagline && (
-          <Text style={[styles.titleTagline, { color: colors.primary, fontFamily: accent }]}>{theme.hero.tagline}</Text>
-        )}
-        {theme.hero.subtext && (
-          <Text style={[styles.titleSubtext, { color: colors.text }]}>{theme.hero.subtext}</Text>
-        )}
-      </View>
-      {photo && (
-        <View>
-          <Image source={photo} style={{ width, height: width * 0.62 }} resizeMode="cover" />
-          <LinearGradient
-            colors={[colors.background, 'transparent']}
-            style={styles.titlePhotoFadeTop}
-            pointerEvents="none"
-          />
-          <LinearGradient
-            colors={['transparent', colors.background]}
-            style={styles.titlePhotoFadeBottom}
-            pointerEvents="none"
-          />
-          <CornerDecorations theme={theme} />
-          {props.onEditHeader && <EditPen onPress={() => props.onEditHeader?.('photo')} style={{ top: 12, right: 16 }} label="Edit header photo" />}
-        </View>
-      )}
-      <View style={styles.titleCtas}>{ctaButtons(props, 'row')}</View>
-      <InfoStrip {...props} />
-    </View>
-  );
-}
-
-// ── Photo: full-bleed image with headline over it (Taza de Miel) ─────────
-function PhotoHero(props: Props) {
-  const { spot, theme, colors } = props;
-  const insets = useSafeAreaInsets();
-  const photo = imageSource(theme.hero.image ?? spot.photos[0] ?? null);
-  return (
-    <View>
-      <View style={{ height: 420 + insets.top, backgroundColor: colors.text }}>
-        {photo && <Image source={photo} style={StyleSheet.absoluteFill} resizeMode="cover" />}
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.78)']}
-          locations={[0.25, 0.5, 1]}
-          style={StyleSheet.absoluteFill}
-          pointerEvents="none"
-        />
-        <View style={{ position: 'absolute', top: insets.top + 44, left: 0, right: 0, bottom: 0 }}>
-          <CornerDecorations theme={theme} />
-        </View>
-        {props.onEditHeader && (
-          <EditPen onPress={() => props.onEditHeader?.('photo')} style={{ top: insets.top + 60, left: 16 }} label="Edit header photo" />
-        )}
-        <View style={styles.photoCopy}>
-          {props.onEditHeader && (
-            <EditPen onPress={() => props.onEditHeader?.('text')} style={{ top: -14, right: 0 }} label="Edit headline" />
-          )}
-          {theme.hero.eyebrow && <Text style={styles.photoEyebrow}>{theme.hero.eyebrow}</Text>}
-          <Text style={[styles.photoHeadline, { fontFamily: headingFont(theme, 'extraBold') }]}>
-            {theme.hero.headline ?? spot.name}
-          </Text>
-          {theme.hero.subtext && <Text style={styles.photoSubtext}>{theme.hero.subtext}</Text>}
-          {ctaButtons(props, 'onPhoto')}
-        </View>
-      </View>
-      <InfoStrip {...props} />
     </View>
   );
 }
@@ -339,6 +262,13 @@ const styles = StyleSheet.create({
     right: spacing.sm,
     bottom: 10,
     borderRadius: radius.lg,
+  },
+  ctaSlot: {
+    flex: 1,
+  },
+  penLogo: {
+    left: 58,
+    top: -30,
   },
   penCtas: {
     top: -12,

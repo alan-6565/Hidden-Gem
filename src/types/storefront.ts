@@ -91,6 +91,40 @@ export const BLOCK_LABELS: Record<BlockType, { name: string; hint: string; defau
   menuCategory: { name: 'Menu category', hint: 'e.g. Matcha, Refreshers', defaultTitle: 'From our menu' },
 };
 
+// ── Per-element styling (edit mode) ───────────────────────────────────
+// Every piece of the header (and each section title) can be styled on its
+// own, so changing one thing never changes another. Header elements can
+// also be dragged anywhere: positions are % of the header canvas, and
+// sizes are points on a 390pt-wide design scaled to the screen, so a
+// layout looks the same on every phone.
+export type ElementFont = 'clean' | 'serif' | 'script' | 'handwritten';
+
+export interface ElementStyle {
+  x?: number; // horizontal center, % of canvas width
+  y?: number; // top edge, % of canvas height (below the status bar)
+  w?: number; // width, % of canvas width
+  hidden?: boolean;
+  color?: string;
+  size?: number;
+  font?: ElementFont;
+  align?: 'left' | 'center' | 'right';
+  // Buttons
+  fill?: string;
+  textColor?: string;
+  variant?: 'filled' | 'outline';
+}
+
+// Extra things an owner adds to the header: free text or a sticker.
+export interface CanvasItem {
+  id: string;
+  kind: 'text' | 'sticker';
+  text?: string;
+  image?: string;
+}
+
+// Built-in header elements.
+export type HeaderElementId = 'eyebrow' | 'name' | 'tagline' | 'intro' | 'primaryButton' | 'secondaryButton';
+
 export interface StorefrontTheme {
   version: 1;
   colors: {
@@ -112,6 +146,12 @@ export interface StorefrontTheme {
   decorations: Decoration[];
   // null until the owner arranges sections; defaultBlocks() fills in.
   blocks: Block[] | null;
+  // Per-element overrides, keyed by element id (header elements, canvas
+  // items, or `block:<id>` for a section title).
+  elements: Record<string, ElementStyle>;
+  // null until the owner edits the header; derived from old text/sticker
+  // decorations so earlier themes keep their notes and stickers.
+  canvasItems: CanvasItem[] | null;
   sections: {
     favoritesTitle: string;
     showLatest: boolean;
@@ -147,6 +187,8 @@ export const DEFAULT_STOREFRONT: StorefrontTheme = {
   },
   decorations: [],
   blocks: null,
+  elements: {},
+  canvasItems: null,
   sections: { favoritesTitle: 'Popular today', showLatest: true, menuLayout: 'grid' },
 };
 

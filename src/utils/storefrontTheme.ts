@@ -36,6 +36,8 @@ export function resolveStorefront(stored: StoredStorefront | null | undefined): 
     hero: { ...d.hero, ...(s.hero ?? {}) },
     decorations: (s.decorations as StorefrontTheme['decorations']) ?? d.decorations,
     blocks: (s.blocks as StorefrontTheme['blocks']) ?? null,
+    elements: (s.elements as StorefrontTheme['elements']) ?? {},
+    canvasItems: (s.canvasItems as StorefrontTheme['canvasItems']) ?? null,
     sections: { ...d.sections, ...(s.sections ?? {}) },
   };
 }
