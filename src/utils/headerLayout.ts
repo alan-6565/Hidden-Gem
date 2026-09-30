@@ -1,3 +1,4 @@
+import { readableTextFor } from './storefrontTheme';
 import {
   CanvasItem,
   ElementFont,
@@ -37,7 +38,9 @@ function themeFont(theme: StorefrontTheme, role: 'heading' | 'accent'): ElementF
 // these reproduce the original fixed layouts, so nothing moves until the
 // owner drags it.
 export function defaultElement(theme: StorefrontTheme, id: string): ElementStyle {
-  const { primary, text } = theme.colors;
+  const { primary } = theme.colors;
+  // Same readable text color the rest of the page uses.
+  const text = readableTextFor(theme.colors.background, theme.colors.text);
   const style = theme.hero.style;
   const onPhoto = style === 'photo';
   const serifName = themeFont(theme, 'heading');

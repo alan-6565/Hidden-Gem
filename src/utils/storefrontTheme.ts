@@ -134,7 +134,10 @@ export function storefrontPalette(
   hasCustomStorefront: boolean,
 ): ThemeColors {
   if (!hasCustomStorefront) return appColors;
-  const { primary, background, text } = theme.colors;
+  const { primary, background } = theme.colors;
+  // Never render unreadable body text, whatever was saved (e.g. dark text
+  // left over after switching to a dark page).
+  const text = readableTextFor(background, theme.colors.text);
   // On a dark page, cards are a slightly lighter shade of the page (a light
   // mix turned dark pages into muddy grey).
   const dark = luminance(background) < 0.18;
