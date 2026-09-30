@@ -44,22 +44,26 @@ export function useStorefrontEditor(spot: Spot | undefined, enabled: boolean) {
   const latest = useRef(theme);
   latest.current = theme;
 
-  // Autosave the draft, debounced.
+  // Autosave the draft, debounced. Keyed on the spot's id, not the spot
+  // object: each save refreshes the spot, and depending on it re-triggered
+  // a save forever ("Saving…" never settled).
+  const spotId = spot?.id;
   const firstRun = useRef(true);
   useEffect(() => {
-    if (!enabled || !spot) return;
+    if (!enabled || !spotId) return;
     if (firstRun.current) {
       firstRun.current = false;
       return;
     }
     setSaveState('saving');
     const timer = setTimeout(() => {
-      updateSpot(spot.id, { storefrontDraft: latest.current })
+      updateSpot(spotId, { storefrontDraft: latest.current })
         .then(() => setSaveState('saved'))
         .catch(() => setSaveState('error'));
     }, 700);
     return () => clearTimeout(timer);
-  }, [theme, enabled, spot, updateSpot]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theme, enabled, spotId]);
 
   const flushDraft = useCallback(async () => {
     if (!spot) return;
