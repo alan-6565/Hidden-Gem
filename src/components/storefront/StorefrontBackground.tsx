@@ -41,8 +41,8 @@ export default function StorefrontBackground({ background, height }: Props) {
 
   if (background.fit === 'fill') {
     return (
-      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { height: coverHeight }]}>
-        <Image source={source} resizeMode="cover" style={[StyleSheet.absoluteFill, { opacity }]} />
+      <View pointerEvents="none" style={[StyleSheet.absoluteFill, { height: coverHeight, overflow: 'hidden' }]}>
+        <Image source={source} resizeMode="cover" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity }} />
       </View>
     );
   }

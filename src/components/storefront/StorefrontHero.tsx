@@ -81,14 +81,14 @@ function CoverHero(props: Props) {
 
   return (
     <View>
-      <View style={{ height: coverHeight }}>
+      <View style={{ height: coverHeight, overflow: 'hidden' }}>
         {canvas && <Pressable style={StyleSheet.absoluteFill} onPress={() => canvas.onSelect(null)} />}
         {cover ? (
           <Image
             source={cover}
             // With a pattern behind the page, the photo is inset so the
             // pattern frames it; otherwise it runs edge to edge.
-            style={theme.background ? [styles.coverInset, { top: insets.top + 44 }] : StyleSheet.absoluteFill}
+            style={theme.background ? [styles.coverInset, { top: insets.top + 44 }] : styles.coverFill}
             resizeMode="cover"
           />
         ) : theme.background ? null : (
@@ -256,6 +256,13 @@ export function InfoStrip({ colors, info, onEditDetails }: Props) {
 }
 
 const styles = StyleSheet.create({
+  coverFill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+  },
   coverInset: {
     position: 'absolute',
     left: spacing.sm,

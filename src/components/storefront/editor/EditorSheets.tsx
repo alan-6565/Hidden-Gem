@@ -10,6 +10,7 @@ import {
   Switch,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,6 +32,8 @@ import { StorefrontEditor } from './useStorefrontEditor';
 export default function EditorSheets({ ed }: { ed: StorefrontEditor }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  // A % max height collapses inside the keyboard wrapper, so use pixels.
+  const { height: windowHeight } = useWindowDimensions();
   // The color wheel locks scrolling while it's dragged, or the panel would scroll instead.
   const [scrollLocked, setScrollLocked] = React.useState(false);
   const ui = React.useMemo(() => ({ styles: makeEditorStyles(colors), colors, setScrollLocked }), [colors]);
@@ -58,9 +61,12 @@ export default function EditorSheets({ ed }: { ed: StorefrontEditor }) {
   return (
     <Modal visible transparent animationType="slide" onRequestClose={ed.closeSheet}>
       <EditorUI.Provider value={ui}>
-        <Pressable style={frame.backdrop} onPress={ed.closeSheet} accessibilityLabel="Close panel" />
+        {/* The dim layer covers the whole screen and the panel is pinned to
+            the bottom, so nothing shows through underneath it. */}
+        <View style={frame.root}>
+        <Pressable style={[StyleSheet.absoluteFill, frame.backdrop]} onPress={ed.closeSheet} accessibilityLabel="Close panel" />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={[frame.sheet, { paddingBottom: insets.bottom + spacing.sm }]}>
+          <View style={[frame.sheet, { maxHeight: windowHeight * 0.64, paddingBottom: insets.bottom + spacing.sm }]}>
             <View style={frame.grab} />
             <View style={frame.headerRow}>
               <Text style={frame.title}>{title}</Text>
@@ -68,7 +74,14 @@ export default function EditorSheets({ ed }: { ed: StorefrontEditor }) {
                 <Text style={frame.doneText}>Done</Text>
               </Pressable>
             </View>
-            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={frame.body} scrollEnabled={!scrollLocked}>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              // Size to the content (up to the panel's max height) instead of
+              // collapsing, which hid the photo panel's buttons.
+              style={frame.scroll}
+              contentContainerStyle={frame.body}
+              scrollEnabled={!scrollLocked}
+            >
               {sheet.kind === 'page' && <PagePanel ed={ed} />}
               {sheet.kind === 'element' && <ElementPanel ed={ed} id={sheet.id} />}
               {sheet.kind === 'block' && (
@@ -86,6 +99,7 @@ export default function EditorSheets({ ed }: { ed: StorefrontEditor }) {
             </ScrollView>
           </View>
         </KeyboardAvoidingView>
+        </View>
       </EditorUI.Provider>
     </Modal>
   );
@@ -849,12 +863,17 @@ function ItemPanel({ ed, itemId }: { ed: StorefrontEditor; itemId: string }) {
 
 const makeFrameStyles = (colors: ThemeColors) =>
   StyleSheet.create({
-    backdrop: {
+    root: {
       flex: 1,
+      justifyContent: 'flex-end',
+    },
+    backdrop: {
       backgroundColor: 'rgba(20,10,20,0.18)',
     },
+    scroll: {
+      flexGrow: 0,
+    },
     sheet: {
-      maxHeight: '64%',
       backgroundColor: colors.background,
       borderTopLeftRadius: radius.lg,
       borderTopRightRadius: radius.lg,

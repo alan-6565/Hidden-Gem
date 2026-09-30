@@ -299,7 +299,9 @@ export default function HeaderCanvas({
   };
 
   return (
-    <View style={{ height: total, backgroundColor: photoStyle ? colors.text : colors.background }}>
+    <View
+      style={{ height: total, backgroundColor: photoStyle ? colors.text : colors.background }}
+    >
       {!photoStyle && (
         <LinearGradient colors={[colors.blush, colors.background]} style={StyleSheet.absoluteFill} pointerEvents="none" />
       )}
@@ -310,8 +312,9 @@ export default function HeaderCanvas({
           pointerEvents="box-none"
           style={
             photoStyle
-              ? StyleSheet.absoluteFill
+              ? [StyleSheet.absoluteFill, styles.clip]
               : {
+                  overflow: 'hidden',
                   position: 'absolute',
                   left: 0,
                   right: 0,
@@ -320,7 +323,7 @@ export default function HeaderCanvas({
                 }
           }
         >
-          <Image source={photo} style={StyleSheet.absoluteFill} resizeMode="cover" />
+          <Image source={photo} style={styles.fill} resizeMode="cover" />
           {photoStyle ? (
             <LinearGradient
               colors={['transparent', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.78)']}
@@ -459,6 +462,20 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 60,
+  },
+  // Images drawn with resizeMode "cover" can spill past their box; keep
+  // the header photo inside it.
+  clip: {
+    overflow: 'hidden',
+  },
+  // Explicit size: with only absolute edges the image was laid out at its
+  // own larger size and showed zoomed in.
+  fill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
   },
   guide: {
     position: 'absolute',
