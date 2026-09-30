@@ -282,9 +282,21 @@ export default function HeaderCanvas({
         </CanvasElement>
       );
     }
-    const text = texts[id];
+    // Empty texts are invisible to customers, but in edit mode they show as
+    // faded placeholders so the owner has something to tap and fill in.
+    const PLACEHOLDERS: Record<string, string> = {
+      eyebrow: 'Add a small label',
+      tagline: 'Add a tagline',
+      intro: 'Add a short intro',
+    };
+    const text = texts[id] || (editing && id in PLACEHOLDERS && !(id === 'eyebrow' && !photoStyle) ? PLACEHOLDERS[id] : null);
     if (!text) return null;
-    const node = <ElementText el={el} text={text} scale={frame.scale} weight={id === 'name' ? '800' : id === 'eyebrow' ? '700' : '500'} spaced={id === 'eyebrow'} />;
+    const placeholder = !texts[id];
+    const node = (
+      <View style={placeholder ? styles.placeholder : undefined}>
+        <ElementText el={el} text={text} scale={frame.scale} weight={id === 'name' ? '800' : id === 'eyebrow' ? '700' : '500'} spaced={id === 'eyebrow'} />
+      </View>
+    );
     return (
       <CanvasElement key={id} id={id} el={el} frame={frame} editing={editing} label={id === 'name' ? 'Name' : id === 'tagline' ? 'Tagline' : id === 'intro' ? 'Intro' : 'Label'} onGuide={setGuide}>
         {id === 'name' ? (
@@ -465,6 +477,9 @@ const styles = StyleSheet.create({
   },
   // Images drawn with resizeMode "cover" can spill past their box; keep
   // the header photo inside it.
+  placeholder: {
+    opacity: 0.4,
+  },
   clip: {
     overflow: 'hidden',
   },
