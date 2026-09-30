@@ -42,6 +42,9 @@ export async function pickMediaFromLibrary(
 
   const result = await ImagePicker.launchImageLibraryAsync({
     mediaTypes: options.allowVideos ? ['images', 'videos'] : ['images'],
+    // iPhone photos are HEIC, which Android and many browsers can't show;
+    // ask iOS for a compatible JPEG instead.
+    preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
     quality: 0.7,
     videoMaxDuration: 60,
   });

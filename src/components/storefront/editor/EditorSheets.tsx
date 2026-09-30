@@ -20,7 +20,7 @@ import { MenuItem } from '../../../types';
 import { BLOCK_LABELS, BlockType, ElementFont, ElementStyle } from '../../../types/storefront';
 import { canvasItems as canvasItemsOf, defaultItem, FONT_LABELS, fontFamily, resolveElement } from '../../../utils/headerLayout';
 import { PRESETS, SWATCHES, TITLE_ACCENTS } from '../../../constants/storefrontPresets';
-import { contrastRatio, onColor } from '../../../utils/storefrontTheme';
+import { contrastRatio, onColor, readableTextFor } from '../../../utils/storefrontTheme';
 import { radius, spacing, ThemeColors } from '../../../theme';
 import ValueSlider from './ValueSlider';
 import { applyPreset } from './decor';
@@ -253,7 +253,13 @@ function PagePanel({ ed }: { ed: StorefrontEditor }) {
   {/* ── Colors ── */}
   <Section icon="brush-outline" title="Colors">
     <ColorRow label="Accent: buttons, prices, tabs" value={theme.colors.primary} swatches={SWATCHES.primary} onChange={(c) => setColors({ primary: c })} />
-    <ColorRow label="Page background" value={theme.colors.background} swatches={SWATCHES.background} onChange={(c) => setColors({ background: c })} />
+    <ColorRow
+          label="Page background"
+          value={theme.colors.background}
+          swatches={SWATCHES.background}
+          // Keep body text readable: a dark page gets light text and vice versa.
+          onChange={(c) => setColors({ background: c, text: readableTextFor(c, theme.colors.text) })}
+        />
     <ColorRow label="Body text: menus, reviews" value={theme.colors.text} swatches={SWATCHES.text} onChange={(c) => setColors({ text: c })} />
   </Section>
 

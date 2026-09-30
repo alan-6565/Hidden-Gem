@@ -72,7 +72,9 @@ function CoverHero(props: Props) {
   const panel = !!theme.background && theme.layout === 'panel';
   const cover = imageSource(coverSrc);
   const logo = imageSource(theme.hero.logo);
-  const coverHeight = 170 + insets.top;
+  // With a background pattern the photo is inset (the pattern frames it),
+  // so the band is taller to keep the photo a useful size.
+  const coverHeight = (theme.background ? 210 : 170) + insets.top;
   const iconsOnly = { ...theme, decorations: theme.decorations.filter((d) => d.kind === 'icon') };
   const nameEl = resolveElement(theme, 'name');
   const primaryEl = resolveElement(theme, 'primaryButton');
@@ -88,7 +90,7 @@ function CoverHero(props: Props) {
             source={cover}
             // With a pattern behind the page, the photo is inset so the
             // pattern frames it; otherwise it runs edge to edge.
-            style={theme.background ? [styles.coverInset, { top: insets.top + 44 }] : styles.coverFill}
+            style={theme.background ? [styles.coverInset, { top: insets.top + 8 }] : styles.coverFill}
             resizeMode="cover"
           />
         ) : theme.background ? null : (

@@ -135,7 +135,10 @@ export function storefrontPalette(
 ): ThemeColors {
   if (!hasCustomStorefront) return appColors;
   const { primary, background, text } = theme.colors;
-  const solidCard = mix(background, '#FFFFFF', 0.7);
+  // On a dark page, cards are a slightly lighter shade of the page (a light
+  // mix turned dark pages into muddy grey).
+  const dark = luminance(background) < 0.18;
+  const solidCard = dark ? mix(background, '#FFFFFF', 0.08) : mix(background, '#FFFFFF', 0.7);
   return {
     ...lightColors,
     background,
@@ -147,8 +150,15 @@ export function storefrontPalette(
     blush: mix(primary, background, 0.9),
     text,
     textMuted: mix(text, background, 0.42),
-    border: mix(text, background, 0.86),
+    border: mix(text, background, dark ? 0.8 : 0.86),
   };
+}
+
+// Readable body text for a page background: keeps the current text color if
+// it reads well, otherwise near-white on dark pages and near-black on light.
+export function readableTextFor(background: string, current: string) {
+  if (contrastRatio(current, background) >= 4.5) return current;
+  return luminance(background) < 0.18 ? '#F7F4F2' : '#241F1B';
 }
 
 // ── Menu helpers ────────────────────────────────────────────────────────
