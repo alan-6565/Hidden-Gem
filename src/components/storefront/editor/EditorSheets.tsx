@@ -438,6 +438,18 @@ function PagePanel({ ed }: { ed: StorefrontEditor }) {
 }
 
 // ── Header: photo, logo, words, buttons ───────────────────────────────────
+// Swatch rows are keyed by color, so drop repeats (a theme color can also
+// be one of the preset swatches).
+function uniqueColors(list: string[]) {
+  const seen = new Set<string>();
+  return list.filter((c) => {
+    const k = c.toUpperCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
 const ELEMENT_NAMES: Record<string, string> = {
   eyebrow: 'Small label',
   name: 'Name',
@@ -456,7 +468,7 @@ function ElementPanel({ ed, id }: { ed: StorefrontEditor; id: string }) {
   const { styles, colors } = useUI();
   const { theme, setHero, upload, uploading, spot } = ed;
   const pad = { paddingHorizontal: spacing.md };
-  const palette = [theme.colors.primary, theme.colors.text, '#FFFFFF', ...SWATCHES.primary.slice(0, 8)];
+  const palette = uniqueColors([theme.colors.primary, theme.colors.text, '#FFFFFF', ...SWATCHES.primary.slice(0, 8)]);
 
   if (id === 'photo' || id === 'logo') {
     const photo = id === 'photo';
@@ -529,7 +541,8 @@ function ElementPanel({ ed, id }: { ed: StorefrontEditor; id: string }) {
         <Field
           label="Button text"
           value={primary ? theme.hero.primaryCta : theme.hero.secondaryCta}
-          onChange={(v) => setHero(primary ? { primaryCta: v || 'Order ahead' } : { secondaryCta: v || 'Directions' })}
+          // Allowed to be empty while typing; the page falls back to a default label.
+          onChange={(v) => setHero(primary ? { primaryCta: v } : { secondaryCta: v })}
         />
         {!primary && (
           <>
@@ -701,7 +714,7 @@ function BlockTitleStyle({ ed, id }: { ed: StorefrontEditor; id: string }) {
   const key = `block:${id}`;
   const el = ed.theme.elements[key] ?? {};
   const set = (patch: Partial<ElementStyle>) => ed.setElement(key, patch);
-  const palette = [ed.theme.colors.text, ed.theme.colors.primary, ...SWATCHES.primary.slice(0, 8)];
+  const palette = uniqueColors([ed.theme.colors.text, ed.theme.colors.primary, ...SWATCHES.primary.slice(0, 8)]);
   return (
     <>
       <Text style={[styles.fieldLabel, styles.gapTop]}>Title font</Text>

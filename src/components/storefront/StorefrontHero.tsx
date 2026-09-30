@@ -8,7 +8,7 @@ import { StorefrontTheme } from '../../types/storefront';
 import { radius, spacing, ThemeColors } from '../../theme';
 import { CATEGORY_COLORS, CATEGORY_ICONS, CATEGORY_LABELS } from '../../constants/categories';
 import { imageSource } from '../../utils/storefrontImages';
-import { fontFamily, resolveElement } from '../../utils/headerLayout';
+import { fontFamily } from '../../utils/headerLayout';
 import { CornerDecorations } from './Decorations';
 import EditPen from './editor/EditPen';
 import HeaderCanvas, { CanvasEditing, CoverCanvasItems, ElementButton } from './HeaderCanvas';
@@ -76,9 +76,12 @@ function CoverHero(props: Props) {
   // so the band is taller to keep the photo a useful size.
   const coverHeight = (theme.background ? 210 : 170) + insets.top;
   const iconsOnly = { ...theme, decorations: theme.decorations.filter((d) => d.kind === 'icon') };
-  const nameEl = resolveElement(theme, 'name');
-  const primaryEl = resolveElement(theme, 'primaryButton');
-  const secondaryEl = resolveElement(theme, 'secondaryButton');
+  // The cover card is laid out by the page, so only the owner's own
+  // overrides apply here. Default colors come from the page palette, which
+  // also follows light/dark mode for shops without a custom storefront.
+  const nameEl = theme.elements.name ?? {};
+  const primaryEl = { variant: 'filled' as const, ...(theme.elements.primaryButton ?? {}) };
+  const secondaryEl = { variant: 'outline' as const, ...(theme.elements.secondaryButton ?? {}) };
   const nameFamily = fontFamily(nameEl.font);
 
   return (
@@ -193,7 +196,7 @@ function CoverHero(props: Props) {
         <View style={styles.ctaRow}>
           {!primaryEl.hidden && (
             <View style={styles.ctaSlot}>
-              <ElementButton el={primaryEl} label={theme.hero.primaryCta} icon="bag-handle-outline" colors={colors} onPress={canvas ? undefined : props.onPrimary} />
+              <ElementButton el={primaryEl} label={theme.hero.primaryCta || 'Order ahead'} icon="bag-handle-outline" colors={colors} onPress={canvas ? undefined : props.onPrimary} />
               {canvas && <EditPen onPress={() => canvas.onEdit('primaryButton')} style={styles.penCtas} label="Edit main button" />}
             </View>
           )}
@@ -201,7 +204,7 @@ function CoverHero(props: Props) {
             <View style={styles.ctaSlot}>
               <ElementButton
                 el={secondaryEl}
-                label={theme.hero.secondaryCta}
+                label={theme.hero.secondaryCta || 'Directions'}
                 icon={theme.hero.secondaryAction === 'directions' ? 'navigate-outline' : undefined}
                 colors={colors}
                 onPress={canvas ? undefined : props.onSecondary}

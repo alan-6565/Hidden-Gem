@@ -268,7 +268,7 @@ export default function HeaderCanvas({
     if (el.hidden) return null;
     if (id === 'primaryButton' || id === 'secondaryButton') {
       const primary = id === 'primaryButton';
-      const label = primary ? theme.hero.primaryCta : theme.hero.secondaryCta;
+      const label = (primary ? theme.hero.primaryCta : theme.hero.secondaryCta) || (primary ? 'Order ahead' : 'Directions');
       const icon: keyof typeof Ionicons.glyphMap | undefined = primary
         ? photoStyle
           ? 'arrow-forward'
