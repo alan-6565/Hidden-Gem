@@ -735,6 +735,44 @@ export const makeEditorStyles = (colors: ThemeColors) =>
       fontWeight: '700',
       color: colors.text,
     },
+    shapeRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      marginBottom: 6,
+    },
+    shapeOption: {
+      flex: 1,
+      alignItems: 'center',
+      gap: 6,
+    },
+    shapeThumb: {
+      width: '100%',
+      aspectRatio: 1,
+      borderRadius: radius.md,
+      borderWidth: 2,
+      borderColor: colors.border,
+      backgroundColor: colors.card,
+      overflow: 'hidden',
+    },
+    shapeThumbOn: {
+      borderColor: colors.primary,
+    },
+    shapeInner: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 4,
+      paddingVertical: 8,
+    },
+    shapeLine: {
+      height: 5,
+      borderRadius: 3,
+      backgroundColor: colors.textMuted,
+    },
+    shapeLabel: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: colors.text,
+    },
     arrangeBtn: {
       width: 32,
       height: 32,

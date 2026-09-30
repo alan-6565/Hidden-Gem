@@ -53,13 +53,15 @@ type SpotTab = 'home' | 'menu' | 'reels' | 'reviews' | 'about';
 const DAY_ORDER = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;
 
 const GRID_GAP = 2;
-// Edit mode shows the page slightly zoomed out.
-const ZOOM = 0.92;
+// Edit mode shows the page zoomed out and shifted right, so the toolbar
+// down the left edge sits beside the page instead of covering it.
+const TOOLBAR_GUTTER = 60;
 
 export default function SpotProfileScreen({ route, navigation }: Props) {
   const { colors: appColors } = useTheme();
   const { spotId, edit } = route.params;
   const { width } = useWindowDimensions();
+  const zoom = (width - TOOLBAR_GUTTER) / width;
   const insets = useSafeAreaInsets();
   const {
     spots,
@@ -411,6 +413,14 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
     gallery: 'Shows your business photos once you add some.',
   };
 
+  // New text and stickers land in the middle of the header photo, where
+  // they're easy to spot and drag, instead of on top of the name.
+  const dropSpot = (text: boolean) => ({
+    x: 50,
+    y: theme.hero.style === 'title' ? 50 : theme.hero.style === 'photo' ? 25 : 35,
+    ...(text ? { color: '#FFFFFF' } : {}),
+  });
+
   const addSectionButton = (index: number) =>
     ed ? (
       <Pressable
@@ -424,8 +434,8 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
       </Pressable>
     ) : null;
 
-  // A Home section: as-is for customers; in edit mode, framed with its own
-  // bar (arrange, edit, hide, duplicate, delete) and an "Add section" below.
+  // A Home section: as-is for customers; in edit mode, framed with a small
+  // edit/delete bar. Reorder, hide and add live in the toolbar's Sections.
   const renderBlock = (block: Block, index: number) => {
     if (!editing || !ed) return block.hidden ? null : renderBlockContent(block);
     const title = block.title || BLOCK_LABELS[block.type].defaultTitle;
@@ -444,12 +454,7 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
       <View key={block.id}>
         <View style={[styles.blockFrame, block.hidden && styles.blockHidden]}>
           <View style={styles.blockBar}>
-            {barButton('reorder-three-outline', 'Arrange sections', () => ed.openSheet({ kind: 'arrange' }))}
             {barButton('pencil', `Edit ${title}`, () => ed.openSheet({ kind: 'block', id: block.id }))}
-            {barButton(block.hidden ? 'eye-off-outline' : 'eye-outline', block.hidden ? 'Show section' : 'Hide section', () =>
-              ed.toggleHidden(block.id),
-            )}
-            {barButton('copy-outline', 'Duplicate section', () => ed.duplicateBlock(block.id))}
             {barButton('trash-outline', 'Delete section', () =>
               Alert.alert(`Delete "${title}"?`, 'You can add it back any time.', [
                 { text: 'Cancel', style: 'cancel' },
@@ -464,7 +469,6 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
           )}
           {content}
         </View>
-        {addSectionButton(index + 1)}
       </View>
     );
   };
@@ -491,7 +495,13 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         onContentSizeChange={(_, h) => setContentHeight(h)}
       >
         {/* Edit mode zooms the page out a little under the toolbar. */}
-        <View style={editing ? [styles.zoomed, { marginTop: insets.top + 50 }] : undefined}>
+        <View
+          style={
+            editing
+              ? [styles.zoomed, { marginTop: insets.top + 56, transform: [{ translateX: TOOLBAR_GUTTER }, { scale: zoom }] }]
+              : undefined
+          }
+        >
         {background && !background.fixedWhileScrolling && (
           <StorefrontBackground background={background} height={contentHeight} />
         )}
@@ -518,10 +528,10 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
               editing && ed
                 ? {
                     selectedId: ed.selectedId,
-                    zoom: ZOOM,
+                    zoom,
                     onSelect: ed.setSelectedId,
                     onMove: (id, patch) => ed.setElement(id, patch),
-                    onEdit: (id) => ed.openSheet({ kind: 'element', id }),
+                    onEdit: (id) => ed.openSheet(id === 'photo' ? { kind: 'header' } : { kind: 'element', id }),
                     onHide: ed.removeElement,
                     onDragChange: ed.setDragging,
                   }
@@ -610,8 +620,8 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
 
         {tab === 'home' && (
           <View>
-            {editing && addSectionButton(0)}
             {homeBlocks(theme, spot.name).map((block, i) => renderBlock(block, i))}
+            {editing && addSectionButton(homeBlocks(theme, spot.name).length)}
           </View>
         )}
 
@@ -968,15 +978,28 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
         </View>
       )}
       {ed && !peek && (
-        // Page-wide settings live on the page itself, not in the top bar.
-        <Pressable
-          style={[styles.pageButton, { bottom: insets.bottom + spacing.md }]}
-          onPress={() => ed.openSheet({ kind: 'page' })}
-          accessibilityLabel="Page settings: background, header style, layout"
-        >
-          <Ionicons name="pencil" size={13} color="#EE4C6A" />
-          <Text style={styles.pageButtonText}>Page</Text>
-        </Pressable>
+        // The editing toolbar: one tap per job, down the left edge.
+        <View style={[styles.toolbar, { bottom: insets.bottom + spacing.md }]}>
+          {(
+            [
+              ['text', 'Text', () => ed.setElement(ed.addItem({ kind: 'text', text: 'Tap to edit' }), dropSpot(true))],
+              [
+                'happy-outline',
+                ed.uploading === 'sticker' ? '…' : 'Sticker',
+                () => ed.upload('sticker', (url) => ed.setElement(ed.addItem({ kind: 'sticker', image: url }), dropSpot(false))),
+              ],
+              ['color-fill-outline', 'Color', () => ed.openSheet({ kind: 'color' })],
+              ['image-outline', 'Header', () => ed.openSheet({ kind: 'header' })],
+              ['list-outline', 'Sections', () => ed.openSheet({ kind: 'arrange' })],
+              ['color-palette-outline', 'Themes', () => ed.openSheet({ kind: 'looks' })],
+            ] as [keyof typeof Ionicons.glyphMap, string, () => void][]
+          ).map(([icon, label, onPress]) => (
+            <Pressable key={icon} style={styles.toolButton} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
+              <Ionicons name={icon} size={19} color="#EE4C6A" />
+              <Text style={styles.toolLabel}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
       )}
       {ed && peek && (
         <Pressable style={[styles.peekBack, { top: insets.top + 8 }]} onPress={() => setPeek(false)}>
@@ -1026,7 +1049,7 @@ const makeStyles = (colors: ThemeColors) =>
     paddingBottom: 100,
   },
   zoomed: {
-    transform: [{ scale: ZOOM }],
+    transformOrigin: 'top left',
     borderRadius: radius.lg,
     overflow: 'hidden',
   },
@@ -1084,28 +1107,30 @@ const makeStyles = (colors: ThemeColors) =>
     fontWeight: '800',
     color: '#FFFFFF',
   },
-  pageButton: {
+  toolbar: {
     position: 'absolute',
-    left: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
+    left: 4,
     gap: 6,
     backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#EE4C6A',
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    borderRadius: 18,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
     shadowColor: '#000',
     shadowOpacity: 0.18,
-    shadowRadius: 6,
+    shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
-    elevation: 5,
+    elevation: 6,
   },
-  pageButtonText: {
-    color: '#EE4C6A',
-    fontWeight: '800',
-    fontSize: 13,
+  toolButton: {
+    width: 48,
+    alignItems: 'center',
+    paddingVertical: 4,
+    gap: 1,
+  },
+  toolLabel: {
+    color: '#5E4B52',
+    fontSize: 10,
+    fontWeight: '700',
   },
   peekBack: {
     position: 'absolute',

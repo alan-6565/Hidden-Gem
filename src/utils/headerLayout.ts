@@ -49,17 +49,17 @@ export function defaultElement(theme: StorefrontTheme, id: string): ElementStyle
   if (style === 'photo') {
     switch (id) {
       case 'eyebrow':
-        return { x: 40, y: 47, w: 72, size: 12, font: 'clean', align: 'left', color: '#FFFFFF' };
+        return { x: 40, y: 40, w: 72, size: 12, font: 'clean', align: 'left', color: '#FFFFFF' };
       case 'name':
-        return { x: 46, y: 53, w: 84, size: 36, font: serifName, align: 'left', color: '#FFFFFF' };
+        return { x: 46, y: 45, w: 84, size: 36, font: serifName, align: 'left', color: '#FFFFFF' };
       case 'tagline':
-        return { x: 46, y: 66, w: 84, size: 22, font: accent, align: 'left', color: '#FFFFFF' };
+        return { x: 46, y: 56, w: 84, size: 22, font: accent, align: 'left', color: '#FFFFFF' };
       case 'intro':
-        return { x: 40, y: 68, w: 72, size: 14, font: 'clean', align: 'left', color: 'rgba(255,255,255,0.92)' };
+        return { x: 40, y: 64, w: 72, size: 14, font: 'clean', align: 'left', color: 'rgba(255,255,255,0.92)' };
       case 'primaryButton':
-        return { x: 29, y: 80, w: 50, variant: 'filled', fill: primary };
+        return { x: 27, y: 86, w: 46, variant: 'filled', fill: primary };
       case 'secondaryButton':
-        return { x: 29, y: 89, w: 50, variant: 'outline', textColor: '#FFFFFF' };
+        return { x: 73, y: 86, w: 46, variant: 'outline', textColor: '#FFFFFF' };
     }
   }
   // 'title' (and the cover band, which only holds canvas items)

@@ -3,15 +3,18 @@ import { Alert } from 'react-native';
 import { useAppData } from '../../../context/DataContext';
 import { useAuth } from '../../../context/AuthContext';
 import { Spot } from '../../../types';
-import { Block, BlockType, CanvasItem, ElementStyle, StorefrontTheme } from '../../../types/storefront';
-import { canvasItems as currentItems } from '../../../utils/headerLayout';
+import { Block, BlockType, CanvasItem, ElementStyle, HeroStyle, StorefrontTheme } from '../../../types/storefront';
+import { canvasItems as currentItems, HEADER_ELEMENTS } from '../../../utils/headerLayout';
 import { homeBlocks, resolveStorefront } from '../../../utils/storefrontTheme';
 import { pickMediaFromLibrary, uploadMedia } from '../../../lib/mediaUpload';
 import { buildDecor, DecorChoices, readDecor } from './decor';
 
 export type EditorSheet =
-  // Page-wide settings (background, header style, layout, looks).
-  | { kind: 'page' }
+  // Toolbar panels: themes, colors, header shape/photo, rarer page options.
+  | { kind: 'looks' }
+  | { kind: 'color' }
+  | { kind: 'header' }
+  | { kind: 'more' }
   // One element: a header element id, a canvas item id, 'photo' or 'logo'.
   | { kind: 'element'; id: string }
   | { kind: 'block'; id: string }
@@ -138,6 +141,21 @@ export function useStorefrontEditor(spot: Spot | undefined, enabled: boolean) {
       return { ...t, elements: { ...t.elements, [id]: current } };
     });
 
+  // A new header shape re-lays out the header: positions and colors picked
+  // for one shape (dark text above a photo) don't work on another (text on
+  // top of a photo). Fonts, sizes, button fills and removed items stay.
+  const setHeaderStyle = (style: HeroStyle) =>
+    setBase((t) => {
+      if (t.hero.style === style) return t;
+      const elements = { ...t.elements };
+      for (const id of HEADER_ELEMENTS) {
+        if (!elements[id]) continue;
+        const { x, y, w, align, color, textColor, ...keep } = elements[id];
+        elements[id] = keep;
+      }
+      return { ...t, hero: { ...t.hero, style }, elements };
+    });
+
   // Header text/stickers the owner adds. The first edit turns any old
   // text/sticker decorations into real items, and drops them from the
   // decoration choices so they aren't drawn twice.
@@ -234,6 +252,7 @@ export function useStorefrontEditor(spot: Spot | undefined, enabled: boolean) {
     setDragging,
     setElement,
     resetElement,
+    setHeaderStyle,
     addItem,
     updateItem,
     isItem,

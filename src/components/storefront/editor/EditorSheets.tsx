@@ -17,10 +17,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../../context/ThemeContext';
 import { useAppData } from '../../../context/DataContext';
 import { MenuItem } from '../../../types';
-import { BLOCK_LABELS, BlockType, ElementFont, ElementStyle } from '../../../types/storefront';
+import { BLOCK_LABELS, BlockType, ElementFont, ElementStyle, HeroStyle } from '../../../types/storefront';
 import { canvasItems as canvasItemsOf, defaultItem, FONT_LABELS, fontFamily, resolveElement } from '../../../utils/headerLayout';
 import { PRESETS, SWATCHES, TITLE_ACCENTS } from '../../../constants/storefrontPresets';
-import { contrastRatio, onColor, readableTextFor } from '../../../utils/storefrontTheme';
+import { onColor, readableTextFor } from '../../../utils/storefrontTheme';
 import { radius, spacing, ThemeColors } from '../../../theme';
 import ValueSlider from './ValueSlider';
 import { applyPreset } from './decor';
@@ -42,9 +42,15 @@ export default function EditorSheets({ ed }: { ed: StorefrontEditor }) {
   if (!sheet) return null;
 
   const title =
-    sheet.kind === 'page'
-      ? 'Page'
-      : sheet.kind === 'element'
+    sheet.kind === 'looks'
+      ? 'Themes'
+      : sheet.kind === 'color'
+        ? 'Colors'
+        : sheet.kind === 'header'
+          ? 'Header'
+          : sheet.kind === 'more'
+            ? 'More style options'
+            : sheet.kind === 'element'
         ? sheet.id === 'photo'
           ? 'Header photo'
           : sheet.id === 'logo'
@@ -53,7 +59,7 @@ export default function EditorSheets({ ed }: { ed: StorefrontEditor }) {
         : sheet.kind === 'add'
           ? 'Add a section'
           : sheet.kind === 'arrange'
-            ? 'Arrange your page'
+            ? 'Sections'
             : sheet.kind === 'item'
               ? 'Edit menu item'
               : 'Edit section';
@@ -82,7 +88,10 @@ export default function EditorSheets({ ed }: { ed: StorefrontEditor }) {
               contentContainerStyle={frame.body}
               scrollEnabled={!scrollLocked}
             >
-              {sheet.kind === 'page' && <PagePanel ed={ed} />}
+              {sheet.kind === 'looks' && <LooksPanel ed={ed} />}
+              {sheet.kind === 'color' && <ColorPanel ed={ed} />}
+              {sheet.kind === 'header' && <HeaderSettingsPanel ed={ed} />}
+              {sheet.kind === 'more' && <MorePanel ed={ed} />}
               {sheet.kind === 'element' && <ElementPanel ed={ed} id={sheet.id} />}
               {sheet.kind === 'block' && (
                 <View style={frame.padded}>
@@ -105,22 +114,15 @@ export default function EditorSheets({ ed }: { ed: StorefrontEditor }) {
   );
 }
 
-// ── Page: settings that really are page-wide ────────────────────────────
-// Everything that belongs to one element (text, color, size, position)
+// ── Toolbar panels ──────────────────────────────────────────────────────
+// Each button on the edit-mode toolbar opens one small panel that does one
+// thing. Anything about a single element (text, color, size, position)
 // lives on that element's own pencil instead.
-function PagePanel({ ed }: { ed: StorefrontEditor }) {
+
+// Themes: one tap restyles the whole page. Photos, logo and words stay.
+function LooksPanel({ ed }: { ed: StorefrontEditor }) {
   const { styles, colors } = useUI();
-  const { theme, setBase, decor, setDecor, set, setColors, setBackground, setSections, upload, uploading } = ed;
-  const bg = theme.background;
-  const textContrast = contrastRatio(theme.colors.text, theme.colors.background);
-  const buttonContrast = contrastRatio(onColor(theme.colors.primary), theme.colors.primary);
-  const readable = textContrast >= 4.5 && buttonContrast >= 3;
-  // Presets are the whole first screen: tap one, see it on the page, done.
-  // Everything granular waits behind "Customize further" (from #34).
-  const [advanced, setAdvanced] = React.useState(false);
-  const hiddenIds = Object.entries(theme.elements)
-    .filter(([id, el]) => el.hidden && id in ELEMENT_NAMES)
-    .map(([id]) => id);
+  const { theme, setBase, setDecor } = ed;
   const activePreset = PRESETS.find(
     (p) =>
       p.look.colors.primary.toUpperCase() === theme.colors.primary.toUpperCase() &&
@@ -129,9 +131,7 @@ function PagePanel({ ed }: { ed: StorefrontEditor }) {
   );
   return (
     <>
-      <Text style={[styles.hint, styles.presetIntro]}>
-        Pick a look. It changes colors, fonts and layout; your photos, logo and words stay.
-      </Text>
+      <Text style={[styles.hint, styles.presetIntro]}>Tap a theme to try it. Your photos, logo and words stay.</Text>
       <View style={styles.presetGrid}>
         {PRESETS.map((p) => {
           const on = activePreset?.id === p.id;
@@ -170,99 +170,176 @@ function PagePanel({ ed }: { ed: StorefrontEditor }) {
         })}
       </View>
 
-      <Section icon="add-circle-outline" title="Add to your header">
-        <Text style={styles.hint}>Drag it where you want it, then tap it to change the text, font, size or color.</Text>
-        <View style={styles.imageButtons}>
-          <Pressable
-            style={styles.smallButton}
-            onPress={() => {
-              ed.addItem({ kind: 'text', text: 'Good coffee, better days' });
-              ed.closeSheet();
-            }}
-          >
-            <Ionicons name="text-outline" size={14} color={colors.primary} />
-            <Text style={styles.smallButtonText}>Text</Text>
-          </Pressable>
-          <Pressable
-            style={styles.smallButton}
-            disabled={uploading !== null}
-            onPress={() =>
-              upload('sticker', (url) => {
-                ed.addItem({ kind: 'sticker', image: url });
-                ed.closeSheet();
-              })
-            }
-          >
-            <Ionicons name="happy-outline" size={14} color={colors.primary} />
-            <Text style={styles.smallButtonText}>{uploading === 'sticker' ? 'Uploading…' : 'Sticker'}</Text>
-          </Pressable>
+      <Pressable style={styles.moreToggle} onPress={() => ed.openSheet({ kind: 'more' })} accessibilityRole="button">
+        <Ionicons name="options-outline" size={16} color={colors.text} />
+        <Text style={styles.moreToggleText}>More style options</Text>
+        <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
+      </Pressable>
+      <Pressable
+        style={styles.resetLink}
+        onPress={() =>
+          Alert.alert('Start over?', undefined, [
+            { text: 'Discard unpublished changes', onPress: ed.discardChanges },
+            {
+              text: 'Reset to Kuppio look',
+              style: 'destructive',
+              onPress: () => {
+                setBase((t) => ({ ...applyPreset(t, PRESETS[0]), background: null }));
+                setDecor({ accent: 'none', corners: false, note: '', sticker: null });
+              },
+            },
+            { text: 'Cancel', style: 'cancel' },
+          ])
+        }
+      >
+        <Text style={styles.resetText}>Start over…</Text>
+      </Pressable>
+    </>
+  );
+}
+
+// Color: the page background and the button color. Body text follows the
+// background automatically so it always stays readable.
+function ColorPanel({ ed }: { ed: StorefrontEditor }) {
+  const { styles, colors } = useUI();
+  const { theme, setColors, set } = ed;
+  return (
+    <View style={{ paddingHorizontal: spacing.md }}>
+      <ColorRow
+        label="Background"
+        value={theme.colors.background}
+        swatches={SWATCHES.background}
+        onChange={(c) => setColors({ background: c, text: readableTextFor(c, theme.colors.text) })}
+      />
+      <ColorRow label="Buttons & highlights" value={theme.colors.primary} swatches={SWATCHES.primary} onChange={(c) => setColors({ primary: c })} />
+      {theme.background?.image && (
+        <Pressable style={[styles.smallButton, styles.gapTop]} onPress={() => set({ background: null })}>
+          <Ionicons name="close-circle-outline" size={14} color={colors.primary} />
+          <Text style={styles.smallButtonText}>Remove background picture</Text>
+        </Pressable>
+      )}
+      <Text style={[styles.hint, styles.gapTop]}>Want a different color for one thing? Tap it on the page, then its pencil.</Text>
+    </View>
+  );
+}
+
+// Header: how big the photo is, and the photo itself.
+const HEADER_SHAPES: { id: HeroStyle; label: string; hint: string }[] = [
+  { id: 'photo', label: 'Full photo', hint: 'Photo fills the header, words on top' },
+  { id: 'title', label: 'Half photo', hint: 'Words above, photo below' },
+  { id: 'cover', label: 'Banner', hint: 'Short photo strip with your logo' },
+];
+
+function HeaderShape({ id, on, primary }: { id: HeroStyle; on: boolean; primary: string }) {
+  const { styles } = useUI();
+  const photo = { backgroundColor: primary, opacity: 0.55 };
+  const line = (w: number, extra?: object) => <View style={[styles.shapeLine, { width: `${w}%` }, extra]} />;
+  return (
+    <View style={[styles.shapeThumb, on && styles.shapeThumbOn]}>
+      {id === 'photo' && (
+        <View style={[StyleSheet.absoluteFill, photo, styles.shapeInner]}>
+          {line(60, { backgroundColor: '#fff' })}
+          {line(40, { backgroundColor: '#fff' })}
         </View>
-        <Text style={styles.hint}>Stickers: a PNG with a transparent background works best.</Text>
-      </Section>
+      )}
+      {id === 'title' && (
+        <>
+          <View style={styles.shapeInner}>
+            {line(60)}
+            {line(40)}
+          </View>
+          <View style={[{ flex: 1, margin: 4, borderRadius: 4 }, photo]} />
+        </>
+      )}
+      {id === 'cover' && (
+        <>
+          <View style={[{ height: '38%' }, photo]} />
+          <View style={styles.shapeInner}>
+            {line(50)}
+            {line(70)}
+          </View>
+        </>
+      )}
+    </View>
+  );
+}
+
+function HeaderSettingsPanel({ ed }: { ed: StorefrontEditor }) {
+  const { styles, colors } = useUI();
+  const { theme, setHero, upload, uploading } = ed;
+  const hiddenIds = Object.entries(theme.elements)
+    .filter(([id, el]) => el.hidden && id in ELEMENT_NAMES)
+    .map(([id]) => id);
+  return (
+    <View style={{ paddingHorizontal: spacing.md }}>
+      <View style={styles.shapeRow}>
+        {HEADER_SHAPES.map((shape) => {
+          const on = theme.hero.style === shape.id;
+          return (
+            <Pressable
+              key={shape.id}
+              style={styles.shapeOption}
+              onPress={() => ed.setHeaderStyle(shape.id)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+            >
+              <HeaderShape id={shape.id} on={on} primary={theme.colors.primary} />
+              <Text style={[styles.shapeLabel, on && { color: colors.primary }]}>{shape.label}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Text style={styles.hint}>{HEADER_SHAPES.find((h) => h.id === theme.hero.style)?.hint}</Text>
+
+      <View style={styles.gapTop}>
+        <ImagePickerRow
+          label="Header photo"
+          hint={theme.hero.style === 'photo' ? undefined : 'No photo? The header just uses your background color.'}
+          value={theme.hero.image}
+          busy={uploading === 'photo'}
+          disabled={uploading !== null}
+          onPick={() => upload('photo', (url) => setHero({ image: url }))}
+          onRemove={() => setHero({ image: null })}
+        />
+      </View>
+      {theme.hero.style === 'cover' && (
+        <View style={styles.gapTop}>
+          <ImagePickerRow
+            label="Logo"
+            value={theme.hero.logo}
+            busy={uploading === 'logo'}
+            disabled={uploading !== null}
+            onPick={() => upload('logo', (url) => setHero({ logo: url }))}
+            onRemove={() => setHero({ logo: null })}
+          />
+        </View>
+      )}
 
       {hiddenIds.length > 0 && (
-        <Section icon="eye-off-outline" title="Hidden from your page">
+        <View style={styles.gapTop}>
+          <Text style={styles.fieldLabel}>Removed from your header</Text>
           {hiddenIds.map((id) => (
             <View key={id} style={styles.switchRow}>
               <Text style={[styles.fieldLabel, { flex: 1 }]}>{ELEMENT_NAMES[id] ?? id}</Text>
               <Pressable style={styles.smallButton} onPress={() => ed.setElement(id, { hidden: false })}>
-                <Ionicons name="eye-outline" size={14} color={colors.primary} />
-                <Text style={styles.smallButtonText}>Show</Text>
+                <Ionicons name="add" size={14} color={colors.primary} />
+                <Text style={styles.smallButtonText}>Put back</Text>
               </Pressable>
             </View>
           ))}
-        </Section>
+        </View>
       )}
+    </View>
+  );
+}
 
-      <Section icon="browsers-outline" title="Header style">
-        <Segmented
-          options={[
-            { id: 'cover', label: 'Cover' },
-            { id: 'title', label: 'Big title' },
-            { id: 'photo', label: 'Full photo' },
-          ]}
-          value={theme.hero.style}
-          onChange={(style) => ed.setHero({ style })}
-        />
-        <Text style={styles.hint}>
-          {theme.hero.style === 'cover'
-            ? 'A cover image with your logo and name card underneath.'
-            : theme.hero.style === 'title'
-              ? 'Your name and tagline in big type above a photo. Drag anything anywhere.'
-              : 'A full-screen photo with your words on top. Drag anything anywhere.'}
-        </Text>
-      </Section>
-
-      <Pressable style={styles.moreToggle} onPress={() => setAdvanced((v) => !v)} accessibilityRole="button">
-        <Ionicons name="options-outline" size={16} color={colors.text} />
-        <Text style={styles.moreToggleText}>{advanced ? 'Hide extra options' : 'Customize further'}</Text>
-        <Ionicons name={advanced ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textMuted} />
-      </Pressable>
-      {!advanced && (
-        <Text style={[styles.hint, styles.presetIntro]}>Page background and pattern, accent color, layout and title decorations.</Text>
-      )}
-
-      {advanced && (
-      <>
-      <View style={[styles.readableInline, { backgroundColor: readable ? colors.successMuted : colors.goldMuted }]}>
-        <Ionicons name={readable ? 'checkmark-circle' : 'warning-outline'} size={14} color={readable ? colors.success : '#9A6200'} />
-        <Text style={[styles.readableText, { color: readable ? colors.success : '#9A6200' }]}>
-          {readable ? 'Readable: text and buttons are easy to read' : textContrast < 4.5 ? 'Text may be hard to read on this background' : 'Button text may be hard to read'}
-        </Text>
-      </View>
-  {/* ── Colors ── */}
-  <Section icon="brush-outline" title="Colors">
-    <ColorRow label="Accent: buttons, prices, tabs" value={theme.colors.primary} swatches={SWATCHES.primary} onChange={(c) => setColors({ primary: c })} />
-    <ColorRow
-          label="Page background"
-          value={theme.colors.background}
-          swatches={SWATCHES.background}
-          // Keep body text readable: a dark page gets light text and vice versa.
-          onChange={(c) => setColors({ background: c, text: readableTextFor(c, theme.colors.text) })}
-        />
-    <ColorRow label="Body text: menus, reviews" value={theme.colors.text} swatches={SWATCHES.text} onChange={(c) => setColors({ text: c })} />
-  </Section>
-
+// More: the rarely-needed page-wide options (pattern, fonts, layout, decorations).
+function MorePanel({ ed }: { ed: StorefrontEditor }) {
+  const { styles, colors } = useUI();
+  const { theme, setBase, decor, setDecor, set, setBackground, setSections, upload, uploading } = ed;
+  const bg = theme.background;
+  return (
+    <>
   {/* ── Background ── */}
   <Section icon="image-outline" title="Background">
     <ImagePickerRow
@@ -412,27 +489,6 @@ function PagePanel({ ed }: { ed: StorefrontEditor }) {
     )}
   </Section>
 
-      </>
-      )}
-      <Pressable
-        style={styles.resetLink}
-        onPress={() =>
-          Alert.alert('Start over?', undefined, [
-            { text: 'Discard unpublished changes', onPress: ed.discardChanges },
-            {
-              text: 'Reset to Kuppio look',
-              style: 'destructive',
-              onPress: () => {
-                setBase((t) => ({ ...applyPreset(t, PRESETS[0]), background: null }));
-                setDecor({ accent: 'none', corners: false, note: '', sticker: null });
-              },
-            },
-            { text: 'Cancel', style: 'cancel' },
-          ])
-        }
-      >
-        <Text style={styles.resetText}>Start over…</Text>
-      </Pressable>
     </>
   );
 }
@@ -511,7 +567,7 @@ function ElementPanel({ ed, id }: { ed: StorefrontEditor; id: string }) {
       >
         <Ionicons name={item ? 'trash-outline' : 'eye-off-outline'} size={14} color={colors.danger} />
         <Text style={[styles.smallButtonText, { color: colors.danger }]}>
-          {item ? 'Delete' : 'Hide (show it again from Page)'}
+          {item ? 'Delete' : 'Remove (put it back from Header)'}
         </Text>
       </Pressable>
     </>
@@ -773,34 +829,58 @@ function AddPanel({ ed, index }: { ed: StorefrontEditor; index: number }) {
   );
 }
 
-// ── Arrange: reorder, hide, delete ────────────────────────────────────────
+// ── Sections: the one place to reorder, show/hide, edit, delete and add ──
 function ArrangePanel({ ed }: { ed: StorefrontEditor }) {
   const { styles, colors } = useUI();
   return (
     <View style={{ gap: 6 }}>
-      {ed.blocks.map((b, i) => (
-        <View key={b.id} style={styles.arrangeRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.arrangeName, b.hidden && { color: colors.textMuted }]}>
-              {b.title || BLOCK_LABELS[b.type].defaultTitle}
-            </Text>
-            <Text style={styles.hint}>{b.hidden ? 'Hidden from customers' : BLOCK_LABELS[b.type].name}</Text>
+      {ed.blocks.map((b, i) => {
+        const title = b.title || BLOCK_LABELS[b.type].defaultTitle;
+        return (
+          <View key={b.id} style={styles.arrangeRow}>
+            <Pressable style={{ flex: 1 }} onPress={() => ed.openSheet({ kind: 'block', id: b.id })} accessibilityLabel={`Edit ${title}`}>
+              <Text style={[styles.arrangeName, b.hidden && { color: colors.textMuted }]}>{title}</Text>
+              <Text style={styles.hint}>{b.hidden ? 'Hidden from customers' : BLOCK_LABELS[b.type].name}</Text>
+            </Pressable>
+            <Pressable style={styles.arrangeBtn} onPress={() => ed.moveBlock(i, -1)} disabled={i === 0} accessibilityLabel="Move up">
+              <Ionicons name="arrow-up" size={16} color={i === 0 ? colors.border : colors.text} />
+            </Pressable>
+            <Pressable
+              style={styles.arrangeBtn}
+              onPress={() => ed.moveBlock(i, 1)}
+              disabled={i === ed.blocks.length - 1}
+              accessibilityLabel="Move down"
+            >
+              <Ionicons name="arrow-down" size={16} color={i === ed.blocks.length - 1 ? colors.border : colors.text} />
+            </Pressable>
+            <Pressable style={styles.arrangeBtn} onPress={() => ed.toggleHidden(b.id)} accessibilityLabel={b.hidden ? 'Show' : 'Hide'}>
+              <Ionicons name={b.hidden ? 'eye-off-outline' : 'eye-outline'} size={16} color={b.hidden ? colors.textMuted : colors.text} />
+            </Pressable>
+            <Pressable
+              style={styles.arrangeBtn}
+              accessibilityLabel={`Delete ${title}`}
+              onPress={() =>
+                Alert.alert(`Delete "${title}"?`, 'You can add it back any time.', [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'Delete', style: 'destructive', onPress: () => ed.removeBlock(b.id) },
+                ])
+              }
+            >
+              <Ionicons name="trash-outline" size={16} color={colors.danger} />
+            </Pressable>
           </View>
-          <Pressable style={styles.arrangeBtn} onPress={() => ed.moveBlock(i, -1)} disabled={i === 0} accessibilityLabel="Move up">
-            <Ionicons name="arrow-up" size={16} color={i === 0 ? colors.border : colors.text} />
-          </Pressable>
-          <Pressable
-            style={styles.arrangeBtn}
-            onPress={() => ed.moveBlock(i, 1)}
-            disabled={i === ed.blocks.length - 1}
-            accessibilityLabel="Move down"
-          >
-            <Ionicons name="arrow-down" size={16} color={i === ed.blocks.length - 1 ? colors.border : colors.text} />
-          </Pressable>
-          <Switch value={!b.hidden} onValueChange={() => ed.toggleHidden(b.id)} />
-        </View>
-      ))}
-      <Text style={styles.hint}>The Menu, Reels, Reviews and About tabs always stay.</Text>
+        );
+      })}
+      <View style={{ paddingHorizontal: spacing.md }}>
+        <Pressable
+          style={[styles.smallButton, styles.gapTop, { alignSelf: 'flex-start' }]}
+          onPress={() => ed.openSheet({ kind: 'add', index: ed.blocks.length })}
+        >
+          <Ionicons name="add" size={14} color={colors.primary} />
+          <Text style={styles.smallButtonText}>Add a section</Text>
+        </Pressable>
+        <Text style={styles.hint}>Tap a section's name to edit it. The Menu, Reels, Reviews and About tabs always stay.</Text>
+      </View>
     </View>
   );
 }
