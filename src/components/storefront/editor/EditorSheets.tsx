@@ -30,7 +30,9 @@ import { StorefrontEditor } from './useStorefrontEditor';
 export default function EditorSheets({ ed }: { ed: StorefrontEditor }) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const ui = React.useMemo(() => ({ styles: makeEditorStyles(colors), colors }), [colors]);
+  // The color wheel locks scrolling while it's dragged, or the panel would scroll instead.
+  const [scrollLocked, setScrollLocked] = React.useState(false);
+  const ui = React.useMemo(() => ({ styles: makeEditorStyles(colors), colors, setScrollLocked }), [colors]);
   const frame = React.useMemo(() => makeFrameStyles(colors), [colors]);
   const sheet = ed.sheet;
   if (!sheet) return null;
@@ -65,7 +67,7 @@ export default function EditorSheets({ ed }: { ed: StorefrontEditor }) {
                 <Text style={frame.doneText}>Done</Text>
               </Pressable>
             </View>
-            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={frame.body}>
+            <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={frame.body} scrollEnabled={!scrollLocked}>
               {sheet.kind === 'design' && <DesignPanel ed={ed} />}
               {sheet.kind === 'header' && <HeaderPanel ed={ed} focus={sheet.focus} />}
               {sheet.kind === 'block' && (

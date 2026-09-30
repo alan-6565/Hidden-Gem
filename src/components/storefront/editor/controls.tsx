@@ -10,6 +10,8 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import ColorPicker from 'react-native-wheel-color-picker';
 import { radius, spacing, ThemeColors } from '../../../theme';
 import { imageSource } from '../../../utils/storefrontImages';
 
@@ -18,7 +20,12 @@ type EditorStyles = ReturnType<typeof makeEditorStyles>;
 // ── Editor building blocks ──────────────────────────────────────────────
 // Module-level (not defined inside the screen) so text inputs keep focus
 // while typing; they read styles/colors from context.
-export const EditorUI = React.createContext<{ styles: EditorStyles; colors: ThemeColors } | null>(null);
+export const EditorUI = React.createContext<{
+  styles: EditorStyles;
+  colors: ThemeColors;
+  // Lets a control stop the panel from scrolling while it's being dragged.
+  setScrollLocked?: (locked: boolean) => void;
+} | null>(null);
 export function useUI() {
   const ui = React.useContext(EditorUI);
   if (!ui) throw new Error('EditorUI missing');
@@ -99,10 +106,12 @@ export function ColorRow({
   swatches: string[];
   onChange: (hex: string) => void;
 }) {
-  const { styles } = useUI();
+  const { styles, setScrollLocked } = useUI();
   const [hex, setHex] = useState(value);
-  // Follow outside changes (presets, swatches) without fighting typing.
+  const [wheelOpen, setWheelOpen] = useState(false);
+  // Follow outside changes (presets, swatches, the wheel) without fighting typing.
   useEffect(() => setHex(value), [value]);
+  const isCustom = !swatches.some((c) => c.toUpperCase() === value.toUpperCase());
   return (
     <View style={styles.colorRow}>
       <View style={styles.colorHeader}>
@@ -121,6 +130,20 @@ export function ColorRow({
         />
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.swatches}>
+        {/* Any color at all: opens the wheel. */}
+        <Pressable
+          onPress={() => setWheelOpen((v) => !v)}
+          accessibilityLabel={`Pick any ${label.toLowerCase()} color`}
+          style={[styles.swatch, styles.wheelSwatch, (wheelOpen || isCustom) && styles.swatchOn]}
+        >
+          <LinearGradient
+            colors={['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#00C7BE', '#007AFF', '#AF52DE', '#FF2D55']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <Ionicons name={wheelOpen ? 'close' : 'color-wand'} size={14} color="#FFFFFF" />
+        </Pressable>
         {swatches.map((c) => (
           <Pressable
             key={c}
@@ -129,6 +152,25 @@ export function ColorRow({
           />
         ))}
       </ScrollView>
+      {wheelOpen && (
+        <View style={styles.wheelWrap}>
+          <ColorPicker
+            color={value}
+            swatches={false}
+            thumbSize={30}
+            sliderSize={26}
+            gapSize={14}
+            noSnap
+            row={false}
+            onInteractionStart={() => setScrollLocked?.(true)}
+            onColorChange={(c: string) => setHex(c.toUpperCase())}
+            onColorChangeComplete={(c: string) => {
+              setScrollLocked?.(false);
+              onChange(c.toUpperCase());
+            }}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -392,6 +434,16 @@ export const makeEditorStyles = (colors: ThemeColors) =>
       borderRadius: 15,
       borderWidth: 1,
       borderColor: colors.border,
+    },
+    wheelSwatch: {
+      overflow: 'hidden',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    wheelWrap: {
+      height: 260,
+      marginTop: spacing.xs,
+      marginBottom: spacing.sm,
     },
     swatchOn: {
       borderWidth: 3,
