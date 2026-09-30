@@ -96,46 +96,75 @@ function DesignPanel({ ed }: { ed: StorefrontEditor }) {
   const textContrast = contrastRatio(theme.colors.text, theme.colors.background);
   const buttonContrast = contrastRatio(onColor(theme.colors.primary), theme.colors.primary);
   const readable = textContrast >= 4.5 && buttonContrast >= 3;
+  // Presets are the whole first screen: tap one, see it on the page, done.
+  // Everything granular waits behind "Customize further" (from #34).
+  const [advanced, setAdvanced] = React.useState(false);
+  const activePreset = PRESETS.find(
+    (p) =>
+      p.look.colors.primary.toUpperCase() === theme.colors.primary.toUpperCase() &&
+      p.look.colors.background.toUpperCase() === theme.colors.background.toUpperCase() &&
+      p.look.fonts.heading === theme.fonts.heading,
+  );
   return (
     <>
+      <Text style={[styles.hint, styles.presetIntro]}>
+        Pick a look. It changes colors, fonts and layout; your photos, logo and words stay.
+      </Text>
+      <View style={styles.presetGrid}>
+        {PRESETS.map((p) => {
+          const on = activePreset?.id === p.id;
+          return (
+            <Pressable
+              key={p.id}
+              style={[styles.presetCard, on && styles.presetCardOn]}
+              onPress={() => {
+                setBase((t) => applyPreset(t, p));
+                setDecor((d) => ({ ...d, accent: p.look.titleAccent }));
+              }}
+              accessibilityRole="button"
+              accessibilityState={{ selected: on }}
+            >
+              <View style={[styles.presetPreview, { backgroundColor: p.look.colors.background }]}>
+                <Text
+                  style={{
+                    color: p.look.colors.text,
+                    fontFamily: p.look.fonts.heading === 'playfair' ? 'PlayfairDisplay_700Bold' : undefined,
+                    fontWeight: '800',
+                    fontSize: 18,
+                  }}
+                >
+                  Aa
+                </Text>
+                <View style={[styles.presetButton, { backgroundColor: p.look.colors.primary }]}>
+                  <Text style={[styles.presetButtonText, { color: onColor(p.look.colors.primary) }]}>Order</Text>
+                </View>
+              </View>
+              <View style={styles.presetLabelRow}>
+                <Text style={styles.presetName}>{p.name}</Text>
+                {on && <Ionicons name="checkmark-circle" size={16} color={colors.primary} />}
+              </View>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <Pressable style={styles.moreToggle} onPress={() => setAdvanced((v) => !v)} accessibilityRole="button">
+        <Ionicons name="options-outline" size={16} color={colors.text} />
+        <Text style={styles.moreToggleText}>{advanced ? 'Hide extra options' : 'Customize further'}</Text>
+        <Ionicons name={advanced ? 'chevron-up' : 'chevron-down'} size={16} color={colors.textMuted} />
+      </Pressable>
+      {!advanced && (
+        <Text style={[styles.hint, styles.presetIntro]}>Colors, background pattern, fonts, layout and decorations.</Text>
+      )}
+
+      {advanced && (
+      <>
       <View style={[styles.readableInline, { backgroundColor: readable ? colors.successMuted : colors.goldMuted }]}>
         <Ionicons name={readable ? 'checkmark-circle' : 'warning-outline'} size={14} color={readable ? colors.success : '#9A6200'} />
         <Text style={[styles.readableText, { color: readable ? colors.success : '#9A6200' }]}>
           {readable ? 'Readable: text and buttons are easy to read' : textContrast < 4.5 ? 'Text may be hard to read on this background' : 'Button text may be hard to read'}
         </Text>
       </View>
-  {/* ── Theme presets ── */}
-  <Section icon="color-palette-outline" title="Theme">
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presets}>
-      {PRESETS.map((p) => (
-        <Pressable
-          key={p.id}
-          style={styles.preset}
-          onPress={() => {
-            setBase((t) => applyPreset(t, p));
-            setDecor((d) => ({ ...d, accent: p.look.titleAccent }));
-          }}
-        >
-          <View style={[styles.presetSwatch, { backgroundColor: p.look.colors.background }]}>
-            <View style={[styles.presetBar, { backgroundColor: p.look.colors.primary }]} />
-            <Text
-              style={{
-                color: p.look.colors.text,
-                fontFamily: p.look.fonts.heading === 'playfair' ? 'PlayfairDisplay_700Bold' : undefined,
-                fontWeight: '800',
-                fontSize: 13,
-              }}
-            >
-              Aa
-            </Text>
-          </View>
-          <Text style={styles.presetName}>{p.name}</Text>
-        </Pressable>
-      ))}
-    </ScrollView>
-    <Text style={styles.hint}>A preset changes the look. Your photos, logo and words stay.</Text>
-  </Section>
-
   {/* ── Colors ── */}
   <Section icon="brush-outline" title="Colors">
     <ColorRow label="Brand color" value={theme.colors.primary} swatches={SWATCHES.primary} onChange={(c) => setColors({ primary: c })} />
@@ -307,6 +336,8 @@ function DesignPanel({ ed }: { ed: StorefrontEditor }) {
     />
   </Section>
 
+      </>
+      )}
       <Pressable
         style={styles.resetLink}
         onPress={() =>
