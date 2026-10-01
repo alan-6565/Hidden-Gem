@@ -19,7 +19,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
-import { fetchSpotFollowerCount } from '../lib/api';
+import { fetchPrivateLocation, fetchSpotFollowerCount } from '../lib/api';
 import RatingStars from '../components/RatingStars';
 import Avatar from '../components/Avatar';
 import KuppioScoreBadge from '../components/KuppioScoreBadge';
@@ -206,10 +206,19 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
     spotReviews = [...spotReviews].sort((a, b) => b.likeCount - a.likeCount);
   }
 
-  const handleDirections = () => {
-    const url = `https://maps.apple.com/?daddr=${spot.lat},${spot.lng}&dirflg=d`;
-    Linking.openURL(url).catch(() =>
+  const openMaps = (lat: number, lng: number) =>
+    Linking.openURL(`https://maps.apple.com/?daddr=${lat},${lng}&dirflg=d`).catch(() =>
       Alert.alert("Couldn't open Maps", 'Please try again.'),
+    );
+  // A home business's public point is approximate (#37). The exact pickup
+  // spot only comes back for the owner or a customer whose order was accepted.
+  const handleDirections = async () => {
+    if (!spot.isHomeBased) return openMaps(spot.lat, spot.lng);
+    const exact = await fetchPrivateLocation(spot.id).catch(() => null);
+    if (exact) return openMaps(exact.lat, exact.lng);
+    Alert.alert(
+      'Home business',
+      `${spot.name} is a home business${spot.serviceArea ? ` in ${spot.serviceArea}` : ''}. The pickup address is shared once your order is accepted.`,
     );
   };
 
@@ -250,7 +259,8 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
     open,
     statusLabel: getStatusLabel(spot.hours),
     cityLabel: cityOf(spot.isHomeBased ? spot.serviceArea : spot.address),
-    distanceLabel: distance,
+    // Home businesses only publish an approximate area.
+    distanceLabel: spot.isHomeBased ? `~${distance}` : distance,
     prepTime: spot.prepTime,
     following,
     isOwner: isSpotOwner,
@@ -886,7 +896,8 @@ export default function SpotProfileScreen({ route, navigation }: Props) {
             <Pressable style={styles.aboutRow} onPress={handleDirections}>
               <Ionicons name="location-outline" size={18} color={colors.text} />
               <Text style={styles.aboutRowText}>
-                {(spot.isHomeBased ? spot.serviceArea : spot.address) ?? 'Location not listed'} · {distance}
+                {(spot.isHomeBased ? spot.serviceArea : spot.address) ?? 'Location not listed'} · {spot.isHomeBased ? `~${distance}` : distance}
+                {spot.isHomeBased ? '\nHome business: pickup address shared after your order is accepted' : ''}
               </Text>
               <Ionicons name="navigate-outline" size={16} color={colors.primary} />
             </Pressable>

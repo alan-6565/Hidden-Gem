@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Image,
@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { pickMediaFromLibrary, uploadMedia } from '../lib/mediaUpload';
+import { fetchPrivateLocation, updatePickupAddress } from '../lib/api';
 import TimePickerField from '../components/TimePickerField';
 import { MenuItem, OpenHours, PriceRange, SpotCategory } from '../types';
 import { isPromoted } from '../utils/promotion';
@@ -65,6 +66,16 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
   const [isHomeBased, setIsHomeBased] = useState(spot?.isHomeBased ?? false);
   const [address, setAddress] = useState(spot?.address ?? '');
   const [serviceArea, setServiceArea] = useState(spot?.serviceArea ?? '');
+  // Home businesses: the real pickup address is private (#37), shown only to
+  // customers whose order was accepted.
+  const [pickupAddress, setPickupAddress] = useState('');
+  useEffect(() => {
+    if (spot?.isHomeBased) {
+      fetchPrivateLocation(spotId)
+        .then((loc) => loc?.pickupAddress && setPickupAddress(loc.pickupAddress))
+        .catch(() => {});
+    }
+  }, [spotId, spot?.isHomeBased]);
   const [phone, setPhone] = useState(spot?.phone ?? '');
   const [instagramUrl, setInstagramUrl] = useState(spot?.instagramUrl ?? '');
   const [tiktokUrl, setTiktokUrl] = useState(spot?.tiktokUrl ?? '');
@@ -201,6 +212,7 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
         photos,
         tags,
       });
+      if (isHomeBased) await updatePickupAddress(spotId, pickupAddress.trim() || null);
       navigation.goBack();
     } catch (e: any) {
       Alert.alert("Couldn't save changes", e?.message ?? 'Please try again.');
@@ -248,19 +260,39 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
         <View style={{ flex: 1 }}>
           <Text style={styles.sectionLabel}>Home-based</Text>
           <Text style={styles.homeBasedHint}>
-            Hides your exact address — shows a general service area instead.
+            Keeps your exact address private. The map shows only an approximate area.
           </Text>
         </View>
-        <Switch value={isHomeBased} onValueChange={setIsHomeBased} />
+        <Switch
+          value={isHomeBased}
+          onValueChange={(on) => {
+            setIsHomeBased(on);
+            if (on && !pickupAddress) setPickupAddress(address);
+          }}
+        />
       </View>
       {isHomeBased ? (
-        <TextInput
-          style={styles.input}
-          value={serviceArea}
-          onChangeText={setServiceArea}
-          placeholder="Service area (e.g. Oakland, Fruitvale area)"
-          placeholderTextColor={colors.textMuted}
-        />
+        <>
+          <TextInput
+            style={styles.input}
+            value={serviceArea}
+            onChangeText={setServiceArea}
+            placeholder="Area customers see (e.g. Oakland, Fruitvale area)"
+            placeholderTextColor={colors.textMuted}
+          />
+          <View style={styles.privateLabelRow}>
+            <Ionicons name="lock-closed" size={13} color={colors.textMuted} />
+            <Text style={[styles.sectionLabel, styles.flushLabel]}>Pickup address (private)</Text>
+          </View>
+          <TextInput
+            style={styles.input}
+            value={pickupAddress}
+            onChangeText={setPickupAddress}
+            placeholder="Where customers pick up (e.g. 55 Elm St, side gate)"
+            placeholderTextColor={colors.textMuted}
+          />
+          <Text style={styles.homeBasedHint}>Only shown to a customer after you accept their order.</Text>
+        </>
       ) : (
         <TextInput
           style={styles.input}
@@ -649,6 +681,17 @@ const makeStyles = (colors: ThemeColors) =>
   },
   categoryLabelActive: {
     color: '#fff',
+  },
+  privateLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  flushLabel: {
+    marginTop: 0,
+    marginBottom: 0,
   },
   homeBasedRow: {
     flexDirection: 'row',

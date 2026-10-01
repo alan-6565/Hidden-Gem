@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, FlatList, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker, Region } from 'react-native-maps';
+import MapView, { Circle, Marker, Region } from 'react-native-maps';
 import { useAppData } from '../context/DataContext';
 import { SpotCategory } from '../types';
 import SpotPreviewCard from '../components/SpotPreviewCard';
@@ -18,6 +18,9 @@ import { useSearchFilters } from '../context/SearchFilterContext';
 import { applySearchFilters, hasActiveFilters } from '../utils/searchFilters';
 import { isPromoted } from '../utils/promotion';
 import { imageSource } from '../utils/storefrontImages';
+
+// Matches the ~0.5 mi grid the server snaps home locations to.
+const HOME_AREA_RADIUS_M = 650;
 
 type Props = TabScreenProps<'Map'>;
 
@@ -186,6 +189,21 @@ export default function MapScreen({ navigation, route }: Props) {
         showsUserLocation={userLocation.isRealLocation}
         showsMyLocationButton={false}
       >
+        {/* Home businesses show only an approximate area (#37): their pin
+            sits somewhere inside this circle, never on the house. */}
+        {!addingBusiness &&
+          filteredSpots
+            .filter((spot) => spot.isHomeBased)
+            .map((spot) => (
+              <Circle
+                key={`area-${spot.id}`}
+                center={{ latitude: spot.lat, longitude: spot.lng }}
+                radius={HOME_AREA_RADIUS_M}
+                fillColor={`${CATEGORY_COLORS[spot.category]}22`}
+                strokeColor={`${CATEGORY_COLORS[spot.category]}66`}
+                strokeWidth={1}
+              />
+            ))}
         {!addingBusiness &&
           filteredSpots.map((spot) => {
             const selected = spot.id === selectedSpotId;

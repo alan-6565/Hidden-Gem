@@ -1,11 +1,13 @@
-import React, { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Linking, Pressable, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppData } from '../context/DataContext';
 import { useAuth } from '../context/AuthContext';
 import { Order, OrderStatus } from '../types';
+import { fetchPrivateLocation, PrivateLocation } from '../lib/api';
 import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../navigation/types';
@@ -163,6 +165,9 @@ export default function OrdersScreen({ navigation, route }: Props) {
               <Text style={styles.total}>Total: ${item.total.toFixed(2)}</Text>
               {item.pickupTime && <Text style={styles.meta}>Pickup: {item.pickupTime}</Text>}
               {item.note && <Text style={styles.meta}>Note: {item.note}</Text>}
+              {mode === 'mine' && spot?.isHomeBased && IN_PROGRESS_STATUSES.includes(item.status) && (
+                <PickupAddress spotId={spot.id} styles={styles} colors={colors} />
+              )}
 
               {mode === 'business' && item.status === 'pending' && (
                 <View style={styles.actionRow}>
@@ -200,6 +205,33 @@ export default function OrdersScreen({ navigation, route }: Props) {
         }}
       />
     </View>
+  );
+}
+
+// A home business's exact pickup spot, shown to the customer once their
+// order is accepted (#37). The server only returns it from then on.
+function PickupAddress({ spotId, styles, colors }: { spotId: string; styles: ReturnType<typeof makeStyles>; colors: ThemeColors }) {
+  const [location, setLocation] = useState<PrivateLocation | null>(null);
+  useEffect(() => {
+    fetchPrivateLocation(spotId).then(setLocation).catch(() => {});
+  }, [spotId]);
+  if (!location) return null;
+  return (
+    <Pressable
+      style={styles.pickupBox}
+      onPress={() =>
+        Linking.openURL(`https://maps.apple.com/?daddr=${location.lat},${location.lng}&dirflg=d`).catch(() =>
+          Alert.alert("Couldn't open Maps", 'Please try again.'),
+        )
+      }
+    >
+      <Ionicons name="home-outline" size={18} color={colors.primary} />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.pickupLabel}>Pickup address</Text>
+        <Text style={styles.pickupText}>{location.pickupAddress ?? 'Tap for directions to the pickup spot'}</Text>
+      </View>
+      <Ionicons name="navigate-outline" size={18} color={colors.primary} />
+    </Pressable>
   );
 }
 
@@ -298,6 +330,26 @@ const makeStyles = (colors: ThemeColors) =>
     flexDirection: 'row',
     gap: spacing.sm,
     marginTop: spacing.md,
+  },
+  pickupBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  pickupLabel: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  pickupText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
   },
   acceptButton: {
     flex: 1,
