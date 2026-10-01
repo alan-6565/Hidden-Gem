@@ -16,9 +16,11 @@ import ResetPasswordScreen from './src/screens/ResetPasswordScreen';
 import { AuthProvider, useAuth } from './src/context/AuthContext';
 import { DataProvider, useAppData } from './src/context/DataContext';
 import { SearchFilterProvider } from './src/context/SearchFilterContext';
+import { CartProvider } from './src/context/CartContext';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
 import { spacing, ThemeColors } from './src/theme';
 import { usePushNotifications } from './src/utils/usePushNotifications';
+import { useStorefrontFonts } from './src/utils/storefrontTheme';
 
 // Lets push-notification taps navigate from outside any screen.
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
@@ -89,7 +91,9 @@ function AppContent() {
   return (
     <DataProvider>
       <SearchFilterProvider>
-        <LoadedApp />
+        <CartProvider>
+          <LoadedApp />
+        </CartProvider>
       </SearchFilterProvider>
     </DataProvider>
   );
@@ -122,6 +126,8 @@ function ThemedNavigation() {
 }
 
 export default function App() {
+  // Storefront fonts; text uses the system font until they finish loading.
+  useStorefrontFonts();
   return (
     <SafeAreaProvider>
       <ThemeProvider>

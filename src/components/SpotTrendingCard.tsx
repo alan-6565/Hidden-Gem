@@ -7,6 +7,7 @@ import { formatRating, getDisplayRating, getReviewCount } from '../utils/rating'
 import { isPromoted } from '../utils/promotion';
 import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
+import { imageSource } from '../utils/storefrontImages';
 
 interface Props {
   spot: Spot;
@@ -24,7 +25,7 @@ export default function SpotTrendingCard({ spot, onPress }: Props) {
 
   return (
     <Pressable style={styles.card} onPress={onPress}>
-      <Image source={{ uri: spot.photos[0] }} style={styles.image} />
+      <Image source={imageSource(spot.photos[0]) ?? undefined} style={styles.image} />
       {promoted && (
         <View style={styles.promotedBadge}>
           <Ionicons name="rocket" size={10} color="#fff" />

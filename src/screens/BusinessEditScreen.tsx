@@ -22,6 +22,7 @@ import { isPromoted } from '../utils/promotion';
 import { radius, spacing, ThemeColors } from '../theme';
 import { useTheme } from '../context/ThemeContext';
 import { RootStackParamList } from '../navigation/types';
+import { imageSource } from '../utils/storefrontImages';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'BusinessEdit'>;
 
@@ -55,7 +56,7 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
   const styles = useMemo(() => makeStyles(colors), [colors]);
   const { spotId } = route.params;
   const insets = useSafeAreaInsets();
-  const { spots, updateSpot } = useAppData();
+  const { spots, updateSpot, isAdmin } = useAppData();
   const { user } = useAuth();
   const spot = spots.find((s) => s.id === spotId);
 
@@ -96,7 +97,9 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
     );
   }
 
-  if (spot.ownerUserId !== user?.id) {
+  // Admins can edit any business (same rule as the storefront editor), so
+  // they can help an owner without having to become the owner.
+  if (spot.ownerUserId !== user?.id && !isAdmin) {
     return (
       <View style={styles.container}>
         <Text style={styles.notOwnerText}>You don't manage this business.</Text>
@@ -439,7 +442,7 @@ export default function BusinessEditScreen({ route, navigation }: Props) {
               disabled={uploadingItemPhotoId === item.id}
             >
               {item.photo ? (
-                <Image source={{ uri: item.photo }} style={styles.menuItemPhoto} />
+                <Image source={imageSource(item.photo) ?? undefined} style={styles.menuItemPhoto} />
               ) : (
                 <View style={styles.menuItemPhotoPlaceholder}>
                   <Ionicons

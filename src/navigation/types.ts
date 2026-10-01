@@ -4,7 +4,8 @@ import { BottomTabScreenProps } from '@react-navigation/bottom-tabs';
 
 export type RootStackParamList = {
   Tabs: NavigatorScreenParams<TabParamList> | undefined;
-  SpotProfile: { spotId: string };
+  // edit: open the page in edit mode (owner only).
+  SpotProfile: { spotId: string; edit?: boolean };
   AddReview: { spotId: string };
   Compose: { isStory?: boolean; spotId?: string } | undefined;
   SearchFilters: undefined;

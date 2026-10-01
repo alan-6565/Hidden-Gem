@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, ImageStyle, StyleProp, Text, View, ViewStyle } from 'react-native';
 import { useTheme } from '../context/ThemeContext';
+import { imageSource } from '../utils/storefrontImages';
 
 interface Props {
   uri?: string | null;
@@ -17,7 +18,7 @@ export default function Avatar({ uri, name, size, style }: Props) {
   const box = { width: size, height: size, borderRadius: size / 2 };
 
   if (uri) {
-    return <Image source={{ uri }} style={[style, box]} />;
+    return <Image source={imageSource(uri) ?? undefined} style={[style, box]} />;
   }
 
   const initial = (name ?? '').replace(/^[^a-zA-Z0-9]+/, '').charAt(0).toUpperCase() || '?';

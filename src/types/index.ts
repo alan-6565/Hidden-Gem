@@ -1,3 +1,5 @@
+import type { MenuOptionGroup, MenuSection, StoredStorefront } from './storefront';
+
 export type SpotCategory =
   | 'coffee'
   | 'matcha'
@@ -23,7 +25,13 @@ export interface MenuItem {
   price: number;
   isPopular?: boolean;
   soldOut?: boolean;
+  // "Sold out today": sold out until this time (next local midnight), then
+  // automatically back on — no owner action needed the next morning.
+  soldOutUntil?: string | null;
   photo?: string;
+  description?: string;
+  sectionId?: string | null;
+  options?: MenuOptionGroup[];
 }
 
 export interface Spot {
@@ -55,6 +63,9 @@ export interface Spot {
    * listing is always public regardless of this flag. A newly created
    * business starts as an unpublished draft until the owner publishes it. */
   published: boolean;
+  storefront: StoredStorefront | null;
+  storefrontDraft: StoredStorefront | null;
+  menuSections: MenuSection[];
 }
 
 export interface Review {
@@ -117,11 +128,21 @@ export interface Comment {
 
 export type OrderStatus = 'pending' | 'accepted' | 'ready' | 'completed' | 'declined' | 'cancelled';
 
+export interface OrderItemOption {
+  groupId: string;
+  choiceId: string;
+  // Filled in by the server when the order is priced.
+  name?: string;
+  price?: number;
+}
+
 export interface OrderItem {
   menuItemId: string;
   name: string;
+  // Unit price including options.
   price: number;
   quantity: number;
+  options?: OrderItemOption[];
 }
 
 export interface Order {
