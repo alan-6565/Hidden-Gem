@@ -706,6 +706,34 @@ export interface SpotEditInput {
   menuSections?: MenuSection[];
 }
 
+// ── Home businesses: private pickup location (#37) ─────────────────────
+// A home-based spot's public lat/lng is approximate. The exact point and
+// pickup address are readable only by the owner, admins and customers with
+// an accepted order there (RLS), so this returns null for everyone else.
+export interface PrivateLocation {
+  lat: number;
+  lng: number;
+  pickupAddress: string | null;
+}
+
+export async function fetchPrivateLocation(spotId: string): Promise<PrivateLocation | null> {
+  const { data, error } = await supabase
+    .from('spot_private_locations')
+    .select('lat, lng, pickup_address')
+    .eq('spot_id', spotId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? { lat: data.lat, lng: data.lng, pickupAddress: data.pickup_address } : null;
+}
+
+export async function updatePickupAddress(spotId: string, pickupAddress: string | null): Promise<void> {
+  const { error } = await supabase
+    .from('spot_private_locations')
+    .update({ pickup_address: pickupAddress })
+    .eq('spot_id', spotId);
+  if (error) throw error;
+}
+
 export async function updateSpot(spotId: string, input: SpotEditInput): Promise<Spot> {
   const payload: Record<string, unknown> = {};
   if (input.name !== undefined) payload.name = input.name;
